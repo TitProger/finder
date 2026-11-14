@@ -19,7 +19,7 @@ export class CanonicalProductEntity extends BaseEntity {
     nameZh?: string | null;
 
     @Property({ type: 'jsonb', nullable: true })
-    attributes?: unknown | null;
+    attributes?: unknown;
 
     @Property({ type: new VectorType(), nullable: true })
     embedding?: number[] | null;

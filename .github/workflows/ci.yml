@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: finder_test
+          POSTGRES_PASSWORD: finder_test
+          POSTGRES_DB: finder_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+      - name: Type check
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test
+        env:
+          PG_HOST: localhost
+          PG_PORT: 5432
+          PG_DATABASE: finder_test
+          PG_USERNAME: finder_test
+          PG_PASSWORD: finder_test
+          JWT_SECRET: test-jwt-secret
+          ADMIN_API_TOKEN: test-admin-token
+          ADMIN_TELEGRAM_IDS: "871909427"

@@ -10,6 +10,7 @@ export class VectorType extends Type<number[] | null, string | null> {
         if (value == null) {
             return null;
         }
+
         return `[${value.join(',')}]`;
     }
 
@@ -17,13 +18,17 @@ export class VectorType extends Type<number[] | null, string | null> {
         if (value == null) {
             return null;
         }
+
         if (Array.isArray(value)) {
             return value.map(Number);
         }
+
         const trimmed = value.trim();
+
         if (trimmed === '' || trimmed === '[]') {
             return [];
         }
+
         return trimmed
             .replace(/^\[/, '')
             .replace(/]$/, '')

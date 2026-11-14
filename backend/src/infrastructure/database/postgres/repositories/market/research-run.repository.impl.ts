@@ -6,7 +6,10 @@ import { ResearchRunRepository as ResearchRunRepositoryPort } from '../../../../
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class ResearchRunRepositoryImpl extends BaseRepositoryImpl<ResearchRunEntity> implements ResearchRunRepositoryPort {
+export class ResearchRunRepositoryImpl
+    extends BaseRepositoryImpl<ResearchRunEntity>
+    implements ResearchRunRepositoryPort
+{
     constructor(
         @InjectRepository(ResearchRunEntity)
         repository: BaseRepositoryImpl<ResearchRunEntity>,

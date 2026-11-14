@@ -6,7 +6,10 @@ import { CategoryQuestionRepository as CategoryQuestionRepositoryPort } from '..
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class CategoryQuestionRepositoryImpl extends BaseRepositoryImpl<CategoryQuestionEntity> implements CategoryQuestionRepositoryPort {
+export class CategoryQuestionRepositoryImpl
+    extends BaseRepositoryImpl<CategoryQuestionEntity>
+    implements CategoryQuestionRepositoryPort
+{
     constructor(
         @InjectRepository(CategoryQuestionEntity)
         repository: BaseRepositoryImpl<CategoryQuestionEntity>,

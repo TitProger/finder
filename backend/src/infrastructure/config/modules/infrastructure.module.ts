@@ -18,6 +18,8 @@ import { ResearchRunEntity } from '../../../domain/entities/market/research-run.
 import { MarketSnapshotEntity } from '../../../domain/entities/market/market-snapshot.entity';
 import { OptimalCardEntity } from '../../../domain/entities/market/optimal-card.entity';
 import { ManualEconomicsEntity } from '../../../domain/entities/market/manual-economics.entity';
+import { PlanEntity } from '../../../domain/entities/tariff/plan.entity';
+import { DailyUsageEntity } from '../../../domain/entities/tariff/daily-usage.entity';
 import { AppUserRepositoryImpl } from '../../database/postgres/repositories/user/app-user.repository.impl';
 import { CategoryRepositoryImpl } from '../../database/postgres/repositories/category/category.repository.impl';
 import { CategoryPhraseRepositoryImpl } from '../../database/postgres/repositories/category/category-phrase.repository.impl';
@@ -34,26 +36,30 @@ import { ResearchRunRepositoryImpl } from '../../database/postgres/repositories/
 import { MarketSnapshotRepositoryImpl } from '../../database/postgres/repositories/market/market-snapshot.repository.impl';
 import { OptimalCardRepositoryImpl } from '../../database/postgres/repositories/market/optimal-card.repository.impl';
 import { ManualEconomicsRepositoryImpl } from '../../database/postgres/repositories/market/manual-economics.repository.impl';
+import { PlanRepositoryImpl } from '../../database/postgres/repositories/tariff/plan.repository.impl';
+import { DailyUsageRepositoryImpl } from '../../database/postgres/repositories/tariff/daily-usage.repository.impl';
 import { AdminSeeder } from '../../database/seeders/admin.seeder';
 import { JwtTokenService } from '../../security/jwt-token.service';
 
 const entities = [
-        AppUserEntity,
-        CategoryEntity,
-        CategoryPhraseEntity,
-        QuestionPackEntity,
-        CategoryQuestionEntity,
-        CategorySiteEntity,
-        CanonicalProductEntity,
-        CompanyEntity,
-        StorefrontEntity,
-        OfferEntity,
-        InquiryEntity,
-        InquiryAnswerEntity,
-        ResearchRunEntity,
-        MarketSnapshotEntity,
-        OptimalCardEntity,
-        ManualEconomicsEntity,
+    AppUserEntity,
+    CategoryEntity,
+    CategoryPhraseEntity,
+    QuestionPackEntity,
+    CategoryQuestionEntity,
+    CategorySiteEntity,
+    CanonicalProductEntity,
+    CompanyEntity,
+    StorefrontEntity,
+    OfferEntity,
+    InquiryEntity,
+    InquiryAnswerEntity,
+    ResearchRunEntity,
+    MarketSnapshotEntity,
+    OptimalCardEntity,
+    ManualEconomicsEntity,
+    PlanEntity,
+    DailyUsageEntity,
 ];
 
 @Module({
@@ -75,6 +81,8 @@ const entities = [
         { provide: REPOSITORY_TOKENS.MARKET_SNAPSHOT_REPOSITORY, useClass: MarketSnapshotRepositoryImpl },
         { provide: REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY, useClass: OptimalCardRepositoryImpl },
         { provide: REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY, useClass: ManualEconomicsRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.PLAN_REPOSITORY, useClass: PlanRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY, useClass: DailyUsageRepositoryImpl },
         JwtTokenService,
         AdminSeeder,
     ],
@@ -97,6 +105,8 @@ const entities = [
         REPOSITORY_TOKENS.MARKET_SNAPSHOT_REPOSITORY,
         REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY,
         REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY,
+        REPOSITORY_TOKENS.PLAN_REPOSITORY,
+        REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY,
     ],
 })
 export class InfrastructureModule {}

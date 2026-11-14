@@ -17,6 +17,7 @@ export type JwtPayload = {
 export class JwtTokenService {
     signAccess(payload: Omit<JwtPayload, 'typ' | 'iat' | 'exp'>): { token: string; expiresIn: number } {
         const expiresIn = Envs.jwt.accessTtlSec;
+
         return { token: this.sign({ ...payload, typ: 'access' }, expiresIn), expiresIn };
     }
 
@@ -26,22 +27,29 @@ export class JwtTokenService {
 
     verify(token: string, expectedTyp: 'access' | 'refresh'): JwtPayload {
         const [headerB64, payloadB64, signatureB64] = token.split('.');
+
         if (!headerB64 || !payloadB64 || !signatureB64) {
             throw new Error('INVALID_TOKEN');
         }
+
         const data = `${headerB64}.${payloadB64}`;
         const expected = this.hmac(data);
         const actual = Buffer.from(signatureB64, 'base64url');
+
         if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
             throw new Error('INVALID_TOKEN');
         }
+
         const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as JwtPayload;
+
         if (payload.typ !== expectedTyp) {
             throw new Error('INVALID_TOKEN');
         }
+
         if (payload.exp * 1000 < Date.now()) {
             throw new Error('TOKEN_EXPIRED');
         }
+
         return payload;
     }
 
@@ -53,6 +61,7 @@ export class JwtTokenService {
         const payloadB64 = Buffer.from(JSON.stringify(body)).toString('base64url');
         const data = `${headerB64}.${payloadB64}`;
         const signature = this.hmac(data).toString('base64url');
+
         return `${data}.${signature}`;
     }
 

@@ -2212,6 +2212,7 @@
           "SERVED_FROM_DATABASE",
           "RESEARCHING",
           "DOSSIER_WITH_ADMIN",
+          "LIMIT_EXCEEDED",
           "CLOSED"
         ]
       },

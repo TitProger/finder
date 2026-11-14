@@ -9,10 +9,14 @@ import { ADMIN_AUTH_SERVICE } from './services/contracts/auth/admin-auth.service
 import { CATEGORY_ADMIN_SERVICE } from './services/contracts/category/category-admin.service';
 import { INQUIRY_SERVICE } from './services/contracts/inquiry/inquiry.service';
 import { OPTIMAL_CARD_SERVICE } from './services/contracts/market/optimal-card.service';
+import { LIMIT_CHECKER_SERVICE } from './services/contracts/tariff/limit-checker.service';
+import { PLAN_MANAGER_SERVICE } from './services/contracts/tariff/plan-manager.service';
 import { AdminAuthServiceImpl } from './services/impls/auth/admin-auth.service.impl';
 import { CategoryAdminServiceImpl } from './services/impls/category/category-admin.service.impl';
 import { InquiryServiceImpl } from './services/impls/inquiry/inquiry.service.impl';
 import { OptimalCardServiceImpl } from './services/impls/market/optimal-card.service.impl';
+import { LimitCheckerServiceImpl } from './services/impls/tariff/limit-checker.service.impl';
+import { PlanManagerServiceImpl } from './services/impls/tariff/plan-manager.service.impl';
 import { JsonResearchRunner } from './services/impls/research/json-research-runner';
 
 /**
@@ -28,6 +32,8 @@ import { JsonResearchRunner } from './services/impls/research/json-research-runn
         { provide: TEXT_EMBEDDING_PORT, useClass: StubTextEmbedding },
         { provide: INQUIRY_SERVICE, useClass: InquiryServiceImpl },
         { provide: OPTIMAL_CARD_SERVICE, useClass: OptimalCardServiceImpl },
+        { provide: LIMIT_CHECKER_SERVICE, useClass: LimitCheckerServiceImpl },
+        { provide: PLAN_MANAGER_SERVICE, useClass: PlanManagerServiceImpl },
         { provide: RESEARCH_RUNNER, useClass: JsonResearchRunner },
     ],
     exports: [
@@ -38,6 +44,8 @@ import { JsonResearchRunner } from './services/impls/research/json-research-runn
         TEXT_EMBEDDING_PORT,
         INQUIRY_SERVICE,
         OPTIMAL_CARD_SERVICE,
+        LIMIT_CHECKER_SERVICE,
+        PLAN_MANAGER_SERVICE,
         RESEARCH_RUNNER,
     ],
 })

@@ -27,7 +27,7 @@ export class StorefrontEntity extends BaseEntity {
     storefrontUrl!: string;
 
     @Property({ type: 'jsonb', fieldName: 'factory_labels', nullable: true })
-    factoryLabels?: unknown | null;
+    factoryLabels?: unknown;
 
     @Property({ type: 'varchar', length: 255, nullable: true })
     city?: string | null;

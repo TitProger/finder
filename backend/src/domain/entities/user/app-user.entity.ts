@@ -24,4 +24,11 @@ export class AppUserEntity extends BaseEntity<'isActive'> {
 
     @Property({ type: 'boolean', fieldName: 'is_active', default: true })
     isActive: boolean = true;
+
+    /**
+     * Код тарифного плана (например, 'free', 'unlimited').
+     * По умолчанию 'free'.
+     */
+    @Property({ type: 'varchar', length: 50, fieldName: 'plan_code', default: 'free' })
+    planCode: string = 'free';
 }

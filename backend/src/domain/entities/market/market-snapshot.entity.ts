@@ -48,7 +48,7 @@ export class MarketSnapshotEntity extends BaseEntity {
     spreadHigh?: string | null;
 
     @Property({ type: 'jsonb', fieldName: 'sample_points', nullable: true })
-    samplePoints?: unknown | null;
+    samplePoints?: unknown;
 
     @Property({ type: 'timestamptz', fieldName: 'captured_at' })
     capturedAt!: Date;

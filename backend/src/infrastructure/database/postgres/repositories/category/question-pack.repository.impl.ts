@@ -6,7 +6,10 @@ import { QuestionPackRepository as QuestionPackRepositoryPort } from '../../../.
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class QuestionPackRepositoryImpl extends BaseRepositoryImpl<QuestionPackEntity> implements QuestionPackRepositoryPort {
+export class QuestionPackRepositoryImpl
+    extends BaseRepositoryImpl<QuestionPackEntity>
+    implements QuestionPackRepositoryPort
+{
     constructor(
         @InjectRepository(QuestionPackEntity)
         repository: BaseRepositoryImpl<QuestionPackEntity>,

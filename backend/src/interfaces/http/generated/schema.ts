@@ -578,7 +578,7 @@ export interface components {
             isActive?: boolean;
         };
         /** @enum {string} */
-        InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "CLOSED";
+        InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "LIMIT_EXCEEDED" | "CLOSED";
         /**
          * @description Чем кандидат попал в оценку. exact_phrase выше vector.
          * @enum {string}

@@ -137,6 +137,10 @@ function buildHarness() {
             return { vector: [1], stub: true };
         },
     };
+    const limitChecker = {
+        canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
+        incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
         repo(AppUserEntity, users) as unknown as AppUserRepository,
@@ -147,6 +151,7 @@ function buildHarness() {
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
         embedder,
+        limitChecker as any,
     );
     const usersRepo = {
         create: (data: object) => {

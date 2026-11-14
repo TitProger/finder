@@ -6,7 +6,10 @@ import { InquiryAnswerRepository as InquiryAnswerRepositoryPort } from '../../..
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class InquiryAnswerRepositoryImpl extends BaseRepositoryImpl<InquiryAnswerEntity> implements InquiryAnswerRepositoryPort {
+export class InquiryAnswerRepositoryImpl
+    extends BaseRepositoryImpl<InquiryAnswerEntity>
+    implements InquiryAnswerRepositoryPort
+{
     constructor(
         @InjectRepository(InquiryAnswerEntity)
         repository: BaseRepositoryImpl<InquiryAnswerEntity>,

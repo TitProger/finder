@@ -5,6 +5,8 @@ import { BooleanUtils } from './boolean.utils';
 
 config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 export const Envs = {
     main: {
         host: process.env.APP_HOST || '0.0.0.0',
@@ -30,14 +32,21 @@ export const Envs = {
     },
 
     jwt: {
-        secret: process.env.JWT_SECRET || 'finder-dev-jwt-secret-change-me',
+        secret: requireInProduction('JWT_SECRET', process.env.JWT_SECRET, 'finder-dev-jwt-secret-change-me'),
         accessTtlSec: NumbersUtils.toNumberOrDefault(process.env.JWT_ACCESS_TTL_SEC, 3600),
         refreshTtlSec: NumbersUtils.toNumberOrDefault(process.env.JWT_REFRESH_TTL_SEC, 60 * 60 * 24 * 14),
     },
 
+    admin: {
+        /** Статический токен для HTTP API админки (Bearer) */
+        apiToken: requireInProduction('ADMIN_API_TOKEN', process.env.ADMIN_API_TOKEN),
+        /** Список Telegram ID админов через запятую */
+        telegramIds: parseTelegramIds(process.env.ADMIN_TELEGRAM_IDS),
+    },
+
     adminSeed: {
         login: process.env.ADMIN_SEED_LOGIN || 'admin',
-        password: process.env.ADMIN_SEED_PASSWORD || 'admin',
+        password: requireInProduction('ADMIN_SEED_PASSWORD', process.env.ADMIN_SEED_PASSWORD, 'admin'),
         displayName: process.env.ADMIN_SEED_DISPLAY_NAME || 'Finder Admin',
         telegramUserId: readTelegramUserId(process.env.ADMIN_SEED_TELEGRAM_USER_ID),
     },
@@ -45,7 +54,26 @@ export const Envs = {
     telegram: {
         botToken: (process.env.TELEGRAM_BOT_TOKEN || '').trim(),
     },
+
+    tariffs: {
+        freePlanDailyLimit: NumbersUtils.toNumberOrDefault(process.env.FREE_PLAN_DAILY_LIMIT, 3),
+    },
 };
+
+function requireInProduction(name: string, value: string | undefined, devDefault?: string): string {
+    if (isProduction) {
+        if (!value || (devDefault && value === devDefault)) {
+            throw new Error(
+                `${name} обязателен в production и не может иметь значение по умолчанию. ` +
+                    `Установите ${name} в environment variables.`,
+            );
+        }
+
+        return value;
+    }
+
+    return value || devDefault || '';
+}
 
 function readTelegramUserId(raw: string | undefined): string | null {
     const value = (raw ?? '').trim();
@@ -59,4 +87,25 @@ function readTelegramUserId(raw: string | undefined): string | null {
     }
 
     return value;
+}
+
+function parseTelegramIds(raw: string | undefined): string[] {
+    const value = (raw ?? '').trim();
+
+    if (!value) {
+        return [];
+    }
+
+    const ids = value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+    for (const id of ids) {
+        if (!/^[1-9]\d{0,18}$/.test(id)) {
+            throw new Error(`ADMIN_TELEGRAM_IDS содержит невалидный Telegram ID: ${id}`);
+        }
+    }
+
+    return ids;
 }

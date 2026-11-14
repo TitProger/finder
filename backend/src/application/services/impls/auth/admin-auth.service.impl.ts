@@ -20,27 +20,33 @@ export class AdminAuthServiceImpl implements AdminAuthService {
     async login(login: string, password: string): Promise<AdminAuthTokensResult> {
         const trimmed = login.trim();
         const user = await this.users.findOne({ login: trimmed, role: UserRole.ADMIN });
+
         if (!user || !user.passwordHash) {
             throw new UnauthorizedAppException(AppErrors.auth.invalidCredentials.message, {
                 code: AppErrors.auth.invalidCredentials.code,
             });
         }
+
         if (!user.isActive) {
             throw new UnauthorizedAppException(AppErrors.auth.userInactive.message, {
                 code: AppErrors.auth.userInactive.code,
             });
         }
+
         const ok = await PasswordHasher.verify(password, user.passwordHash);
+
         if (!ok) {
             throw new UnauthorizedAppException(AppErrors.auth.invalidCredentials.message, {
                 code: AppErrors.auth.invalidCredentials.code,
             });
         }
+
         return this.issueTokens(user.id, user.login!, user.displayName ?? null);
     }
 
     async refresh(refreshToken: string): Promise<AdminAuthTokensResult> {
         let payload;
+
         try {
             payload = this.jwt.verify(refreshToken, 'refresh');
         } catch {
@@ -48,23 +54,28 @@ export class AdminAuthServiceImpl implements AdminAuthService {
                 code: AppErrors.auth.invalidRefreshToken.code,
             });
         }
+
         if (payload.role !== UserRole.ADMIN) {
             throw new UnauthorizedAppException(AppErrors.auth.invalidRefreshToken.message, {
                 code: AppErrors.auth.invalidRefreshToken.code,
             });
         }
+
         const user = await this.users.findOne({ id: payload.sub, role: UserRole.ADMIN });
+
         if (!user || !user.isActive || !user.login) {
             throw new UnauthorizedAppException(AppErrors.auth.invalidRefreshToken.message, {
                 code: AppErrors.auth.invalidRefreshToken.code,
             });
         }
+
         return this.issueTokens(user.id, user.login, user.displayName ?? null);
     }
 
     private issueTokens(id: string, login: string, displayName: string | null): AdminAuthTokensResult {
         const access = this.jwt.signAccess({ sub: id, login, role: UserRole.ADMIN });
         const refreshToken = this.jwt.signRefresh({ sub: id, login, role: UserRole.ADMIN });
+
         return {
             accessToken: access.token,
             refreshToken,

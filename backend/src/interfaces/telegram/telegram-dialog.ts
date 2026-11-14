@@ -10,9 +10,14 @@ import {
     InquiryService,
     InquiryView,
 } from '../../application/services/contracts/inquiry/inquiry.service';
+import {
+    PLAN_MANAGER_SERVICE,
+    PlanManagerService,
+} from '../../application/services/contracts/tariff/plan-manager.service';
 import { AppException } from '../../common/exceptions/common/app.exception';
 import { ConflictAppException } from '../../common/exceptions/conflict.exception';
 import { CategoryStatus } from '../../domain/enums/category-status.enum';
+import { InquiryStatus } from '../../domain/enums/inquiry-status.enum';
 import { QuestionAnswerType } from '../../domain/enums/question-answer-type.enum';
 import { SiteRole } from '../../domain/enums/site-role.enum';
 import { isCategoryRejection } from '../../domain/text/category-rejection';
@@ -24,6 +29,7 @@ const NEAREST = 3;
 const PAGE_SIZE = 5;
 const PAUSE_TEXT = 'Менеджер уточняет направление.';
 const DONE_TEXT = 'Ответы записаны. Дальше считает менеджер.';
+const LIMIT_TEXT = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
 
 const SITE_ROLES: { key: string; role: SiteRole; label: string }[] = [
     { key: 'f', role: SiteRole.FACTORY_CONTACT, label: 'Контакт завода' },
@@ -58,6 +64,8 @@ export class TelegramDialog {
         private readonly inquiries: InquiryService,
         @Inject(CATEGORY_ADMIN_SERVICE)
         private readonly categories: CategoryAdminService,
+        @Inject(PLAN_MANAGER_SERVICE)
+        private readonly planManager: PlanManagerService,
         @Inject(TELEGRAM_OUTBOUND)
         private readonly outbound: TelegramOutbound,
     ) {}
@@ -153,6 +161,16 @@ export class TelegramDialog {
             return;
         }
 
+        if (next.kind === 'complete') {
+            const refused = limitRefusalText(next.view);
+
+            if (refused) {
+                await this.send(update.chatId, refused);
+
+                return;
+            }
+        }
+
         await this.send(update.chatId, DONE_TEXT);
     }
 
@@ -169,6 +187,14 @@ export class TelegramDialog {
             photoFileIds: update.photoFileIds,
         });
 
+        const refused = limitRefusalText(view);
+
+        if (refused) {
+            await this.send(update.chatId, refused);
+
+            return;
+        }
+
         if (view.inquiry.isPaused || !view.inquiry.category) {
             await this.send(update.chatId, PAUSE_TEXT);
             await this.notifyAdmins(view);
@@ -180,10 +206,23 @@ export class TelegramDialog {
     }
 
     private async onAdminMessage(update: MessageUpdate): Promise<void> {
+        // Команда /plan <telegram_id> [plan_code]
+        if (update.text?.startsWith('/plan ')) {
+            await this.handlePlanCommand(update.chatId, update.text);
+
+            return;
+        }
+
         const draft = this.drafts.get(update.telegramUserId);
 
         if (!draft) {
-            await this.send(update.chatId, 'Сюда приходят заявки, по которым нужно выбрать категорию.');
+            await this.send(
+                update.chatId,
+                'Сюда приходят заявки, по которым нужно выбрать категорию.\n\n' +
+                    'Команды:\n' +
+                    '/plan <telegram_id> <plan_code> - изменить тариф\n' +
+                    '/plan <telegram_id> - показать тариф и использование',
+            );
 
             return;
         }
@@ -471,6 +510,76 @@ export class TelegramDialog {
     private async send(chatId: number, text: string, buttons?: TelegramButton[][]): Promise<void> {
         await this.outbound.deliver({ method: 'sendMessage', chatId, text, buttons });
     }
+
+    private async handlePlanCommand(chatId: number, text: string): Promise<void> {
+        const parts = text.trim().split(/\s+/);
+
+        if (parts.length < 2) {
+            await this.send(
+                chatId,
+                'Использование:\n' +
+                    '/plan <telegram_id> <plan_code> - изменить тариф\n' +
+                    '/plan <telegram_id> - показать текущий тариф',
+            );
+
+            return;
+        }
+
+        const telegramUserId = parts[1];
+        const planCode = parts[2];
+
+        if (!planCode) {
+            // Показать текущий тариф
+            const info = await this.planManager.getUserPlanInfo(telegramUserId);
+
+            if (!info) {
+                await this.send(chatId, `❌ Пользователь с Telegram ID ${telegramUserId} не найден`);
+
+                return;
+            }
+
+            const limitText =
+                info.currentPlan.dailyLimit === null ? '∞ (безлимит)' : `${info.currentPlan.dailyLimit}/день`;
+            const remainingText =
+                info.todayUsage.remaining === null
+                    ? '∞'
+                    : `${info.todayUsage.remaining} (использовано ${info.todayUsage.count})`;
+
+            await this.send(
+                chatId,
+                `👤 Пользователь: ${info.displayName || telegramUserId}\n` +
+                    `📋 Тариф: ${info.currentPlan.title} (${info.currentPlan.code})\n` +
+                    `📊 Лимит: ${limitText}\n` +
+                    `📅 Осталось сегодня: ${remainingText}\n` +
+                    `📆 Дата: ${info.todayUsage.date}`,
+            );
+
+            return;
+        }
+
+        // Изменить тариф
+        const info = await this.planManager.getUserPlanInfo(telegramUserId);
+
+        if (!info) {
+            await this.send(chatId, `❌ Пользователь с Telegram ID ${telegramUserId} не найден`);
+
+            return;
+        }
+
+        try {
+            await this.planManager.changePlan(info.userId, planCode);
+            await this.send(
+                chatId,
+                `✅ Тариф пользователя ${info.displayName || telegramUserId} изменён на '${planCode}'`,
+            );
+        } catch (error) {
+            if (error instanceof AppException) {
+                await this.send(chatId, `❌ Ошибка: ${error.message}`);
+            } else {
+                throw error;
+            }
+        }
+    }
 }
 
 function emptyDraft(inquiryId: string): CategoryDraft {
@@ -482,6 +591,14 @@ function emptyDraft(inquiryId: string): CategoryDraft {
         question: '',
         siteRole: null,
     };
+}
+
+function limitRefusalText(view: InquiryView): string | null {
+    if (view.inquiry.status !== InquiryStatus.LIMIT_EXCEEDED) {
+        return null;
+    }
+
+    return view.inquiry.pauseReason || LIMIT_TEXT;
 }
 
 function categoryLine(name: string): string {

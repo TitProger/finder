@@ -23,7 +23,7 @@ export class InquiryAnswerEntity extends BaseEntity<'answeredAt'> {
     valueText?: string | null;
 
     @Property({ type: 'jsonb', fieldName: 'value_json', nullable: true })
-    valueJson?: unknown | null;
+    valueJson?: unknown;
 
     @Property({
         type: 'timestamptz',
