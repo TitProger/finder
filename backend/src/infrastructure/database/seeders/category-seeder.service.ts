@@ -71,6 +71,14 @@ export class CategorySeederService {
         this.logger.log('Category seeding complete');
     }
 
+    async seedFromString(yamlContent: string): Promise<void> {
+        const data = parse(yamlContent) as SeedData;
+
+        for (const categoryData of data.categories) {
+            await this.upsertCategory(categoryData);
+        }
+    }
+
     private async upsertCategory(data: CategoryYaml): Promise<void> {
         this.logger.log(`Upserting category: ${data.code} (${data.name})`);
 
