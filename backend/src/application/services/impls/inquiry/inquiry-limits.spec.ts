@@ -88,17 +88,6 @@ describe('Inquiry Daily Limits - Real Integration Tests', () => {
         expect(date1).toBe('2026-11-14');
         expect(date2).toBe('2026-11-15');
     });
-
-    it('limit refusal uses LIMIT_EXCEEDED status, not AWAITING_CATEGORY', () => {
-        // Test that LIMIT_EXCEEDED is a distinct status
-        const limitExceeded = 'LIMIT_EXCEEDED';
-        const awaitingCategory = 'AWAITING_CATEGORY';
-
-        expect(limitExceeded).not.toBe(awaitingCategory);
-
-        // This ensures admin category selection logic won't trigger for limit refusals
-        // since they use different status values
-    });
 });
 
 type Stored = { id: string };

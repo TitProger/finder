@@ -1,5 +1,6 @@
 import { CategoryAdminServiceImpl } from '../../application/services/impls/category/category-admin.service.impl';
 import { InquiryServiceImpl } from '../../application/services/impls/inquiry/inquiry.service.impl';
+import { LimitCheckerServiceImpl } from '../../application/services/impls/tariff/limit-checker.service.impl';
 import { TextEmbeddingPort } from '../../application/ports/text-embedding.port';
 import { CategoryPhraseEntity } from '../../domain/entities/category/category-phrase.entity';
 import { CategoryQuestionEntity } from '../../domain/entities/category/category-question.entity';
@@ -9,6 +10,8 @@ import { QuestionPackEntity } from '../../domain/entities/category/question-pack
 import { InquiryAnswerEntity } from '../../domain/entities/inquiry/inquiry-answer.entity';
 import { InquiryEntity } from '../../domain/entities/inquiry/inquiry.entity';
 import { OptimalCardEntity } from '../../domain/entities/market/optimal-card.entity';
+import { DailyUsageEntity } from '../../domain/entities/tariff/daily-usage.entity';
+import { PlanEntity } from '../../domain/entities/tariff/plan.entity';
 import { AppUserEntity } from '../../domain/entities/user/app-user.entity';
 import { CategoryStatus } from '../../domain/enums/category-status.enum';
 import { InquiryStatus } from '../../domain/enums/inquiry-status.enum';
@@ -22,6 +25,8 @@ import { QuestionPackRepository } from '../../domain/repositories/category/quest
 import { InquiryAnswerRepository } from '../../domain/repositories/inquiry/inquiry-answer.repository';
 import { InquiryRepository } from '../../domain/repositories/inquiry/inquiry.repository';
 import { OptimalCardRepository } from '../../domain/repositories/market/optimal-card.repository';
+import { DailyUsageRepository } from '../../domain/repositories/tariff/daily-usage.repository';
+import { PlanRepository } from '../../domain/repositories/tariff/plan.repository';
 import { AppUserRepository } from '../../domain/repositories/user/app-user.repository';
 import { TelegramDialog } from './telegram-dialog';
 import { TelegramButton, TelegramIncoming, TelegramOutgoing } from './telegram.types';
@@ -33,7 +38,7 @@ const PRICE = /цена|стоимость|\bруб\b|¥|\$/i;
 
 type Stored = { id: string };
 
-function buildBot() {
+function buildBot(options?: { dailyResearchLimit?: number; researchCount?: number }) {
     const users: AppUserEntity[] = [];
     const categories: CategoryEntity[] = [];
     const phrases: CategoryPhraseEntity[] = [];
@@ -121,10 +126,8 @@ function buildBot() {
     const questionRepo = repo(CategoryQuestionEntity, questions);
     const siteRepo = repo(CategorySiteEntity, sites);
     const userRepo = repo(AppUserEntity, users);
-    const limitChecker = {
-        canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
-        incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
-    };
+    const usages: DailyUsageEntity[] = [];
+    const limitChecker = buildLimitChecker(users, usages, options);
     const inquiriesService = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
         userRepo as unknown as AppUserRepository,
@@ -198,7 +201,74 @@ function buildBot() {
         return entity;
     }
 
-    return { dialog, sent, inquiries, sites, category };
+    return { dialog, sent, inquiries, sites, category, usages };
+}
+
+function buildLimitChecker(
+    users: AppUserEntity[],
+    usages: DailyUsageEntity[],
+    options?: { dailyResearchLimit?: number; researchCount?: number },
+) {
+    if (options?.dailyResearchLimit === undefined) {
+        return {
+            canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
+            incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
+        };
+    }
+
+    const plan = Object.assign(new PlanEntity(), {
+        code: 'free',
+        title: 'Бесплатный',
+        dailyResearchLimit: options.dailyResearchLimit,
+    });
+    const plans: Pick<PlanRepository, 'findByCode'> = {
+        async findByCode(code: string) {
+            return code === plan.code ? plan : null;
+        },
+    };
+    const userRepo: Pick<AppUserRepository, 'findOne'> = {
+        async findOne(where) {
+            const id = (where as { id?: string }).id;
+
+            return users.find((user) => user.id === id) ?? null;
+        },
+    };
+    const dailyUsage: Pick<DailyUsageRepository, 'findOrCreate' | 'incrementResearchCount'> = {
+        async findOrCreate(userId: string, usageDate: string) {
+            const existing = usages.find((row) => row.user.id === userId && row.usageDate === usageDate);
+
+            if (existing) {
+                return existing;
+            }
+
+            const user = users.find((item) => item.id === userId);
+
+            if (!user) {
+                throw new Error(`Нет пользователя ${userId}`);
+            }
+
+            const row = Object.assign(new DailyUsageEntity(), {
+                user,
+                usageDate,
+                researchCount: options.researchCount ?? 0,
+            });
+
+            usages.push(row);
+
+            return row;
+        },
+        async incrementResearchCount(userId: string, usageDate: string) {
+            const row = await this.findOrCreate(userId, usageDate);
+
+            row.researchCount += 1;
+        },
+    };
+
+    return new LimitCheckerServiceImpl(
+        userRepo as AppUserRepository,
+        plans as PlanRepository,
+        dailyUsage as DailyUsageRepository,
+    );
 }
 
 function matches(entity: object, where: Record<string, unknown>): boolean {
@@ -367,5 +437,26 @@ describe('TelegramDialog', () => {
         expect(bot.sites[0]?.siteRole).toBe('FACTORY_CONTACT');
         expect(bot.inquiries[0]?.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
         expect(bot.inquiries[0]?.status).not.toBe(InquiryStatus.RESEARCHING);
+    });
+
+    it('исчерпанный бесплатный лимит пишет клиенту про лимит и не зовёт админа выбирать категорию', async () => {
+        const bot = buildBot({ dailyResearchLimit: 3, researchCount: 3 });
+
+        bot.category('Халаты', 'халат', ['Сколько штук?']);
+        await bot.dialog.handle(clientText('халат'));
+        await bot.dialog.handle(clientText('1000'));
+
+        const told = messages(bot.sent, CLIENT).join('\n');
+
+        expect(told).toContain('Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.');
+        expect(told).not.toMatch(PRICE);
+        expect(told).not.toContain('Менеджер уточняет направление.');
+        expect(messages(bot.sent, ADMIN)).toEqual([]);
+        expect(buttons(bot.sent, ADMIN)).toEqual([]);
+        expect(bot.inquiries).toHaveLength(1);
+        expect(bot.inquiries[0]?.status).toBe(InquiryStatus.LIMIT_EXCEEDED);
+        expect(bot.inquiries[0]?.status).not.toBe(InquiryStatus.AWAITING_CATEGORY);
+        expect(bot.usages).toHaveLength(1);
+        expect(bot.usages[0]?.researchCount).toBe(3);
     });
 });

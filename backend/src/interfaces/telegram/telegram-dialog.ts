@@ -17,6 +17,7 @@ import {
 import { AppException } from '../../common/exceptions/common/app.exception';
 import { ConflictAppException } from '../../common/exceptions/conflict.exception';
 import { CategoryStatus } from '../../domain/enums/category-status.enum';
+import { InquiryStatus } from '../../domain/enums/inquiry-status.enum';
 import { QuestionAnswerType } from '../../domain/enums/question-answer-type.enum';
 import { SiteRole } from '../../domain/enums/site-role.enum';
 import { isCategoryRejection } from '../../domain/text/category-rejection';
@@ -28,6 +29,7 @@ const NEAREST = 3;
 const PAGE_SIZE = 5;
 const PAUSE_TEXT = 'Менеджер уточняет направление.';
 const DONE_TEXT = 'Ответы записаны. Дальше считает менеджер.';
+const LIMIT_TEXT = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
 
 const SITE_ROLES: { key: string; role: SiteRole; label: string }[] = [
     { key: 'f', role: SiteRole.FACTORY_CONTACT, label: 'Контакт завода' },
@@ -159,6 +161,16 @@ export class TelegramDialog {
             return;
         }
 
+        if (next.kind === 'complete') {
+            const refused = limitRefusalText(next.view);
+
+            if (refused) {
+                await this.send(update.chatId, refused);
+
+                return;
+            }
+        }
+
         await this.send(update.chatId, DONE_TEXT);
     }
 
@@ -174,6 +186,14 @@ export class TelegramDialog {
             text: update.text,
             photoFileIds: update.photoFileIds,
         });
+
+        const refused = limitRefusalText(view);
+
+        if (refused) {
+            await this.send(update.chatId, refused);
+
+            return;
+        }
 
         if (view.inquiry.isPaused || !view.inquiry.category) {
             await this.send(update.chatId, PAUSE_TEXT);
@@ -571,6 +591,14 @@ function emptyDraft(inquiryId: string): CategoryDraft {
         question: '',
         siteRole: null,
     };
+}
+
+function limitRefusalText(view: InquiryView): string | null {
+    if (view.inquiry.status !== InquiryStatus.LIMIT_EXCEEDED) {
+        return null;
+    }
+
+    return view.inquiry.pauseReason || LIMIT_TEXT;
 }
 
 function categoryLine(name: string): string {
