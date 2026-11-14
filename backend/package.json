@@ -18,6 +18,7 @@
         "migration:list": "mikro-orm migration:list",
         "migration:up": "mikro-orm migration:up",
         "migration:down": "mikro-orm migration:down",
+        "seed": "ts-node -r tsconfig-paths/register src/infrastructure/database/seeders/seed.command.ts",
         "contract:sync": "bash scripts/contract-sync.sh",
         "test": "jest",
         "test:watch": "jest --watch",

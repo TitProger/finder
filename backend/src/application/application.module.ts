@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { DomainModule } from '../domain/domain.module';
 import { StubTextEmbedding } from '../infrastructure/embeddings/stub-text-embedding';
 import { InfrastructureModule } from '../infrastructure/config/modules/infrastructure.module';
+import { LlmCategoryClassifierService } from '../infrastructure/llm/llm-category-classifier.service';
+import { CategoryClassifierPort } from './ports/category-classifier.port';
 import { RESEARCH_RUNNER } from './ports/research-runner.port';
 import { TEXT_EMBEDDING_PORT } from './ports/text-embedding.port';
 import { ADMIN_AUTH_SERVICE } from './services/contracts/auth/admin-auth.service';
@@ -30,6 +32,7 @@ import { JsonResearchRunner } from './services/impls/research/json-research-runn
         { provide: CATEGORY_ADMIN_SERVICE, useClass: CategoryAdminServiceImpl },
         { provide: ADMIN_AUTH_SERVICE, useClass: AdminAuthServiceImpl },
         { provide: TEXT_EMBEDDING_PORT, useClass: StubTextEmbedding },
+        { provide: CategoryClassifierPort, useClass: LlmCategoryClassifierService },
         { provide: INQUIRY_SERVICE, useClass: InquiryServiceImpl },
         { provide: OPTIMAL_CARD_SERVICE, useClass: OptimalCardServiceImpl },
         { provide: LIMIT_CHECKER_SERVICE, useClass: LimitCheckerServiceImpl },

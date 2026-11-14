@@ -580,15 +580,26 @@ export interface components {
         /** @enum {string} */
         InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "LIMIT_EXCEEDED" | "CLOSED";
         /**
-         * @description Чем кандидат попал в оценку. exact_phrase выше vector.
+         * @description Чем кандидат попал в оценку.
+         *     exact_phrase — точное совпадение фразы.
+         *     keyword — совпадение по ключевым словам.
+         *     llm — классификация через LLM.
+         *     vector — векторное сходство.
          * @enum {string}
          */
-        ClassificationMatch: "exact_phrase" | "vector";
+        ClassificationMatch: "exact_phrase" | "keyword" | "llm" | "vector";
         /**
-         * @description exact_phrase — одна активная категория по точной фразе, паузы нет. ambiguous_phrase — та же фраза в нескольких категориях, пауза. embedder_stub — точной фразы нет, заглушка эмбеддинга категорию не выбирает. vector_unresolved — вектор посчитан, порог модели ещё не задан, пауза.
+         * @description exact_phrase — одна активная категория по точной фразе.
+         *     keyword_match — совпадение по ключевым словам.
+         *     llm_confident — LLM уверенно выбрала категорию.
+         *     ambiguous_phrase — та же фраза в нескольких категориях.
+         *     ambiguous_keyword — ключевые слова совпали с несколькими категориями.
+         *     llm_low_confidence — LLM не уверена в выборе.
+         *     embedder_stub — заглушка эмбеддинга.
+         *     vector_unresolved — вектор не выбирает категорию.
          * @enum {string}
          */
-        ClassificationOutcome: "exact_phrase" | "ambiguous_phrase" | "embedder_stub" | "vector_unresolved";
+        ClassificationOutcome: "exact_phrase" | "keyword_match" | "llm_confident" | "ambiguous_phrase" | "ambiguous_keyword" | "llm_low_confidence" | "embedder_stub" | "vector_unresolved";
         ClassificationCandidate: {
             /** Format: uuid */
             categoryId: string;
