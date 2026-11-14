@@ -2,11 +2,13 @@ import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@ne
 
 import { Envs } from '../../common/envs/env';
 import { TelegramBotApi } from './telegram-api';
+import { telegramIntake } from './telegram-intake';
 import { TelegramDialog } from './telegram-dialog';
 import { toIncoming } from './telegram-update';
 
 /**
- * Long polling. Без токена процесс HTTP всё равно стартует.
+ * Long polling, если нет TELEGRAM_WEBHOOK_URL. Домен для бота не нужен.
+ * Без токена процесс HTTP всё равно стартует.
  */
 @Injectable()
 export class TelegramPoller implements OnApplicationBootstrap, OnModuleDestroy {
@@ -20,19 +22,51 @@ export class TelegramPoller implements OnApplicationBootstrap, OnModuleDestroy {
     ) {}
 
     onApplicationBootstrap(): void {
-        if (!Envs.telegram.botToken) {
+        const mode = telegramIntake({
+            token: Envs.telegram.botToken,
+            polling: process.env.TELEGRAM_POLLING,
+            webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
+        });
+
+        if (mode === 'off') {
             this.logger.log('Telegram-бот выключен: нет TELEGRAM_BOT_TOKEN');
 
             return;
         }
 
+        if (mode === 'skip') {
+            this.logger.log('Telegram long polling пропущен');
+
+            return;
+        }
+
+        if (mode === 'webhook') {
+            this.logger.log('Задан TELEGRAM_WEBHOOK_URL, long polling не запускается');
+
+            return;
+        }
+
         this.stopped = false;
-        void this.loop();
+        void this.start();
     }
 
     onModuleDestroy(): void {
         this.stopped = true;
         this.abort?.abort();
+    }
+
+    private async start(): Promise<void> {
+        try {
+            await this.api.deleteWebhook();
+        } catch (error) {
+            if (this.stopped) {
+                return;
+            }
+
+            this.logger.error(this.safe(error));
+        }
+
+        await this.loop();
     }
 
     private async loop(): Promise<void> {

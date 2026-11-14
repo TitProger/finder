@@ -36,6 +36,8 @@ COPY --from=builder /app/dist ./dist
 
 # Копируем необходимые файлы для работы приложения
 COPY --from=builder /app/api ./api
+COPY --from=builder /app/seeds ./seeds
+COPY --from=builder /app/scripts/run-seed.mjs ./scripts/run-seed.mjs
 
 # Создаём пользователя для запуска приложения (не root)
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
