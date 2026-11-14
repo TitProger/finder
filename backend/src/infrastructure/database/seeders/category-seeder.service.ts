@@ -1,6 +1,6 @@
+import { readFile } from 'node:fs/promises';
 import { EntityManager } from '@mikro-orm/core';
 import { Injectable, Logger } from '@nestjs/common';
-import { readFile } from 'fs/promises';
 import { parse } from 'yaml';
 
 import { QuestionAnswerType } from '../../../domain/enums/question-answer-type.enum';
@@ -59,6 +59,7 @@ export class CategorySeederService {
 
     async seedFromYaml(yamlPath: string): Promise<void> {
         this.logger.log(`Loading categories from ${yamlPath}...`);
+
         const yamlContent = await readFile(yamlPath, 'utf-8');
         const data = parse(yamlContent) as SeedData;
 
@@ -117,10 +118,12 @@ export class CategorySeederService {
         });
 
         const existingPhraseTexts = new Set(existingPhrases.map((p) => p.phrase));
+
         const newPhrases = phrases.filter((p) => !existingPhraseTexts.has(p));
 
         for (const phraseText of newPhrases) {
             const phrase = new CategoryPhraseEntity();
+
             phrase.category = category;
             phrase.phrase = phraseText;
             this.em.persist(phrase);
@@ -215,6 +218,7 @@ export class CategorySeederService {
 
         for (const siteData of sites) {
             const site = new CategorySiteEntity();
+
             site.category = category;
             site.name = siteData.name;
             site.siteRole = SiteRole[siteData.role as keyof typeof SiteRole];

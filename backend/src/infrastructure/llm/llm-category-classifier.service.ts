@@ -35,6 +35,7 @@ export class LlmCategoryClassifierService extends CategoryClassifierPort {
     async classify(request: CategoryClassificationRequest): Promise<CategoryClassificationResult> {
         if (!Envs.llm.apiKey) {
             this.logger.warn('LLM API key not configured, cannot classify');
+
             return { categoryCode: null, confidence: 0, top3: [] };
         }
 
@@ -45,6 +46,7 @@ export class LlmCategoryClassifierService extends CategoryClassifierPort {
             return this.parseResponse(response, request.categories);
         } catch (error) {
             this.logger.error('LLM classification failed', error);
+
             return { categoryCode: null, confidence: 0, top3: [] };
         }
     }
@@ -120,7 +122,10 @@ Return ONLY valid JSON, no markdown or extra text:
         categories: CategoryClassificationRequest['categories'],
     ): CategoryClassificationResult {
         try {
-            const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const cleaned = responseText
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .trim();
 
             const parsed = JSON.parse(cleaned) as {
                 category_code?: string | null;
@@ -144,6 +149,7 @@ Return ONLY valid JSON, no markdown or extra text:
             return { categoryCode, confidence, top3 };
         } catch (error) {
             this.logger.error('Failed to parse LLM response', error);
+
             return { categoryCode: null, confidence: 0, top3: [] };
         }
     }

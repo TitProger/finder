@@ -250,7 +250,7 @@ function cosine(left: number[], right: number[]): number | null {
 function keywordMatchCategories(
     text: string,
     phrases: readonly PhraseSample[],
-    categories: readonly CategorySample[],
+    _categories: readonly CategorySample[],
 ): ClassificationCandidate[] {
     const matchedCategories = new Map<string, ClassificationCandidate>();
 
@@ -342,7 +342,7 @@ async function llmClassification(
         }
 
         return null;
-    } catch (error) {
+    } catch (_error) {
         return null;
     }
 }
