@@ -10,6 +10,10 @@ import {
     InquiryService,
     InquiryView,
 } from '../../application/services/contracts/inquiry/inquiry.service';
+import {
+    PLAN_MANAGER_SERVICE,
+    PlanManagerService,
+} from '../../application/services/contracts/tariff/plan-manager.service';
 import { AppException } from '../../common/exceptions/common/app.exception';
 import { ConflictAppException } from '../../common/exceptions/conflict.exception';
 import { CategoryStatus } from '../../domain/enums/category-status.enum';
@@ -58,6 +62,8 @@ export class TelegramDialog {
         private readonly inquiries: InquiryService,
         @Inject(CATEGORY_ADMIN_SERVICE)
         private readonly categories: CategoryAdminService,
+        @Inject(PLAN_MANAGER_SERVICE)
+        private readonly planManager: PlanManagerService,
         @Inject(TELEGRAM_OUTBOUND)
         private readonly outbound: TelegramOutbound,
     ) {}
@@ -180,10 +186,23 @@ export class TelegramDialog {
     }
 
     private async onAdminMessage(update: MessageUpdate): Promise<void> {
+        // Команда /plan <telegram_id> [plan_code]
+        if (update.text?.startsWith('/plan ')) {
+            await this.handlePlanCommand(update.chatId, update.text);
+
+            return;
+        }
+
         const draft = this.drafts.get(update.telegramUserId);
 
         if (!draft) {
-            await this.send(update.chatId, 'Сюда приходят заявки, по которым нужно выбрать категорию.');
+            await this.send(
+                update.chatId,
+                'Сюда приходят заявки, по которым нужно выбрать категорию.\n\n' +
+                    'Команды:\n' +
+                    '/plan <telegram_id> <plan_code> - изменить тариф\n' +
+                    '/plan <telegram_id> - показать тариф и использование',
+            );
 
             return;
         }
@@ -470,6 +489,76 @@ export class TelegramDialog {
 
     private async send(chatId: number, text: string, buttons?: TelegramButton[][]): Promise<void> {
         await this.outbound.deliver({ method: 'sendMessage', chatId, text, buttons });
+    }
+
+    private async handlePlanCommand(chatId: number, text: string): Promise<void> {
+        const parts = text.trim().split(/\s+/);
+
+        if (parts.length < 2) {
+            await this.send(
+                chatId,
+                'Использование:\n' +
+                    '/plan <telegram_id> <plan_code> - изменить тариф\n' +
+                    '/plan <telegram_id> - показать текущий тариф',
+            );
+
+            return;
+        }
+
+        const telegramUserId = parts[1];
+        const planCode = parts[2];
+
+        if (!planCode) {
+            // Показать текущий тариф
+            const info = await this.planManager.getUserPlanInfo(telegramUserId);
+
+            if (!info) {
+                await this.send(chatId, `❌ Пользователь с Telegram ID ${telegramUserId} не найден`);
+
+                return;
+            }
+
+            const limitText =
+                info.currentPlan.dailyLimit === null ? '∞ (безлимит)' : `${info.currentPlan.dailyLimit}/день`;
+            const remainingText =
+                info.todayUsage.remaining === null
+                    ? '∞'
+                    : `${info.todayUsage.remaining} (использовано ${info.todayUsage.count})`;
+
+            await this.send(
+                chatId,
+                `👤 Пользователь: ${info.displayName || telegramUserId}\n` +
+                    `📋 Тариф: ${info.currentPlan.title} (${info.currentPlan.code})\n` +
+                    `📊 Лимит: ${limitText}\n` +
+                    `📅 Осталось сегодня: ${remainingText}\n` +
+                    `📆 Дата: ${info.todayUsage.date}`,
+            );
+
+            return;
+        }
+
+        // Изменить тариф
+        const info = await this.planManager.getUserPlanInfo(telegramUserId);
+
+        if (!info) {
+            await this.send(chatId, `❌ Пользователь с Telegram ID ${telegramUserId} не найден`);
+
+            return;
+        }
+
+        try {
+            await this.planManager.changePlan(info.userId, planCode);
+            await this.send(
+                chatId,
+                `✅ Тариф пользователя ${info.displayName || telegramUserId} изменён на '${planCode}'`,
+            );
+        } catch (error) {
+            if (error instanceof AppException) {
+                await this.send(chatId, `❌ Ошибка: ${error.message}`);
+            } else {
+                throw error;
+            }
+        }
     }
 }
 

@@ -9,14 +9,10 @@ import { LimitCheckerService, LimitCheckResult } from '../../contracts/tariff/li
 
 /**
  * Возвращает текущую дату в московском времени (YYYY-MM-DD).
+ * Использует Intl API для корректной работы независимо от timezone сервера.
  */
-function getMoscowDate(): string {
-    const now = new Date();
-    const moscowOffset = 3 * 60; // UTC+3
-    const localOffset = now.getTimezoneOffset();
-    const moscowTime = new Date(now.getTime() + (moscowOffset + localOffset) * 60 * 1000);
-
-    return moscowTime.toISOString().split('T')[0];
+function getMoscowDate(now: Date = new Date()): string {
+    return now.toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
 }
 
 /**

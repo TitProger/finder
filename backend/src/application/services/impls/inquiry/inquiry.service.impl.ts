@@ -493,17 +493,19 @@ export class InquiryServiceImpl implements InquiryService {
             const limitCheck = await this.limitChecker.canStartResearch(inquiry.clientUser.id, telegramId);
 
             if (!limitCheck.allowed) {
-                // Лимит исчерпан - ставим паузу
+                // Лимит исчерпан - ставим паузу с сообщением
                 inquiry.isPaused = true;
-                inquiry.pauseReason = limitCheck.reason;
+                inquiry.pauseReason = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
                 inquiry.status = InquiryStatus.AWAITING_CATEGORY;
                 await this.inquiries.getEntityManager().flush();
 
                 return;
             }
 
+            // Увеличиваем счётчик использования
+            await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
+
             // TODO: Здесь будет запуск ресерча (этап 5)
-            // await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
             // await this.triggerResearch(inquiry);
             return;
         }

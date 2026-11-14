@@ -144,8 +144,12 @@ function buildBot() {
         questionRepo as unknown as CategoryQuestionRepository,
         siteRepo as unknown as CategorySiteRepository,
     );
+    const planManager = {
+        changePlan: jest.fn(),
+        getUserPlanInfo: jest.fn(),
+    };
     const sent: TelegramOutgoing[] = [];
-    const dialog = new TelegramDialog(inquiriesService, categoryService, {
+    const dialog = new TelegramDialog(inquiriesService, categoryService, planManager as any, {
         deliver(message) {
             sent.push(message);
 
