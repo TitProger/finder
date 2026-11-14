@@ -1,12 +1,26 @@
 import { Entity, Enum, Property, Unique } from '@mikro-orm/core';
 
 import { CompanyRegistryStatus } from '../../enums/company-registry-status.enum';
+import { SupplierRole } from '../../enums/supplier-role.enum';
 import { BaseEntity } from '../common/base.entity';
 
 @Entity({ tableName: 'company' })
 export class CompanyEntity extends BaseEntity<'registryStatus'> {
     @Property({ type: 'varchar', length: 512, fieldName: 'legal_name_zh' })
     legalNameZh!: string;
+
+    @Property({ type: 'varchar', length: 512, nullable: true })
+    name?: string | null;
+
+    @Enum({
+        items: () => SupplierRole,
+        nativeEnumName: 'supplier_role',
+        nullable: true,
+    })
+    role?: SupplierRole | null;
+
+    @Property({ type: 'json', fieldName: 'role_evidence', nullable: true })
+    roleEvidence?: string[] | null;
 
     @Property({ type: 'varchar', length: 32, fieldName: 'unified_social_credit_code', nullable: true })
     @Unique()

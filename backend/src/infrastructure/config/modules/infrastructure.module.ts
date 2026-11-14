@@ -9,6 +9,7 @@ import { QuestionPackEntity } from '../../../domain/entities/category/question-p
 import { CategoryQuestionEntity } from '../../../domain/entities/category/category-question.entity';
 import { CategorySiteEntity } from '../../../domain/entities/category/category-site.entity';
 import { CanonicalProductEntity } from '../../../domain/entities/catalog/canonical-product.entity';
+import { CompanyContactEntity } from '../../../domain/entities/catalog/company-contact.entity';
 import { CompanyEntity } from '../../../domain/entities/catalog/company.entity';
 import { StorefrontEntity } from '../../../domain/entities/catalog/storefront.entity';
 import { OfferEntity } from '../../../domain/entities/catalog/offer.entity';
@@ -27,6 +28,7 @@ import { QuestionPackRepositoryImpl } from '../../database/postgres/repositories
 import { CategoryQuestionRepositoryImpl } from '../../database/postgres/repositories/category/category-question.repository.impl';
 import { CategorySiteRepositoryImpl } from '../../database/postgres/repositories/category/category-site.repository.impl';
 import { CanonicalProductRepositoryImpl } from '../../database/postgres/repositories/catalog/canonical-product.repository.impl';
+import { CompanyContactRepositoryImpl } from '../../database/postgres/repositories/catalog/company-contact.repository.impl';
 import { CompanyRepositoryImpl } from '../../database/postgres/repositories/catalog/company.repository.impl';
 import { StorefrontRepositoryImpl } from '../../database/postgres/repositories/catalog/storefront.repository.impl';
 import { OfferRepositoryImpl } from '../../database/postgres/repositories/catalog/offer.repository.impl';
@@ -51,6 +53,7 @@ const entities = [
     CategorySiteEntity,
     CanonicalProductEntity,
     CompanyEntity,
+    CompanyContactEntity,
     StorefrontEntity,
     OfferEntity,
     InquiryEntity,
@@ -74,6 +77,7 @@ const entities = [
         { provide: REPOSITORY_TOKENS.CATEGORY_SITE_REPOSITORY, useClass: CategorySiteRepositoryImpl },
         { provide: REPOSITORY_TOKENS.CANONICAL_PRODUCT_REPOSITORY, useClass: CanonicalProductRepositoryImpl },
         { provide: REPOSITORY_TOKENS.COMPANY_REPOSITORY, useClass: CompanyRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.COMPANY_CONTACT_REPOSITORY, useClass: CompanyContactRepositoryImpl },
         { provide: REPOSITORY_TOKENS.STOREFRONT_REPOSITORY, useClass: StorefrontRepositoryImpl },
         { provide: REPOSITORY_TOKENS.OFFER_REPOSITORY, useClass: OfferRepositoryImpl },
         { provide: REPOSITORY_TOKENS.INQUIRY_REPOSITORY, useClass: InquiryRepositoryImpl },
@@ -99,6 +103,7 @@ const entities = [
         REPOSITORY_TOKENS.CATEGORY_SITE_REPOSITORY,
         REPOSITORY_TOKENS.CANONICAL_PRODUCT_REPOSITORY,
         REPOSITORY_TOKENS.COMPANY_REPOSITORY,
+        REPOSITORY_TOKENS.COMPANY_CONTACT_REPOSITORY,
         REPOSITORY_TOKENS.STOREFRONT_REPOSITORY,
         REPOSITORY_TOKENS.OFFER_REPOSITORY,
         REPOSITORY_TOKENS.INQUIRY_REPOSITORY,

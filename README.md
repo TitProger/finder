@@ -66,6 +66,10 @@ cp .env.example .env
 
 - `FREE_PLAN_DAILY_LIMIT` — лимит запросов в день для бесплатного тарифа (по умолчанию 3)
 
+**Приём досье:**
+
+- `RESEARCH_INGEST_TOKEN` — отдельный Bearer-секрет `POST /research/ingest`. Токен админки этот вход не открывает. В production обязателен.
+
 ### Запуск с Docker Compose
 
 ```bash
@@ -256,25 +260,38 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
    - Лимит исчерпан → вежливое сообщение клиенту
    - Лимит не исчерпан → запуск ресерча (TODO: этап 5)
 
+### Приём досье
+
+`POST /research/ingest` с заголовком `Authorization: Bearer $RESEARCH_INGEST_TOKEN`.
+
+Тело — JSON в snake_case: `inquiry_id`, `run_id`, `status` (`complete` | `partial` | `failed`), `category` (code категории заявки), `sites`, `companies` с `contacts`, `offers` со слоем `FACTORY` | `CHINA_OPEN` | `RUSSIA_RETAIL` | `RUSSIA_WHOLESALE`, `fx`, `summary_ru`. Лишние поля сохраняются в `research_run.raw_payload`.
+
+- Тот же `run_id` и то же тело → `200` и `duplicate: true`, новые строки не пишутся.
+- Тот же `run_id` и другое тело → `409` `RUN_ID_REUSED`.
+- Оффер без `source_url` или без `quote`, и контакт без `source_url`, попадают в `discarded`. Остальное пишется.
+- Компания с уже известным USCC обновляется, повтор не даёт 409.
+- Успех переводит заявку в `DOSSIER_WITH_ADMIN`.
+- Цены остаются в `offer` для админа и не попадают в ответ ручки и в сообщения клиенту. Лимит тела — 5 МБ.
+
 ### База данных
 
-16 таблиц:
+17 таблиц:
 - Пользователи и роли: `app_user`
 - Категории и вопросы: `category`, `category_phrase`, `question_pack`, `category_question`, `category_site`
 - Заявки: `inquiry`, `inquiry_answer`
-- Каталог: `canonical_product`, `company`, `storefront`, `offer`
+- Каталог: `canonical_product`, `company`, `company_contact`, `storefront`, `offer`
 - Рынок: `market_snapshot`, `optimal_card`, `manual_economics`, `research_run`
 - Тарифы: `plan`, `daily_usage`
 
 ## Следующие этапы
 
-См. `docs/plans/` для полного плана разработки. Текущие этапы (0 и 1) завершены:
+См. `docs/plans/` для полного плана разработки. Сделаны этапы 0–4:
 
 - ✅ Этап 0: Гигиена (lint, CI, Docker, безопасность)
 - ✅ Этап 1: Админ по Telegram ID, дневные лимиты
-- 🔲 Этап 2: Семь категорий из YAML
-- 🔲 Этап 3: Нормальная классификация
-- 🔲 Этап 4: Приём досье `/research/ingest`
+- ✅ Этап 2: Семь категорий из YAML
+- ✅ Этап 3: Нормальная классификация
+- ✅ Этап 4: Приём досье `POST /research/ingest`
 - 🔲 Этап 5: Запуск ресерча через webhook
 - 🔲 Этап 6: Передача менеджеру в Telegram
 - 🔲 Этап 7: Три цены и ручная экономика

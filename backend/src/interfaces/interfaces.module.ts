@@ -9,6 +9,7 @@ import { HealthController } from './http/controllers/health/health.controller';
 import { InquiryAdminController } from './http/controllers/inquiry/inquiry-admin.controller';
 import { InquiryController } from './http/controllers/inquiry/inquiry.controller';
 import { OptimalCardAdminController } from './http/controllers/market/optimal-card-admin.controller';
+import { ResearchIngestController } from './http/controllers/research/research-ingest.controller';
 import { PlanAdminController } from './http/controllers/tariff/plan-admin.controller';
 import { TelegramBotApi } from './telegram/telegram-api';
 import { TelegramDialog } from './telegram/telegram-dialog';
@@ -29,6 +30,7 @@ import { TELEGRAM_OUTBOUND } from './telegram/telegram.types';
         InquiryAdminController,
         OptimalCardAdminController,
         PlanAdminController,
+        ResearchIngestController,
     ],
     providers: [
         { provide: APP_GUARD, useClass: AdminTokenGuard },

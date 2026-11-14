@@ -1,14 +1,15 @@
 const SOURCE_URL_MAX = 2048;
-const QUOTE_SNIPPET = 120;
 
 export type KeptOffer = {
     index: number;
     sourceUrl: string;
+    quote: string;
     body: Record<string, unknown>;
 };
 
 export type DiscardedOffer = {
     index: number;
+    path: string;
     reason: string;
 };
 
@@ -18,8 +19,8 @@ export type PartitionedOffers = {
 };
 
 /**
- * Оффер без url невалиден и строкой offer не становится.
- * Причина остаётся текстом, её пишет прогон.
+ * Оффер без http(s) source_url или без quote не становится строкой offer.
+ * Причина возвращается в ответе приёма и пишется в research_run.discarded.
  */
 export function partitionOffers(items: readonly unknown[]): PartitionedOffers {
     const kept: KeptOffer[] = [];
@@ -31,7 +32,7 @@ export function partitionOffers(items: readonly unknown[]): PartitionedOffers {
         if (decision.kind === 'keep') {
             kept.push(decision.offer);
         } else {
-            discarded.push({ index, reason: decision.reason });
+            discarded.push({ index, path: `offers[${index}]`, reason: decision.reason });
         }
     }
 
@@ -45,25 +46,30 @@ function decideOffer(
     const body = asRecord(item);
 
     if (!body) {
-        return { kind: 'drop', reason: discardReason(index, 'нет url', null) };
+        return { kind: 'drop', reason: 'нет source_url' };
     }
 
-    const url = body.sourceUrl;
+    const url = readText(body.source_url ?? body.sourceUrl);
 
-    if (typeof url !== 'string' || url.trim() === '') {
-        return { kind: 'drop', reason: discardReason(index, 'нет url', readQuote(body.quoteText)) };
+    if (!url) {
+        return { kind: 'drop', reason: 'нет source_url' };
     }
 
-    const sourceUrl = url.trim();
+    const quote = readText(body.quote ?? body.quoteText);
 
-    if (sourceUrl.length > SOURCE_URL_MAX) {
-        return {
-            kind: 'drop',
-            reason: discardReason(index, 'url длиннее 2048 символов', readQuote(body.quoteText)),
-        };
+    if (!quote) {
+        return { kind: 'drop', reason: 'нет quote' };
     }
 
-    return { kind: 'keep', offer: { index, sourceUrl, body } };
+    if (!isHttpUrl(url)) {
+        return { kind: 'drop', reason: 'source_url не http(s)' };
+    }
+
+    if (url.length > SOURCE_URL_MAX) {
+        return { kind: 'drop', reason: 'source_url длиннее 2048 символов' };
+    }
+
+    return { kind: 'keep', offer: { index, sourceUrl: url, quote, body } };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -74,30 +80,22 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     return value as Record<string, unknown>;
 }
 
-function readQuote(value: unknown): string | null {
+function readText(value: unknown): string | null {
     if (typeof value !== 'string') {
         return null;
     }
 
     const text = value.trim();
 
-    if (text === '') {
-        return null;
-    }
-
-    if (text.length <= QUOTE_SNIPPET) {
-        return text;
-    }
-
-    return `${text.slice(0, QUOTE_SNIPPET - 3)}...`;
+    return text === '' ? null : text;
 }
 
-function discardReason(index: number, detail: string, quote: string | null): string {
-    const head = `Оффер ${index + 1} отброшен: ${detail}.`;
+function isHttpUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
 
-    if (!quote) {
-        return head;
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
     }
-
-    return `${head} Цитата: «${quote}».`;
 }

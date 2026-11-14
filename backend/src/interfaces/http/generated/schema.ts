@@ -359,6 +359,26 @@ export interface paths {
         patch: operations["updateOptimalCard"];
         trace?: never;
     };
+    "/research/ingest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Принять JSON-досье ресерча
+         * @description Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.
+         */
+        post: operations["ingestResearchDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -580,23 +600,12 @@ export interface components {
         /** @enum {string} */
         InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "LIMIT_EXCEEDED" | "CLOSED";
         /**
-         * @description Чем кандидат попал в оценку.
-         *     exact_phrase — точное совпадение фразы.
-         *     keyword — совпадение по ключевым словам.
-         *     llm — классификация через LLM.
-         *     vector — векторное сходство.
+         * @description Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM. vector — векторное сходство.
          * @enum {string}
          */
         ClassificationMatch: "exact_phrase" | "keyword" | "llm" | "vector";
         /**
-         * @description exact_phrase — одна активная категория по точной фразе.
-         *     keyword_match — совпадение по ключевым словам.
-         *     llm_confident — LLM уверенно выбрала категорию.
-         *     ambiguous_phrase — та же фраза в нескольких категориях.
-         *     ambiguous_keyword — ключевые слова совпали с несколькими категориями.
-         *     llm_low_confidence — LLM не уверена в выборе.
-         *     embedder_stub — заглушка эмбеддинга.
-         *     vector_unresolved — вектор не выбирает категорию.
+         * @description exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. embedder_stub — заглушка эмбеддинга. vector_unresolved — вектор не выбирает категорию.
          * @enum {string}
          */
         ClassificationOutcome: "exact_phrase" | "keyword_match" | "llm_confident" | "ambiguous_phrase" | "ambiguous_keyword" | "llm_low_confidence" | "embedder_stub" | "vector_unresolved";
@@ -834,6 +843,121 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string | null;
         };
+        ResearchDossier: {
+            /** Format: uuid */
+            inquiry_id: string;
+            /** Format: uuid */
+            run_id: string;
+            status: components["schemas"]["DossierStatus"];
+            /** @description code категории заявки */
+            category: string;
+            pack?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            sites: components["schemas"]["DossierSite"][];
+            companies: components["schemas"]["DossierCompany"][];
+            offers: components["schemas"]["DossierOffer"][];
+            fx?: components["schemas"]["DossierFx"];
+            /** @description Текст для админа, клиенту не отправляется */
+            summary_ru?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Ответ приёма досье. Цен нет. */
+        ResearchIngestResult: {
+            /** Format: uuid */
+            research_run_id: string;
+            /** Format: uuid */
+            inquiry_id: string;
+            inquiry_status: components["schemas"]["InquiryStatus"];
+            duplicate: boolean;
+            counts: components["schemas"]["ResearchIngestCounts"];
+            discarded: components["schemas"]["DiscardedItem"][];
+        };
+        /** @enum {string} */
+        DossierStatus: "complete" | "partial" | "failed";
+        /** @enum {string} */
+        SiteStatus: "ok" | "captcha" | "login_required" | "blocked" | "empty" | "skipped";
+        DossierSite: {
+            site: string;
+            status: components["schemas"]["SiteStatus"];
+            url?: string | null;
+            note?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @enum {string} */
+        RegistryStatus: "active" | "revoked" | "unknown";
+        /** @enum {string} */
+        CompanyRole: "DIRECT_FACTORY" | "FACTORY_WITH_EXPORTER" | "TRADER" | "UNVERIFIED" | "DEALER_OR_LIST_PRICE";
+        /** @enum {string} */
+        DossierContactChannel: "phone" | "email" | "wechat" | "site";
+        DossierContact: {
+            channel: components["schemas"]["DossierContactChannel"];
+            value: string;
+            source_url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        DossierCompany: {
+            name_cn?: string | null;
+            name?: string | null;
+            /** @description 18 символов единого социального кода или null */
+            uscc?: string | null;
+            registry_status?: components["schemas"]["RegistryStatus"];
+            scope?: string | null;
+            insured_count?: number | null;
+            role?: components["schemas"]["CompanyRole"];
+            role_evidence?: string[];
+            contacts?: components["schemas"]["DossierContact"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @enum {string} */
+        OfferCurrency: "CNY" | "USD" | "RUB";
+        /** @enum {string} */
+        OfferUnit: "piece" | "set" | "car" | "m" | "m2" | "t";
+        /** @enum {string} */
+        OfferLayer: "FACTORY" | "CHINA_OPEN" | "RUSSIA_RETAIL" | "RUSSIA_WHOLESALE";
+        /** @description Оффер без source_url или без quote не отклоняет всё досье: он попадает в discarded. */
+        DossierOffer: {
+            /** @description Индекс в companies[] или null */
+            company_ref?: number | null;
+            site?: string | null;
+            source_url?: string | null;
+            quote?: string | null;
+            title?: string | null;
+            /** @description Хранится у оффера для админа. Клиенту не отдаётся. */
+            price?: number | null;
+            currency?: components["schemas"]["OfferCurrency"];
+            unit?: components["schemas"]["OfferUnit"];
+            qty_from?: number | null;
+            moq?: number | null;
+            layer?: components["schemas"]["OfferLayer"];
+            /** Format: date-time */
+            captured_at?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        DossierFx: {
+            cny_rub?: number;
+            usd_rub?: number;
+            as_of?: string;
+            source?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ResearchIngestCounts: {
+            companies: number;
+            offers: number;
+            contacts: number;
+        };
+        DiscardedItem: {
+            path: string;
+            reason: string;
+        };
     };
     responses: {
         /** @description Требуется авторизация */
@@ -883,6 +1007,15 @@ export interface components {
         };
         /** @description Внутренняя ошибка сервера */
         InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ApiResponse"];
+            };
+        };
+        /** @description Категория досье не совпала с категорией заявки */
+        Unprocessable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1537,6 +1670,38 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    ingestResearchDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResearchDossier"];
+            };
+        };
+        responses: {
+            /** @description Досье принято или повтор того же тела */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ResearchIngestResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
             500: components["responses"]["InternalError"];
         };
     };
