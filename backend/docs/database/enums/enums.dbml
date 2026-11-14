@@ -1,0 +1,73 @@
+// Куски enums для схемы Finder. Агрегат — ../schema.dbml.
+
+Enum user_role {
+  ADMIN
+  CLIENT
+}
+
+Enum category_status {
+  ACTIVE
+  ARCHIVED
+}
+
+Enum question_answer_type {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SINGLE_CHOICE
+  MULTI_CHOICE
+}
+
+Enum site_role {
+  FACTORY_CONTACT
+  CHINA_OPEN_PRICE
+  RUSSIA_RETAIL
+  RUSSIA_WHOLESALE
+}
+
+Enum inquiry_status {
+  DRAFT
+  AWAITING_CATEGORY
+  COLLECTING_ANSWERS
+  SERVED_FROM_DATABASE
+  RESEARCHING
+  DOSSIER_WITH_ADMIN
+  CLOSED
+}
+
+Enum supplier_role {
+  DIRECT_FACTORY
+  FACTORY_WITH_EXPORTER
+  TRADER
+  UNVERIFIED
+  DEALER_OR_LIST_PRICE
+}
+
+Enum market_price_layer {
+  RUSSIA_RETAIL
+  RUSSIA_WHOLESALE
+  CHINA_OPEN
+}
+
+Enum company_registry_status {
+  ACTIVE
+  REVOKED
+  UNKNOWN
+  OTHER
+}
+
+Enum research_run_status {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+Enum contact_channel {
+  PHONE
+  EMAIL
+  WECHAT
+  TELEGRAM
+  OTHER
+}

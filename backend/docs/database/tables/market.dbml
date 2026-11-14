@@ -1,0 +1,97 @@
+// Куски снимка рынка, оптимальной карточки, экономики и ресерча. Агрегат — ../schema.dbml.
+
+Table research_run {
+  id uuid [pk, not null, note: 'Первичный ключ прогона ресерча.']
+  inquiry_id uuid [not null, ref: > inquiry.id, note: 'ON DELETE CASCADE. Заявка, для которой запущен прогон.']
+  source varchar(128) [not null, note: 'Кто исполняет прогон: grok_bot, ручной импорт JSON и т.п.']
+  status research_run_status [not null, default: 'PENDING', note: 'Статус внешнего или внутреннего прогона.']
+  external_run_url varchar(2048) [null, note: 'Ссылка на прогон во внешней системе, если есть.']
+  failure_reason text [null, note: 'Причина срыва при status=FAILED.']
+  started_at timestamptz [null, note: 'Когда прогон реально стартовал.']
+  finished_at timestamptz [null, note: 'Когда прогон завершился или сорвался.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда запись прогона создали.']
+  updated_at timestamptz [default: `now()`, note: 'Когда прогон обновляли.']
+
+  indexes {
+    (inquiry_id, created_at)
+    status
+  }
+
+  Note: 'Один прогон ресерча по заявке. Площадки берёт из category_site выбранной категории.'
+}
+
+Table market_snapshot {
+  id uuid [pk, not null, note: 'Первичный ключ снимка слоя цен.']
+  research_run_id uuid [null, ref: > research_run.id, note: 'ON DELETE SET NULL. Прогон, из которого собрали слой.']
+  inquiry_id uuid [null, ref: > inquiry.id, note: 'ON DELETE SET NULL. Заявка снимка, если известна.']
+  canonical_product_id uuid [null, ref: > canonical_product.id, note: 'ON DELETE SET NULL. Товар, по которому посчитан слой.']
+  layer market_price_layer [not null, note: 'Слой: розница РФ, опт РФ или открытая цена Китая.']
+  source varchar(255) [not null, note: 'Откуда медиана: список площадок или описание выборки.']
+  median_price numeric [null, note: 'Медиана цен слоя. Не кладётся в вектор.']
+  currency varchar(3) [null, note: 'Валюта медианы и разброса.']
+  spread_low numeric [null, note: 'Нижняя граница разброса цен слоя.']
+  spread_high numeric [null, note: 'Верхняя граница разброса цен слоя.']
+  sample_points jsonb [null, note: 'Примеры внутри снимка: цена, url, краткая метка источника.']
+  captured_at timestamptz [not null, note: 'Дата съёма слоя.']
+  expires_at timestamptz [not null, note: 'Срок годности снимка (ориентир 14 дней от captured_at).']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда снимок записали.']
+  updated_at timestamptz [default: `now()`, note: 'Когда снимок правили.']
+
+  indexes {
+    (canonical_product_id, layer, captured_at)
+    research_run_id
+  }
+
+  Note: 'Снимок одного ценового слоя. Слои не склеиваются в одну цифру. Примеры — в sample_points.'
+}
+
+Table optimal_card {
+  id uuid [pk, not null, note: 'Первичный ключ оптимальной карточки.']
+  category_id uuid [not null, ref: > category.id, note: 'ON DELETE RESTRICT. Категория карточки; поиск только внутри неё.']
+  canonical_product_id uuid [not null, ref: > canonical_product.id, note: 'ON DELETE RESTRICT. Товар карточки.']
+  qty_min numeric [not null, note: 'Нижняя граница диапазона количества, для которого карточка жива.']
+  qty_max numeric [not null, note: 'Верхняя граница диапазона количества.']
+  quantity_question_id uuid [not null, ref: > category_question.id, note: 'ON DELETE RESTRICT. Обязательный вопрос NUMBER: его ответ — объём и должен попасть в qty_min…qty_max.']
+  is_live boolean [not null, default: false, note: 'Живая только после явного флага админа. По умолчанию false.']
+  offer_id uuid [null, ref: > offer.id, note: 'ON DELETE SET NULL. Оффер-основание, если карточка из ресерча.']
+  company_id uuid [null, ref: > company.id, note: 'ON DELETE SET NULL. Компания лучшего варианта.']
+  storefront_id uuid [null, ref: > storefront.id, note: 'ON DELETE SET NULL. Витрина лучшего варианта.']
+  price numeric [null, note: 'Цена лучшего варианта, как утвердил админ.']
+  currency varchar(3) [null, note: 'Валюта цены карточки.']
+  contact_value varchar(512) [null, note: 'Контакт: телефон, почта, WeChat и т.п.']
+  contact_channel contact_channel [null, note: 'Канал контакта.']
+  contact_url varchar(2048) [null, note: 'URL страницы контакта. Пусто, если admin_entered.']
+  contact_admin_entered boolean [not null, default: false, note: 'true — контакт вписан админом без url.']
+  contact_entered_at timestamptz [null, note: 'Когда контакт зафиксировали или вписали.']
+  product_attributes jsonb [null, note: 'Обязательные ответы кроме объёма. Ключ — id вопроса, значение — как его сохраняет заявка.']
+  reason_note text [null, note: 'Почему админ выбрал этот вариант.']
+  marked_live_by_user_id uuid [null, ref: > app_user.id, note: 'ON DELETE SET NULL. Админ, включивший is_live.']
+  marked_live_at timestamptz [null, note: 'Когда карточку сделали живой.']
+  expires_at timestamptz [null, note: 'Срок жизни карточки/контакта (ориентир 30 дней).']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда карточку создали.']
+  updated_at timestamptz [default: `now()`, note: 'Когда карточку правили.']
+
+  indexes {
+    (canonical_product_id, qty_min, qty_max, is_live)
+    quantity_question_id
+  }
+
+  Note: 'Partial unique: одна живая (is_live=true) на (canonical_product_id, qty_min, qty_max). Повторная живая снимает флаг, строка остаётся. Поиск: та же категория, те же обязательные ответы, объём внутри диапазона, expires_at в будущем.'
+}
+
+Table manual_economics {
+  id uuid [pk, not null, note: 'Первичный ключ ручной экономики.']
+  inquiry_id uuid [not null, unique, ref: > inquiry.id, note: 'ON DELETE CASCADE. Заявка, для которой считают экономику. 1:1.']
+  optimal_card_id uuid [null, ref: > optimal_card.id, note: 'ON DELETE SET NULL. Карточка, от которой считают, если есть.']
+  fx_rate numeric [null, note: 'Курс пересчёта, который вписал человек.']
+  logistics_cost numeric [null, note: 'Логистика вручную.']
+  duty_cost numeric [null, note: 'Пошлина вручную.']
+  markup_amount numeric [null, note: 'Наценка в деньгах.']
+  client_price numeric [null, note: 'Итоговая цена клиенту, которую посчитал человек.']
+  currency varchar(3) [null, note: 'Валюта полей экономики, обычно RUB.']
+  note text [null, note: 'Пояснение менеджера к расчёту.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда экономику завели.']
+  updated_at timestamptz [default: `now()`, note: 'Когда экономику меняли.']
+
+  Note: 'Ручная экономика по заявке. Пустые поля = вердикта «выгодно» ещё нет. Авто-КП нет.'
+}

@@ -1,0 +1,553 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
+import {
+    CATEGORY_ADMIN_SERVICE,
+    CategoryAdminService,
+} from '../../application/services/contracts/category/category-admin.service';
+import {
+    ClientDialog,
+    INQUIRY_SERVICE,
+    InquiryService,
+    InquiryView,
+} from '../../application/services/contracts/inquiry/inquiry.service';
+import { AppException } from '../../common/exceptions/common/app.exception';
+import { ConflictAppException } from '../../common/exceptions/conflict.exception';
+import { CategoryStatus } from '../../domain/enums/category-status.enum';
+import { QuestionAnswerType } from '../../domain/enums/question-answer-type.enum';
+import { SiteRole } from '../../domain/enums/site-role.enum';
+import { isCategoryRejection } from '../../domain/text/category-rejection';
+import { normalizePhrase } from '../../domain/text/phrase-text';
+import { parseCallback } from './telegram-callback';
+import { TELEGRAM_OUTBOUND, TelegramButton, TelegramIncoming, TelegramOutbound } from './telegram.types';
+
+const NEAREST = 3;
+const PAGE_SIZE = 5;
+const PAUSE_TEXT = 'Менеджер уточняет направление.';
+const DONE_TEXT = 'Ответы записаны. Дальше считает менеджер.';
+
+const SITE_ROLES: { key: string; role: SiteRole; label: string }[] = [
+    { key: 'f', role: SiteRole.FACTORY_CONTACT, label: 'Контакт завода' },
+    { key: 'c', role: SiteRole.CHINA_OPEN_PRICE, label: 'Открытая цена Китая' },
+    { key: 'r', role: SiteRole.RUSSIA_RETAIL, label: 'Розница России' },
+    { key: 'w', role: SiteRole.RUSSIA_WHOLESALE, label: 'Опт России' },
+];
+
+type CategoryDraft = {
+    inquiryId: string;
+    step: 'name' | 'description' | 'question' | 'site_role' | 'site_name';
+    name: string;
+    description: string;
+    question: string;
+    siteRole: SiteRole | null;
+};
+
+type MessageUpdate = Extract<TelegramIncoming, { kind: 'message' }>;
+type CallbackUpdate = Extract<TelegramIncoming, { kind: 'callback' }>;
+
+/**
+ * Диалог клиента и кнопки админа.
+ * Заявку пишет через application. Цену клиенту не отправляет и ресерч не стартует.
+ */
+@Injectable()
+export class TelegramDialog {
+    private readonly logger = new Logger(TelegramDialog.name);
+    private readonly drafts = new Map<number, CategoryDraft>();
+
+    constructor(
+        @Inject(INQUIRY_SERVICE)
+        private readonly inquiries: InquiryService,
+        @Inject(CATEGORY_ADMIN_SERVICE)
+        private readonly categories: CategoryAdminService,
+        @Inject(TELEGRAM_OUTBOUND)
+        private readonly outbound: TelegramOutbound,
+    ) {}
+
+    async handle(update: TelegramIncoming): Promise<void> {
+        try {
+            if (update.kind === 'callback') {
+                await this.onCallback(update);
+
+                return;
+            }
+
+            await this.onMessage(update);
+        } catch (error) {
+            if (error instanceof AppException) {
+                await this.send(update.chatId, error.message);
+
+                return;
+            }
+
+            throw error;
+        } finally {
+            if (update.kind === 'callback') {
+                await this.outbound.deliver({
+                    method: 'answerCallbackQuery',
+                    callbackQueryId: update.callbackQueryId,
+                });
+            }
+        }
+    }
+
+    private async onMessage(update: MessageUpdate): Promise<void> {
+        const actor = await this.inquiries.resolveTelegramActor(update.telegramUserId);
+
+        if (actor.kind === 'admin') {
+            await this.onAdminMessage(update);
+
+            return;
+        }
+
+        await this.onClientMessage(update);
+    }
+
+    private async onClientMessage(update: MessageUpdate): Promise<void> {
+        const dialog = await this.inquiries.findClientDialog(update.telegramUserId);
+
+        if (dialog.kind === 'paused') {
+            await this.send(update.chatId, PAUSE_TEXT);
+
+            return;
+        }
+
+        if (dialog.kind === 'asking') {
+            await this.answerOrReject(update, dialog);
+
+            return;
+        }
+
+        await this.startInquiry(update);
+    }
+
+    private async answerOrReject(
+        update: MessageUpdate,
+        dialog: Extract<ClientDialog, { kind: 'asking' }>,
+    ): Promise<void> {
+        if (update.text && isCategoryRejection(update.text)) {
+            const view = await this.inquiries.rejectCategory({
+                inquiryId: dialog.view.inquiry.id,
+                telegramUserId: update.telegramUserId,
+            });
+
+            await this.send(update.chatId, PAUSE_TEXT);
+            await this.notifyAdmins(view);
+
+            return;
+        }
+
+        if (!update.text) {
+            await this.send(update.chatId, 'Ответьте текстом на вопрос.');
+
+            return;
+        }
+
+        const next = await this.inquiries.answerQuestion({
+            inquiryId: dialog.view.inquiry.id,
+            telegramUserId: update.telegramUserId,
+            text: update.text,
+        });
+
+        if (next.kind === 'asking') {
+            await this.send(update.chatId, questionText(null, next.prompt, next.index, next.total));
+
+            return;
+        }
+
+        await this.send(update.chatId, DONE_TEXT);
+    }
+
+    private async startInquiry(update: MessageUpdate): Promise<void> {
+        if (!update.text) {
+            await this.send(update.chatId, 'Напишите, что нужно найти. Фото можно приложить к этому тексту.');
+
+            return;
+        }
+
+        const view = await this.inquiries.create({
+            telegramUserId: update.telegramUserId,
+            text: update.text,
+            photoFileIds: update.photoFileIds,
+        });
+
+        if (view.inquiry.isPaused || !view.inquiry.category) {
+            await this.send(update.chatId, PAUSE_TEXT);
+            await this.notifyAdmins(view);
+
+            return;
+        }
+
+        await this.tellClient(view);
+    }
+
+    private async onAdminMessage(update: MessageUpdate): Promise<void> {
+        const draft = this.drafts.get(update.telegramUserId);
+
+        if (!draft) {
+            await this.send(update.chatId, 'Сюда приходят заявки, по которым нужно выбрать категорию.');
+
+            return;
+        }
+
+        const text = update.text?.trim() ?? '';
+
+        if (normalizePhrase(text) === 'отмена') {
+            this.drafts.delete(update.telegramUserId);
+            await this.send(update.chatId, 'Создание категории отменено.');
+
+            return;
+        }
+
+        if (!text) {
+            await this.send(update.chatId, 'Нужен текст.');
+
+            return;
+        }
+
+        if (draft.step === 'name') {
+            draft.name = text;
+            draft.step = 'description';
+            await this.send(update.chatId, 'Описание категории. Цену в описание не кладите.');
+
+            return;
+        }
+
+        if (draft.step === 'description') {
+            draft.description = text;
+            draft.step = 'question';
+            await this.send(update.chatId, 'Текст вопроса клиенту.');
+
+            return;
+        }
+
+        if (draft.step === 'question') {
+            draft.question = text;
+            draft.step = 'site_role';
+            await this.send(update.chatId, 'Роль площадки.', siteRoleButtons());
+
+            return;
+        }
+
+        if (draft.step === 'site_role') {
+            await this.send(update.chatId, 'Выберите роль площадки кнопкой.', siteRoleButtons());
+
+            return;
+        }
+
+        await this.finishDraft(update, draft, text);
+    }
+
+    private async onCallback(update: CallbackUpdate): Promise<void> {
+        const actor = await this.inquiries.resolveTelegramActor(update.telegramUserId);
+
+        if (actor.kind !== 'admin') {
+            await this.send(update.chatId, 'Это действие для админа.');
+
+            return;
+        }
+
+        const parsed = parseCallback(update.data);
+
+        if (!parsed) {
+            await this.send(update.chatId, 'Кнопка устарела.');
+
+            return;
+        }
+
+        if (parsed.type === 'site_role') {
+            await this.pickSiteRole(update, parsed.role);
+
+            return;
+        }
+
+        if (parsed.type === 'assign') {
+            await this.assignCandidate(update, actor.userId, parsed.inquiryId, parsed.index);
+
+            return;
+        }
+
+        if (parsed.type === 'list') {
+            await this.showCategoryPage(update.chatId, parsed.inquiryId, parsed.page);
+
+            return;
+        }
+
+        if (parsed.type === 'pick') {
+            await this.pickListedCategory(update, actor.userId, parsed.inquiryId, parsed.page, parsed.index);
+
+            return;
+        }
+
+        this.drafts.set(update.telegramUserId, emptyDraft(parsed.inquiryId));
+        await this.send(update.chatId, 'Название новой категории. Слово «отмена» прервёт.');
+    }
+
+    private async assignCandidate(
+        update: CallbackUpdate,
+        adminUserId: string,
+        inquiryId: string,
+        index: number,
+    ): Promise<void> {
+        const view = await this.inquiries.getById(inquiryId);
+        const candidate = (view.inquiry.classificationScores?.candidates ?? []).slice(0, NEAREST)[index];
+
+        if (!candidate) {
+            await this.send(update.chatId, 'Этой категории в списке нет.');
+
+            return;
+        }
+
+        await this.assignAndTell(inquiryId, candidate.categoryId, adminUserId, update.chatId, update.telegramUserId);
+    }
+
+    private async pickListedCategory(
+        update: CallbackUpdate,
+        adminUserId: string,
+        inquiryId: string,
+        page: number,
+        index: number,
+    ): Promise<void> {
+        const categories = await this.categories.listActive();
+        const category = categories.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)[index];
+
+        if (!category) {
+            await this.send(update.chatId, 'Этой категории в списке нет.');
+
+            return;
+        }
+
+        await this.assignAndTell(inquiryId, category.id, adminUserId, update.chatId, update.telegramUserId);
+    }
+
+    private async showCategoryPage(chatId: number, inquiryId: string, page: number): Promise<void> {
+        const categories = await this.categories.listActive();
+        const start = page * PAGE_SIZE;
+        const slice = categories.slice(start, start + PAGE_SIZE);
+
+        if (slice.length === 0) {
+            await this.send(chatId, 'Активных категорий нет.', [
+                [{ text: 'Новая категория', callbackData: `n:${inquiryId}` }],
+            ]);
+
+            return;
+        }
+
+        const rows: TelegramButton[][] = slice.map((category, index) => [
+            { text: clip(category.name), callbackData: `p:${inquiryId}:${page}:${index}` },
+        ]);
+
+        if (page > 0) {
+            rows.push([{ text: 'Назад', callbackData: `l:${inquiryId}:${page - 1}` }]);
+        }
+
+        if (start + PAGE_SIZE < categories.length) {
+            rows.push([{ text: 'Дальше', callbackData: `l:${inquiryId}:${page + 1}` }]);
+        }
+
+        rows.push([{ text: 'Новая категория', callbackData: `n:${inquiryId}` }]);
+        await this.send(chatId, 'Выберите категорию.', rows);
+    }
+
+    private async pickSiteRole(update: CallbackUpdate, role: SiteRole): Promise<void> {
+        const draft = this.drafts.get(update.telegramUserId);
+
+        if (!draft || draft.step !== 'site_role') {
+            await this.send(update.chatId, 'Сначала начните создание категории.');
+
+            return;
+        }
+
+        draft.siteRole = role;
+        draft.step = 'site_name';
+        await this.send(update.chatId, 'Название площадки.');
+    }
+
+    private async finishDraft(update: MessageUpdate, draft: CategoryDraft, siteName: string): Promise<void> {
+        const actor = await this.inquiries.resolveTelegramActor(update.telegramUserId);
+
+        if (actor.kind !== 'admin') {
+            return;
+        }
+
+        let categoryId: string;
+
+        try {
+            const category = await this.categories.createCategory({
+                name: draft.name.trim(),
+                description: draft.description.trim(),
+                status: CategoryStatus.ACTIVE,
+            });
+
+            categoryId = category.id;
+        } catch (error) {
+            if (error instanceof ConflictAppException) {
+                draft.step = 'name';
+                await this.send(update.chatId, `${error.message} Напишите другое название.`);
+
+                return;
+            }
+
+            throw error;
+        }
+
+        await this.categories.createQuestion(categoryId, {
+            prompt: draft.question.trim(),
+            answerType: QuestionAnswerType.TEXT,
+            isRequired: true,
+            sortOrder: 0,
+        });
+        await this.categories.createSite(categoryId, {
+            siteRole: draft.siteRole ?? SiteRole.FACTORY_CONTACT,
+            name: siteName.trim(),
+            isActive: true,
+        });
+        this.drafts.delete(update.telegramUserId);
+        await this.assignAndTell(draft.inquiryId, categoryId, actor.userId, update.chatId, update.telegramUserId);
+    }
+
+    private async assignAndTell(
+        inquiryId: string,
+        categoryId: string,
+        adminUserId: string,
+        adminChatId: number,
+        adminTelegramUserId: number,
+    ): Promise<void> {
+        const view = await this.inquiries.assignCategory({ inquiryId, categoryId, adminUserId });
+
+        this.drafts.delete(adminTelegramUserId);
+        await this.send(adminChatId, `Категория назначена: ${view.inquiry.category?.name ?? ''}`);
+        await this.tellClient(view);
+    }
+
+    private async tellClient(view: InquiryView): Promise<void> {
+        const telegramUserId = toTelegramUserId(view.inquiry.clientUser.telegramUserId);
+
+        if (telegramUserId === null) {
+            return;
+        }
+
+        const dialog = await this.inquiries.findClientDialog(telegramUserId);
+        const name = view.inquiry.category?.name ?? '';
+
+        if (dialog.kind === 'asking') {
+            await this.send(telegramUserId, questionText(name, dialog.prompt, dialog.index, dialog.total));
+
+            return;
+        }
+
+        if (name) {
+            await this.send(telegramUserId, `${categoryLine(name)} Вопросов нет, дальше считает менеджер.`);
+        }
+    }
+
+    private async notifyAdmins(view: InquiryView): Promise<void> {
+        const recipients = await this.inquiries.listAdminRecipients();
+
+        if (recipients.length === 0) {
+            this.logger.warn('Пауза заявки без админа с Telegram user id');
+        }
+
+        const candidates = (view.inquiry.classificationScores?.candidates ?? []).slice(0, NEAREST);
+        const text = adminCardText(view, candidates);
+        const buttons = adminButtons(view.inquiry.id, candidates);
+
+        for (const recipient of recipients) {
+            for (const fileId of view.inquiry.photoUrls) {
+                await this.outbound.deliver({
+                    method: 'sendPhoto',
+                    chatId: recipient.telegramUserId,
+                    fileId,
+                });
+            }
+
+            await this.outbound.deliver({
+                method: 'sendMessage',
+                chatId: recipient.telegramUserId,
+                text,
+                buttons,
+            });
+        }
+    }
+
+    private async send(chatId: number, text: string, buttons?: TelegramButton[][]): Promise<void> {
+        await this.outbound.deliver({ method: 'sendMessage', chatId, text, buttons });
+    }
+}
+
+function emptyDraft(inquiryId: string): CategoryDraft {
+    return {
+        inquiryId,
+        step: 'name',
+        name: '',
+        description: '',
+        question: '',
+        siteRole: null,
+    };
+}
+
+function categoryLine(name: string): string {
+    return `Отнёс к категории «${name}».`;
+}
+
+function questionText(categoryName: string | null, prompt: string, index: number, total: number): string {
+    const body = `Вопрос ${index + 1} из ${total}\n${prompt}`;
+
+    if (index === 0 && categoryName) {
+        return `${categoryLine(categoryName)}\n\n${body}`;
+    }
+
+    return body;
+}
+
+function adminCardText(view: InquiryView, candidates: { categoryName: string }[]): string {
+    const lines = ['Сомнение по заявке.', '', view.inquiry.rawText];
+
+    if (view.inquiry.pauseReason) {
+        lines.push('', view.inquiry.pauseReason);
+    }
+
+    if (candidates.length > 0) {
+        lines.push('', 'Ближайшие категории:');
+        candidates.forEach((candidate, index) => {
+            lines.push(`${index + 1}. ${candidate.categoryName}`);
+        });
+    }
+
+    return lines.join('\n');
+}
+
+function adminButtons(inquiryId: string, candidates: { categoryName: string }[]): TelegramButton[][] {
+    const rows = candidates.map((candidate, index) => [
+        { text: clip(candidate.categoryName), callbackData: `a:${inquiryId}:${index}` },
+    ]);
+
+    rows.push([{ text: 'Другая категория', callbackData: `l:${inquiryId}:0` }]);
+    rows.push([{ text: 'Новая категория', callbackData: `n:${inquiryId}` }]);
+
+    return rows;
+}
+
+function siteRoleButtons(): TelegramButton[][] {
+    return SITE_ROLES.map((item) => [{ text: item.label, callbackData: `sr:${item.key}` }]);
+}
+
+function clip(name: string): string {
+    if (name.length <= 60) {
+        return name;
+    }
+
+    return `${name.slice(0, 59)}…`;
+}
+
+function toTelegramUserId(value: string | null | undefined): number | null {
+    if (!value || !/^[1-9]\d{0,15}$/.test(value)) {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isSafeInteger(parsed)) {
+        return null;
+    }
+
+    return parsed;
+}

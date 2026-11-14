@@ -1,0 +1,86 @@
+// Куски категорий, вопросов и площадок. Агрегат — ../schema.dbml.
+
+Table category {
+  id uuid [pk, not null, note: 'Первичный ключ категории.']
+  name varchar(255) [not null, unique, note: 'Имя категории для админа и бота. Unique.']
+  description text [not null, note: 'Текст для эмбеддинга и подсказок классификатору. Без цены.']
+  status category_status [not null, default: 'ACTIVE', note: 'ACTIVE участвует в классификации; ARCHIVED скрыта.']
+  embedding vector [null, note: 'Вектор description. Размерность фиксируется миграцией под модель. Цену не класть.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда создана категория.']
+  updated_at timestamptz [default: `now()`, note: 'Когда последний раз меняли категорию.']
+
+  Note: 'Справочник категорий. Семь стартовых — данные сида, не схема. Вектор только от текста описания.'
+}
+
+Table category_phrase {
+  id uuid [pk, not null, note: 'Первичный ключ фразы.']
+  category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория, к которой относится фраза.']
+  phrase text [not null, note: 'Пример или синоним клиента. Точное совпадение сразу выбирает категорию.']
+  embedding vector [null, note: 'Вектор phrase для похожести. Размерность как у category.embedding. Цену не класть.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда фразу добавили.']
+  updated_at timestamptz [default: `now()`, note: 'Когда фразу правили.']
+
+  indexes {
+    (category_id, phrase) [unique, note: 'Одна и та же фраза не дублируется в категории.']
+  }
+
+  Note: 'Примеры и синонимы категории. Админ дописывает фразу клиента после ручного назначения.'
+}
+
+Table question_pack {
+  id uuid [pk, not null, note: 'Первичный ключ пакета вопросов.']
+  category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория пакета.']
+  code varchar(64) [not null, note: 'Стабильный код пакета внутри категории, например WORKWEAR.']
+  title varchar(255) [not null, note: 'Человекочитаемое имя пакета для админа.']
+  description text [null, note: 'Когда включать пакет; для матчинга внутри уже выбранной категории.']
+  sort_order int [not null, default: 0, note: 'Порядок перебора пакетов при уточнении.']
+  is_active boolean [not null, default: true, note: 'Выключенный пакет не предлагается.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда пакет создан.']
+  updated_at timestamptz [default: `now()`, note: 'Когда пакет меняли.']
+
+  indexes {
+    (category_id, code) [unique, note: 'Код пакета уникален в категории.']
+  }
+
+  Note: 'Уточнение внутри категории (спецодежда внутри одежды). Сомнение между пакетами админу не уходит.'
+}
+
+Table category_question {
+  id uuid [pk, not null, note: 'Первичный ключ вопроса.']
+  category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория вопроса.']
+  question_pack_id uuid [null, ref: > question_pack.id, note: 'ON DELETE CASCADE. Пакет уточнения. NULL = базовый вопрос категории.']
+  prompt text [not null, note: 'Текст вопроса клиенту в Telegram.']
+  answer_type question_answer_type [not null, note: 'Как принимать и хранить ответ.']
+  choices jsonb [null, note: 'Варианты для SINGLE_CHOICE / MULTI_CHOICE. Иначе NULL.']
+  is_required boolean [not null, default: true, note: 'Обязательный ответ до продолжения брифа.']
+  sort_order int [not null, default: 0, note: 'Порядок показа вопросов в пакете или базе.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда вопрос создан.']
+  updated_at timestamptz [default: `now()`, note: 'Когда вопрос меняли.']
+
+  indexes {
+    (category_id, question_pack_id, sort_order)
+  }
+
+  Note: 'Базовые вопросы: question_pack_id IS NULL. Вопросы пакета: pack заполнен. При сборе — база + выбранный pack.'
+}
+
+Table category_site {
+  id uuid [pk, not null, note: 'Первичный ключ площадки категории.']
+  category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория, для которой площадка.']
+  site_role site_role [not null, note: 'Роль слоя: контакт завода, открытая цена Китая, розница/опт РФ.']
+  name varchar(255) [not null, note: 'Имя площадки для админа и скилла, например 1688.']
+  base_url varchar(2048) [null, note: 'Базовый URL площадки, если фиксирован.']
+  priority int [not null, default: 100, note: 'Порядок обхода. Меньше — раньше. Низкий приоритет в проход не берётся.']
+  requires_login boolean [not null, default: false, note: 'Нужен ли заранее залогиненный браузерный профиль.']
+  query_template text [null, note: 'Шаблон запроса на языке источника с плейсхолдерами брифa.']
+  exclude_note text [null, note: 'Когда площадку не использовать для части товаров этой категории.']
+  is_active boolean [not null, default: true, note: 'Выключенная площадка не уходит в ресерч.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда площадку добавили.']
+  updated_at timestamptz [default: `now()`, note: 'Когда площадку правили.']
+
+  indexes {
+    (category_id, site_role, priority)
+  }
+
+  Note: 'Площадки категории по ролям. Ресерч открывает только этот список, чужие сайты сам не добавляет.'
+}

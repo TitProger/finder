@@ -1,0 +1,170 @@
+create:
+  post:
+    operationId: createInquiry
+    tags: [inquiries]
+    summary: Создать заявку текстом
+    description: >
+      Без JWT. Клиент определяется telegram user id — это вход, не регистрация.
+      Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории
+      и одного пакета, если текст точно совпал с его code или title.
+      Иначе заявка на паузе, category_id пустой, research_run не создаётся.
+      Telegram-бот и парсеры не вызываются.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/inquiry/inquiry.yaml#/CreateInquiryRequest'
+    responses:
+      '200':
+        description: Заявка после классификации
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
+      '400':
+        $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '403':
+        $ref: '../../components/responses/errors.yaml#/Forbidden'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'
+
+byId:
+  get:
+    operationId: getInquiryById
+    tags: [inquiries]
+    summary: Прочитать заявку
+    description: >
+      Без JWT. Идентификатор заявки — uuid.
+      На паузе questions пустой. После категории — вопросы базы и выбранного пакета.
+      Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE
+      и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
+    security: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Заявка
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
+      '400':
+        $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'
+
+assignCategory:
+  post:
+    operationId: assignInquiryCategory
+    tags: [inquiries]
+    summary: Назначить категорию
+    description: >
+      Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase.
+      Повтор той же фразы в категории ошибкой не считается. Вектор фразы не заполняется.
+      research_run не создаётся.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/inquiry/inquiry.yaml#/AssignCategoryRequest'
+    responses:
+      '200':
+        description: Заявка после назначения
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
+      '400':
+        $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
+      '403':
+        $ref: '../../components/responses/errors.yaml#/Forbidden'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '409':
+        $ref: '../../components/responses/errors.yaml#/Conflict'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'
+
+assignNewCategory:
+  post:
+    operationId: createCategoryAndAssignInquiry
+    tags: [inquiries]
+    summary: Создать категорию и назначить
+    description: >
+      Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента.
+      Пауза снимается. research_run не создаётся. Эмбеддинг категории не пишется.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/inquiry/inquiry.yaml#/CreateCategoryAndAssignRequest'
+    responses:
+      '200':
+        description: Заявка после новой категории
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
+      '400':
+        $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
+      '403':
+        $ref: '../../components/responses/errors.yaml#/Forbidden'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '409':
+        $ref: '../../components/responses/errors.yaml#/Conflict'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'

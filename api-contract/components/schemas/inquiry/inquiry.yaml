@@ -1,0 +1,231 @@
+InquiryStatus:
+  type: string
+  enum:
+    - DRAFT
+    - AWAITING_CATEGORY
+    - COLLECTING_ANSWERS
+    - SERVED_FROM_DATABASE
+    - RESEARCHING
+    - DOSSIER_WITH_ADMIN
+    - CLOSED
+
+ClassificationMatch:
+  type: string
+  description: Чем кандидат попал в оценку. exact_phrase выше vector.
+  enum: [exact_phrase, vector]
+
+ClassificationOutcome:
+  type: string
+  description: >
+    exact_phrase — одна активная категория по точной фразе, паузы нет.
+    ambiguous_phrase — та же фраза в нескольких категориях, пауза.
+    embedder_stub — точной фразы нет, заглушка эмбеддинга категорию не выбирает.
+    vector_unresolved — вектор посчитан, порог модели ещё не задан, пауза.
+  enum: [exact_phrase, ambiguous_phrase, embedder_stub, vector_unresolved]
+
+ClassificationCandidate:
+  type: object
+  required: [categoryId, categoryName, score, matchedBy]
+  properties:
+    categoryId:
+      type: string
+      format: uuid
+    categoryName:
+      type: string
+    score:
+      type: number
+      description: 1 у точной фразы. У вектора — косинус, без порога назначения.
+    matchedBy:
+      $ref: '#/ClassificationMatch'
+
+ClassificationScores:
+  type: object
+  required: [outcome, stub, candidates]
+  properties:
+    outcome:
+      $ref: '#/ClassificationOutcome'
+    stub:
+      type: boolean
+      description: true, если на этом проходе эмбеддинг был заглушкой.
+    candidates:
+      type: array
+      maxItems: 5
+      items:
+        $ref: '#/ClassificationCandidate'
+
+InquiryQuestion:
+  type: object
+  required: [id, categoryId, prompt, answerType, isRequired, sortOrder, createdAt]
+  description: Вопрос, который надо задать клиенту. База категории и, если выбран, один пакет.
+  properties:
+    id:
+      type: string
+      format: uuid
+    categoryId:
+      type: string
+      format: uuid
+    questionPackId:
+      type: string
+      format: uuid
+      nullable: true
+      description: null — базовый вопрос категории
+    prompt:
+      type: string
+    answerType:
+      $ref: '../category/category.yaml#/QuestionAnswerType'
+    choices:
+      description: Варианты для SINGLE_CHOICE / MULTI_CHOICE; иначе null
+      oneOf:
+        - type: object
+        - type: array
+        - type: 'null'
+    isRequired:
+      type: boolean
+    sortOrder:
+      type: integer
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+      nullable: true
+
+Inquiry:
+  type: object
+  required:
+    - id
+    - clientUserId
+    - telegramUserId
+    - status
+    - rawText
+    - photoUrls
+    - categoryId
+    - questionPackId
+    - isPaused
+    - pauseReason
+    - assignedByUserId
+    - classificationScores
+    - questions
+    - optimalCardId
+    - optimalCard
+    - createdAt
+    - updatedAt
+  properties:
+    id:
+      type: string
+      format: uuid
+    clientUserId:
+      type: string
+      format: uuid
+    telegramUserId:
+      type: integer
+      minimum: 1
+      description: Telegram user id клиента. Вход, не отдельная регистрация.
+    status:
+      $ref: '#/InquiryStatus'
+    rawText:
+      type: string
+      description: Текст клиента. При назначении категории эта фраза дописывается в category_phrase.
+    photoUrls:
+      type: array
+      items:
+        type: string
+      description: >
+        Telegram file_id фото, которое клиент приложил к тексту.
+        Пустой массив, если фото нет. POST /inquiries фото не принимает.
+        Бот пишет file_id сюда и пересылает фото админу. Это не публичная ссылка.
+    categoryId:
+      type: string
+      format: uuid
+      nullable: true
+      description: null, пока классификатор сомневается или фраза неоднозначна.
+    questionPackId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >
+        Один подходящий пакет. null — только базовые вопросы категории.
+        Пакет выбирается точным совпадением текста с code или title.
+        Сомнение между пакетами паузу не ставит.
+    isPaused:
+      type: boolean
+      description: true — ресерч не стартует. research_run не создаётся.
+    pauseReason:
+      type: string
+      nullable: true
+    assignedByUserId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Админ, который назначил категорию вручную. null, если категорию выбрала точная фраза.
+    classificationScores:
+      nullable: true
+      allOf:
+        - $ref: '#/ClassificationScores'
+    questions:
+      type: array
+      items:
+        $ref: '#/InquiryQuestion'
+      description: >
+        Пусто на паузе. Иначе базовые вопросы категории и вопросы выбранного пакета.
+        Вопросы других пакетов не отдаются.
+    optimalCardId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >
+        Живая карточка, которую отдали из базы. null, пока ответов не хватает
+        или подходящей живой карточки нет. research_run при этом не создаётся.
+    optimalCard:
+      nullable: true
+      description: >
+        Та же карточка целиком. Пусто, если заявка ещё не в статусе «ответ из базы».
+      allOf:
+        - $ref: '../market/optimal-card.yaml#/OptimalCard'
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+      nullable: true
+
+CreateInquiryRequest:
+  type: object
+  required: [telegramUserId, text]
+  additionalProperties: false
+  properties:
+    telegramUserId:
+      type: integer
+      minimum: 1
+      description: Telegram user id. Если клиента ещё нет, создаётся роль CLIENT.
+    text:
+      type: string
+      minLength: 1
+      maxLength: 8000
+      description: Свободный текст заявки.
+
+AssignCategoryRequest:
+  type: object
+  required: [categoryId]
+  additionalProperties: false
+  properties:
+    categoryId:
+      type: string
+      format: uuid
+      description: Активная категория. Фраза клиента дописывается в неё.
+
+CreateCategoryAndAssignRequest:
+  type: object
+  required: [name, description]
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+    description:
+      type: string
+      minLength: 1
+      description: Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем.

@@ -1,0 +1,5 @@
+export enum MarketPriceLayer {
+    RUSSIA_RETAIL = 'RUSSIA_RETAIL',
+    RUSSIA_WHOLESALE = 'RUSSIA_WHOLESALE',
+    CHINA_OPEN = 'CHINA_OPEN',
+}

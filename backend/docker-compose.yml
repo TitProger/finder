@@ -1,0 +1,23 @@
+name: finder
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: finder-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DATABASE:-finder}
+      POSTGRES_USER: ${PG_USERNAME:-finder}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-finder}
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USERNAME:-finder} -d ${PG_DATABASE:-finder}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

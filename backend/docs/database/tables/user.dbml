@@ -1,0 +1,15 @@
+// Куски users. Агрегат — ../schema.dbml.
+
+Table app_user {
+  id uuid [pk, not null, note: 'Первичный ключ пользователя.']
+  role user_role [not null, note: 'ADMIN — учётка JWT и кнопки бота; CLIENT — вход по Telegram user id.']
+  telegram_user_id bigint [null, unique, note: 'Telegram user id. Обязателен при role=CLIENT. У ADMIN заполняется, если он работает в боте: бот читает роль этой строки. Unique.']
+  login varchar(100) [null, unique, note: 'Логин админа для JWT. Обязателен при role=ADMIN. У CLIENT пусто. Unique.']
+  password_hash varchar(255) [null, note: 'Хэш пароля админа. Обязателен при role=ADMIN. У CLIENT пусто. Регистрации нет — сид в БД.']
+  display_name varchar(255) [null, note: 'Отображаемое имя для админки и логов.']
+  is_active boolean [not null, default: true, note: 'Выключенный пользователь не входит.']
+  created_at timestamptz [not null, default: `now()`, note: 'Когда создана запись.']
+  updated_at timestamptz [default: `now()`, note: 'Когда последний раз меняли запись.']
+
+  Note: 'Роли MVP: ADMIN и CLIENT. Отдельной регистрации нет. Бот узнаёт человека по telegram_user_id и отдаёт админские кнопки только при role=ADMIN. Partial: telegram_user_id NOT NULL при CLIENT; login и password_hash NOT NULL при ADMIN.'
+}
