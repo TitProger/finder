@@ -2,7 +2,7 @@ name: finder
 
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    image: postgres:17
     container_name: finder-postgres
     restart: unless-stopped
     environment:
@@ -40,7 +40,6 @@ services:
       PG_MIGRATIONS_RUN: "true"
       PG_LOGGING: "false"
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
-      JWT_SECRET: ${JWT_SECRET:-finder-dev-jwt-secret-change-me}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}

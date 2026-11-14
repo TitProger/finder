@@ -1,7 +1,6 @@
 import { Entity, ManyToOne, Property, Rel } from '@mikro-orm/core';
 
 import { BaseEntity } from '../common/base.entity';
-import { VectorType } from '../common/vector.type';
 import { CategoryEntity } from '../category/category.entity';
 
 @Entity({ tableName: 'canonical_product' })
@@ -20,7 +19,4 @@ export class CanonicalProductEntity extends BaseEntity {
 
     @Property({ type: 'jsonb', nullable: true })
     attributes?: unknown;
-
-    @Property({ type: new VectorType(), nullable: true })
-    embedding?: number[] | null;
 }

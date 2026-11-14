@@ -1,14 +1,12 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
-import { Envs } from '../../../common/envs/env';
-import { AppUserEntity } from '../../../domain/entities/user/app-user.entity';
+import { adminTelegramIds } from '../../../application/telegram/admin-telegram-ids';
 import { UserRole } from '../../../domain/enums/user-role.enum';
 import { REPOSITORY_TOKENS } from '../../../domain/repositories/repository.tokens';
 import { AppUserRepository } from '../../../domain/repositories/user/app-user.repository';
-import { PasswordHasher } from '../../security/password-hasher';
 
 /**
- * Сид админа из env. Регистрации нет — учётка появляется при старте.
+ * Сид админов из ADMIN_TELEGRAM_IDS. Пароля нет: HTTP ходит со статическим токеном, бот — по Telegram id.
  */
 @Injectable()
 export class AdminSeeder implements OnModuleInit {
@@ -20,47 +18,31 @@ export class AdminSeeder implements OnModuleInit {
     ) {}
 
     async onModuleInit(): Promise<void> {
-        const login = Envs.adminSeed.login.trim();
-        const telegramUserId = Envs.adminSeed.telegramUserId;
-        const existing = await this.users.findOne({ login, role: UserRole.ADMIN });
+        for (const telegramUserId of adminTelegramIds()) {
+            await this.ensureAdmin(telegramUserId);
+        }
+    }
+
+    private async ensureAdmin(telegramUserId: string): Promise<void> {
+        const existing = await this.users.findOne({ telegramUserId });
 
         if (existing) {
-            await this.attachTelegram(existing, telegramUserId);
+            if (existing.role !== UserRole.ADMIN) {
+                this.logger.error(`Telegram ${telegramUserId} уже занят, админ не создан`);
+            }
 
             return;
         }
 
-        const passwordHash = await PasswordHasher.hash(Envs.adminSeed.password);
         const admin = this.users.create({
             role: UserRole.ADMIN,
-            login,
-            passwordHash,
-            displayName: Envs.adminSeed.displayName,
             telegramUserId,
+            displayName: `Admin ${telegramUserId}`,
             isActive: true,
             planCode: 'unlimited',
         });
 
         await this.users.getEntityManager().persistAndFlush(admin);
-        this.logger.log(`Seeded ADMIN login=${login}`);
-    }
-
-    /** Бот узнаёт админа по telegram user id и роли ADMIN. Пароль в чат не запрашивает. */
-    private async attachTelegram(admin: AppUserEntity, telegramUserId: string | null): Promise<void> {
-        if (!telegramUserId || admin.telegramUserId === telegramUserId) {
-            return;
-        }
-
-        const taken = await this.users.findOne({ telegramUserId });
-
-        if (taken && taken.id !== admin.id) {
-            this.logger.error('Telegram user id уже занят, админу не записан');
-
-            return;
-        }
-
-        admin.telegramUserId = telegramUserId;
-        await this.users.getEntityManager().flush();
-        this.logger.log(`ADMIN ${admin.login ?? ''} привязан к Telegram`);
+        this.logger.log(`Seeded ADMIN telegram=${telegramUserId}`);
     }
 }

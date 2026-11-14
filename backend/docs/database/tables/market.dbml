@@ -1,4 +1,4 @@
-// Куски снимка рынка, оптимальной карточки, экономики и ресерча. Агрегат — ../schema.dbml.
+// Куски оптимальной карточки, экономики и ресерча. Агрегат — ../schema.dbml.
 
 Table research_run {
   id uuid [pk, not null, note: 'Первичный ключ прогона ресерча.']
@@ -18,31 +18,6 @@ Table research_run {
   }
 
   Note: 'Один прогон ресерча по заявке. Площадки берёт из category_site выбранной категории.'
-}
-
-Table market_snapshot {
-  id uuid [pk, not null, note: 'Первичный ключ снимка слоя цен.']
-  research_run_id uuid [null, ref: > research_run.id, note: 'ON DELETE SET NULL. Прогон, из которого собрали слой.']
-  inquiry_id uuid [null, ref: > inquiry.id, note: 'ON DELETE SET NULL. Заявка снимка, если известна.']
-  canonical_product_id uuid [null, ref: > canonical_product.id, note: 'ON DELETE SET NULL. Товар, по которому посчитан слой.']
-  layer market_price_layer [not null, note: 'Слой: розница РФ, опт РФ или открытая цена Китая.']
-  source varchar(255) [not null, note: 'Откуда медиана: список площадок или описание выборки.']
-  median_price numeric [null, note: 'Медиана цен слоя. Не кладётся в вектор.']
-  currency varchar(3) [null, note: 'Валюта медианы и разброса.']
-  spread_low numeric [null, note: 'Нижняя граница разброса цен слоя.']
-  spread_high numeric [null, note: 'Верхняя граница разброса цен слоя.']
-  sample_points jsonb [null, note: 'Примеры внутри снимка: цена, url, краткая метка источника.']
-  captured_at timestamptz [not null, note: 'Дата съёма слоя.']
-  expires_at timestamptz [not null, note: 'Срок годности снимка (ориентир 14 дней от captured_at).']
-  created_at timestamptz [not null, default: `now()`, note: 'Когда снимок записали.']
-  updated_at timestamptz [default: `now()`, note: 'Когда снимок правили.']
-
-  indexes {
-    (canonical_product_id, layer, captured_at)
-    research_run_id
-  }
-
-  Note: 'Снимок одного ценового слоя. Слои не склеиваются в одну цифру. Примеры — в sample_points.'
 }
 
 Table optimal_card {

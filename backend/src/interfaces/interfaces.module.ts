@@ -3,7 +3,6 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { ApplicationModule } from '../application/application.module';
 import { AdminTokenGuard } from './http/auth/admin-token.guard';
-import { AdminAuthController } from './http/controllers/auth/admin-auth.controller';
 import { CategoryController } from './http/controllers/category/category.controller';
 import { HealthController } from './http/controllers/health/health.controller';
 import { InquiryAdminController } from './http/controllers/inquiry/inquiry-admin.controller';
@@ -26,7 +25,6 @@ import { TELEGRAM_OUTBOUND } from './telegram/telegram.types';
     imports: [ApplicationModule],
     controllers: [
         HealthController,
-        AdminAuthController,
         CategoryController,
         InquiryController,
         InquiryAdminController,

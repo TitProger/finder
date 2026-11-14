@@ -2,6 +2,7 @@ import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
+import { findActingAdmin } from '../../../telegram/acting-admin';
 import {
     CreateOptimalCardInput,
     OptimalCardService,
@@ -64,7 +65,7 @@ export class OptimalCardServiceImpl implements OptimalCardService {
     ) {}
 
     async create(input: CreateOptimalCardInput): Promise<OptimalCardEntity> {
-        const admin = await this.requireAdmin(input.adminUserId);
+        const admin = await this.adminOf(input.adminUserId);
         const category = await this.requireCategory(input.categoryId);
         const offer = await this.loadOffer(input.offerId);
         const quantityQuestion = await this.requireQuantityQuestion(category.id, input.quantityQuestionId);
@@ -109,7 +110,7 @@ export class OptimalCardServiceImpl implements OptimalCardService {
     }
 
     async update(id: string, input: UpdateOptimalCardInput): Promise<OptimalCardEntity> {
-        const admin = await this.requireAdmin(input.adminUserId);
+        const admin = await this.adminOf(input.adminUserId);
         const card = await this.requireCard(id);
         const wasLive = card.isLive;
         const questions = await this.questions.find({ category: card.category.id });
@@ -229,7 +230,6 @@ export class OptimalCardServiceImpl implements OptimalCardService {
             nameRu,
             nameZh: emptyToNull(input.nameZh),
             attributes: input.productAttributes,
-            embedding: null,
         });
     }
 
@@ -419,6 +419,14 @@ export class OptimalCardServiceImpl implements OptimalCardService {
         }
 
         return offer;
+    }
+
+    private async adminOf(adminUserId?: string): Promise<AppUserEntity> {
+        if (!adminUserId) {
+            return findActingAdmin(this.users);
+        }
+
+        return this.requireAdmin(adminUserId);
     }
 
     private async requireAdmin(adminUserId: string): Promise<AppUserEntity> {

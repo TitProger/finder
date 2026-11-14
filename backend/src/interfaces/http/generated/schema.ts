@@ -21,46 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Вход админа
-         * @description Публичный эндпоинт. Учётка засеяна в БД. Пароль в ответе не возвращается. Ошибки 401: INVALID_CREDENTIALS, USER_INACTIVE.
-         */
-        post: operations["adminLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Обновить access-токен админа
-         * @description Публичный эндпоинт. Принимает refreshToken в теле. Ошибка 401: INVALID_REFRESH_TOKEN.
-         */
-        post: operations["adminRefresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/admin/categories": {
         parameters: {
             query?: never;
@@ -246,7 +206,7 @@ export interface paths {
         put?: never;
         /**
          * Создать заявку текстом
-         * @description Без JWT. Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.
+         * @description Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.
          */
         post: operations["createInquiry"];
         delete?: never;
@@ -264,7 +224,7 @@ export interface paths {
         };
         /**
          * Прочитать заявку
-         * @description Без JWT. Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
+         * @description Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
          */
         get: operations["getInquiryById"];
         put?: never;
@@ -286,7 +246,7 @@ export interface paths {
         put?: never;
         /**
          * Назначить категорию
-         * @description Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase. Повтор той же фразы в категории ошибкой не считается. Вектор фразы не заполняется. research_run не создаётся.
+         * @description Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase. Повтор той же фразы в категории ошибкой не считается. research_run не создаётся.
          */
         post: operations["assignInquiryCategory"];
         delete?: never;
@@ -306,7 +266,7 @@ export interface paths {
         put?: never;
         /**
          * Создать категорию и назначить
-         * @description Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента. Пауза снимается. research_run не создаётся. Эмбеддинг категории не пишется.
+         * @description Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента. Пауза снимается. research_run не создаётся.
          */
         post: operations["createCategoryAndAssignInquiry"];
         delete?: never;
@@ -326,7 +286,7 @@ export interface paths {
         put?: never;
         /**
          * Повторно запустить ресерч
-         * @description Только админ (статический ADMIN_API_TOKEN или JWT). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.
+         * @description Только админ (статический ADMIN_API_TOKEN). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.
          */
         post: operations["rerunInquiryResearch"];
         delete?: never;
@@ -344,7 +304,7 @@ export interface paths {
         };
         /**
          * Слои цен и ручная экономика заявки
-         * @description Только админ (статический ADMIN_API_TOKEN или JWT). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.
+         * @description Только админ (статический ADMIN_API_TOKEN). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.
          */
         get: operations["getInquiryEconomics"];
         put?: never;
@@ -456,29 +416,6 @@ export interface components {
             count?: unknown;
             requestId?: string;
             error?: components["schemas"]["ApiError"];
-        };
-        AdminLoginRequest: {
-            login: string;
-            password: string;
-        };
-        AdminRefreshRequest: {
-            refreshToken: string;
-        };
-        AdminAuthTokens: {
-            accessToken: string;
-            refreshToken: string;
-            /** @enum {string} */
-            tokenType: "Bearer";
-            /** @description Срок access-токена в секундах */
-            expiresIn: number;
-            admin?: {
-                /** Format: uuid */
-                id: string;
-                login: string;
-                /** @enum {string} */
-                role: "ADMIN";
-                displayName?: string | null;
-            };
         };
         /** @enum {string} */
         CategoryStatus: "ACTIVE" | "ARCHIVED";
@@ -644,26 +581,26 @@ export interface components {
         /** @enum {string} */
         InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "LIMIT_EXCEEDED" | "CLOSED";
         /**
-         * @description Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM. vector — векторное сходство.
+         * @description Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM.
          * @enum {string}
          */
-        ClassificationMatch: "exact_phrase" | "keyword" | "llm" | "vector";
+        ClassificationMatch: "exact_phrase" | "keyword" | "llm";
         /**
-         * @description exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. embedder_stub — заглушка эмбеддинга. vector_unresolved — вектор не выбирает категорию.
+         * @description exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. no_match — фраза, ключевые слова и LLM категорию не выбрали.
          * @enum {string}
          */
-        ClassificationOutcome: "exact_phrase" | "keyword_match" | "llm_confident" | "ambiguous_phrase" | "ambiguous_keyword" | "llm_low_confidence" | "embedder_stub" | "vector_unresolved";
+        ClassificationOutcome: "exact_phrase" | "keyword_match" | "llm_confident" | "ambiguous_phrase" | "ambiguous_keyword" | "llm_low_confidence" | "no_match";
         ClassificationCandidate: {
             /** Format: uuid */
             categoryId: string;
             categoryName: string;
-            /** @description 1 у точной фразы. У вектора — косинус, без порога назначения. */
+            /** @description 1 у точной фразы и у уверенного LLM. У ключевых слов — доля совпадения. */
             score: number;
             matchedBy: components["schemas"]["ClassificationMatch"];
         };
         ClassificationScores: {
             outcome: components["schemas"]["ClassificationOutcome"];
-            /** @description true, если на этом проходе эмбеддинг был заглушкой. */
+            /** @description Всегда false. Отдельной заглушки классификатора больше нет. */
             stub: boolean;
             candidates: components["schemas"]["ClassificationCandidate"][];
         };
@@ -749,7 +686,7 @@ export interface components {
         };
         CreateCategoryAndAssignRequest: {
             name: string;
-            /** @description Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем. */
+            /** @description Текст категории. Цену не класть. */
             description: string;
         };
         ResearchRerunResult: {
@@ -1151,64 +1088,6 @@ export interface operations {
             };
         };
     };
-    adminLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminLoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Токены админа */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"] & {
-                        data?: components["schemas"]["AdminAuthTokens"];
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    adminRefresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminRefreshRequest"];
-            };
-        };
-        responses: {
-            /** @description Новые токены */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiResponse"] & {
-                        data?: components["schemas"]["AdminAuthTokens"];
-                    };
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            500: components["responses"]["InternalError"];
-        };
-    };
     createCategory: {
         parameters: {
             query?: never;
@@ -1577,6 +1456,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
@@ -1604,6 +1484,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };

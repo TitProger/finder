@@ -25,7 +25,6 @@ import { ResearchRunRepository } from '../../../../domain/repositories/market/re
 import { ApiExceptionFilter } from '../../filters/api-exception.filter';
 import { ApiResponseInterceptor } from '../../interceptors/api-response.interceptor';
 import { AdminTokenGuard } from '../../auth/admin-token.guard';
-import { JwtTokenService } from '../../../../infrastructure/security/jwt-token.service';
 import { ResearchIngestController } from './research-ingest.controller';
 
 const TOKEN = 'ingest-secret';
@@ -50,14 +49,6 @@ const state: { runner: JsonResearchRunner | null } = { runner: null };
             },
         },
         { provide: APP_GUARD, useClass: AdminTokenGuard },
-        {
-            provide: JwtTokenService,
-            useValue: {
-                verify() {
-                    throw new Error('jwt is not used');
-                },
-            },
-        },
     ],
 })
 class ResearchIngestTestModule {}
@@ -145,7 +136,6 @@ function buildHarness() {
         name: 'Одежда',
         description: 'без цены для клиента',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     });
     const inquiry = stamp(new InquiryEntity(), {
         status: InquiryStatus.COLLECTING_ANSWERS,

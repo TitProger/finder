@@ -1,19 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Req } from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
+import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
 
-import { AppErrors } from '../../../../application/errors';
 import {
     OPTIMAL_CARD_SERVICE,
     OptimalCardService,
 } from '../../../../application/services/contracts/market/optimal-card.service';
-import { UnauthorizedAppException } from '../../../../common/exceptions/unauthorized.exception';
 import { ContactChannel } from '../../../../domain/enums/contact-channel.enum';
-import { AuthUser } from '../../auth/jwt-auth.guard';
 import type { OptimalCard } from '../../generated/common';
 import type { CreateOptimalCardRequest, UpdateOptimalCardRequest } from '../../generated/requests/optimal-cards';
 import { OptimalCardMapper } from '../../mappers/market/optimal-card.mapper';
-
-type RequestWithUser = FastifyRequest & { user?: AuthUser };
 
 @Controller('admin/optimal-cards')
 export class OptimalCardAdminController {
@@ -23,9 +17,8 @@ export class OptimalCardAdminController {
     ) {}
 
     @Post()
-    async create(@Body() body: CreateOptimalCardRequest, @Req() request: RequestWithUser): Promise<OptimalCard> {
+    async create(@Body() body: CreateOptimalCardRequest): Promise<OptimalCard> {
         const card = await this.cards.create({
-            adminUserId: adminId(request),
             categoryId: body.categoryId,
             offerId: body.offerId,
             canonicalProductId: body.canonicalProductId,
@@ -55,13 +48,8 @@ export class OptimalCardAdminController {
     }
 
     @Patch(':id')
-    async update(
-        @Param('id') id: string,
-        @Body() body: UpdateOptimalCardRequest,
-        @Req() request: RequestWithUser,
-    ): Promise<OptimalCard> {
+    async update(@Param('id') id: string, @Body() body: UpdateOptimalCardRequest): Promise<OptimalCard> {
         const card = await this.cards.update(id, {
-            adminUserId: adminId(request),
             canonicalProductId: body.canonicalProductId,
             nameRu: body.nameRu,
             nameZh: body.nameZh,
@@ -82,16 +70,6 @@ export class OptimalCardAdminController {
 
         return OptimalCardMapper.toCard(card);
     }
-}
-
-function adminId(request: RequestWithUser): string {
-    if (!request.user?.id) {
-        throw new UnauthorizedAppException(AppErrors.auth.unauthorized.message, {
-            code: AppErrors.auth.unauthorized.code,
-        });
-    }
-
-    return request.user.id;
 }
 
 function toDate(value: string | null | undefined): Date | null | undefined {

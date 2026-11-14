@@ -45,8 +45,6 @@ import { ApiExceptionFilter } from '../../../../interfaces/http/filters/api-exce
 import { AdminTokenGuard } from '../../../../interfaces/http/auth/admin-token.guard';
 import { ResearchRerunController } from '../../../../interfaces/http/controllers/inquiry/research-rerun.controller';
 import { ApiResponseInterceptor } from '../../../../interfaces/http/interceptors/api-response.interceptor';
-import { JwtTokenService } from '../../../../infrastructure/security/jwt-token.service';
-import { TextEmbeddingPort } from '../../../ports/text-embedding.port';
 import { InquiryServiceImpl } from '../inquiry/inquiry.service.impl';
 import { LimitCheckerServiceImpl } from '../tariff/limit-checker.service.impl';
 import { JsonResearchRunner } from './json-research-runner';
@@ -68,7 +66,6 @@ const state: { launch: ResearchLaunchService | null } = { launch: null };
     controllers: [ResearchRerunController],
     providers: [
         { provide: APP_GUARD, useClass: AdminTokenGuard },
-        { provide: JwtTokenService, useValue: { verify: () => { throw new Error('jwt'); } } },
         {
             provide: RESEARCH_LAUNCH_SERVICE,
             useFactory: () => {
@@ -232,7 +229,6 @@ function buildHarness() {
         plans as PlanRepository,
         dailyUsage as DailyUsageRepository,
     );
-    const embedder: TextEmbeddingPort = { async embed() { return { vector: [1], stub: true }; } };
     const inquiryRepo = repo(InquiryEntity, inquiries);
     const answerRepo = repo(InquiryAnswerEntity, answers);
     const runRepo = repo(ResearchRunEntity, runs);
@@ -252,7 +248,6 @@ function buildHarness() {
         repo(CategoryQuestionEntity, questions) as unknown as CategoryQuestionRepository,
         answerRepo as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        embedder,
         limitChecker,
         undefined,
         launch,
@@ -270,9 +265,8 @@ function buildHarness() {
         name: 'Одежда',
         description: 'Одежда и халаты',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     });
-    const phrase = stamp(new CategoryPhraseEntity(), { category, phrase: TEXT, embedding: null });
+    const phrase = stamp(new CategoryPhraseEntity(), { category, phrase: TEXT });
     const question = stamp(new CategoryQuestionEntity(), {
         category,
         questionPack: null,

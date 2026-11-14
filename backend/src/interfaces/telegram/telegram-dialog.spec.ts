@@ -1,7 +1,6 @@
 import { CategoryAdminServiceImpl } from '../../application/services/impls/category/category-admin.service.impl';
 import { InquiryServiceImpl } from '../../application/services/impls/inquiry/inquiry.service.impl';
 import { LimitCheckerServiceImpl } from '../../application/services/impls/tariff/limit-checker.service.impl';
-import { TextEmbeddingPort } from '../../application/ports/text-embedding.port';
 import { CategoryPhraseEntity } from '../../domain/entities/category/category-phrase.entity';
 import { CategoryQuestionEntity } from '../../domain/entities/category/category-question.entity';
 import { CategorySiteEntity } from '../../domain/entities/category/category-site.entity';
@@ -116,11 +115,6 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
             return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
         },
     };
-    const embedder: TextEmbeddingPort = {
-        async embed() {
-            return { vector: [1], stub: true };
-        },
-    };
     const categoryRepo = repo(CategoryEntity, categories);
     const packRepo = repo(QuestionPackEntity, packs);
     const questionRepo = repo(CategoryQuestionEntity, questions);
@@ -137,7 +131,6 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
         questionRepo as unknown as CategoryQuestionRepository,
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        embedder,
         limitChecker as any,
     );
     const categoryService = new CategoryAdminServiceImpl(
@@ -162,8 +155,6 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
     const admin = userRepo.create({
         role: UserRole.ADMIN,
         telegramUserId: String(ADMIN),
-        login: 'admin',
-        passwordHash: 'hash',
         displayName: 'Админ',
         isActive: true,
     });
@@ -175,13 +166,12 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
             name,
             description: `${name} без цены`,
             status: CategoryStatus.ACTIVE,
-            embedding: null,
         });
 
         em.persist(entity);
 
         if (phrase) {
-            em.persist(phraseRepo.create({ category: entity, phrase, embedding: null }));
+            em.persist(phraseRepo.create({ category: entity, phrase }));
         }
 
         prompts.forEach((prompt, sortOrder) => {

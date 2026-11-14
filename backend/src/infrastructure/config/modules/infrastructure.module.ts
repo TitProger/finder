@@ -16,7 +16,6 @@ import { OfferEntity } from '../../../domain/entities/catalog/offer.entity';
 import { InquiryEntity } from '../../../domain/entities/inquiry/inquiry.entity';
 import { InquiryAnswerEntity } from '../../../domain/entities/inquiry/inquiry-answer.entity';
 import { ResearchRunEntity } from '../../../domain/entities/market/research-run.entity';
-import { MarketSnapshotEntity } from '../../../domain/entities/market/market-snapshot.entity';
 import { OptimalCardEntity } from '../../../domain/entities/market/optimal-card.entity';
 import { ManualEconomicsEntity } from '../../../domain/entities/market/manual-economics.entity';
 import { PlanEntity } from '../../../domain/entities/tariff/plan.entity';
@@ -35,14 +34,12 @@ import { OfferRepositoryImpl } from '../../database/postgres/repositories/catalo
 import { InquiryRepositoryImpl } from '../../database/postgres/repositories/inquiry/inquiry.repository.impl';
 import { InquiryAnswerRepositoryImpl } from '../../database/postgres/repositories/inquiry/inquiry-answer.repository.impl';
 import { ResearchRunRepositoryImpl } from '../../database/postgres/repositories/market/research-run.repository.impl';
-import { MarketSnapshotRepositoryImpl } from '../../database/postgres/repositories/market/market-snapshot.repository.impl';
 import { OptimalCardRepositoryImpl } from '../../database/postgres/repositories/market/optimal-card.repository.impl';
 import { ManualEconomicsRepositoryImpl } from '../../database/postgres/repositories/market/manual-economics.repository.impl';
 import { PlanRepositoryImpl } from '../../database/postgres/repositories/tariff/plan.repository.impl';
 import { DailyUsageRepositoryImpl } from '../../database/postgres/repositories/tariff/daily-usage.repository.impl';
 import { AdminSeeder } from '../../database/seeders/admin.seeder';
 import { CategorySeederService } from '../../database/seeders/category-seeder.service';
-import { JwtTokenService } from '../../security/jwt-token.service';
 
 const entities = [
     AppUserEntity,
@@ -59,7 +56,6 @@ const entities = [
     InquiryEntity,
     InquiryAnswerEntity,
     ResearchRunEntity,
-    MarketSnapshotEntity,
     OptimalCardEntity,
     ManualEconomicsEntity,
     PlanEntity,
@@ -83,18 +79,15 @@ const entities = [
         { provide: REPOSITORY_TOKENS.INQUIRY_REPOSITORY, useClass: InquiryRepositoryImpl },
         { provide: REPOSITORY_TOKENS.INQUIRY_ANSWER_REPOSITORY, useClass: InquiryAnswerRepositoryImpl },
         { provide: REPOSITORY_TOKENS.RESEARCH_RUN_REPOSITORY, useClass: ResearchRunRepositoryImpl },
-        { provide: REPOSITORY_TOKENS.MARKET_SNAPSHOT_REPOSITORY, useClass: MarketSnapshotRepositoryImpl },
         { provide: REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY, useClass: OptimalCardRepositoryImpl },
         { provide: REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY, useClass: ManualEconomicsRepositoryImpl },
         { provide: REPOSITORY_TOKENS.PLAN_REPOSITORY, useClass: PlanRepositoryImpl },
         { provide: REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY, useClass: DailyUsageRepositoryImpl },
-        JwtTokenService,
         AdminSeeder,
         CategorySeederService,
     ],
     exports: [
         MikroOrmModule,
-        JwtTokenService,
         REPOSITORY_TOKENS.APP_USER_REPOSITORY,
         REPOSITORY_TOKENS.CATEGORY_REPOSITORY,
         REPOSITORY_TOKENS.CATEGORY_PHRASE_REPOSITORY,
@@ -109,7 +102,6 @@ const entities = [
         REPOSITORY_TOKENS.INQUIRY_REPOSITORY,
         REPOSITORY_TOKENS.INQUIRY_ANSWER_REPOSITORY,
         REPOSITORY_TOKENS.RESEARCH_RUN_REPOSITORY,
-        REPOSITORY_TOKENS.MARKET_SNAPSHOT_REPOSITORY,
         REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY,
         REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY,
         REPOSITORY_TOKENS.PLAN_REPOSITORY,

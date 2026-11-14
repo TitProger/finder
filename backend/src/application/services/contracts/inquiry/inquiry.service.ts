@@ -12,12 +12,12 @@ export type CreateInquiryInput = {
 export type AssignCategoryInput = {
     inquiryId: string;
     categoryId: string;
-    adminUserId: string;
+    adminUserId?: string;
 };
 
 export type CreateCategoryAndAssignInput = {
     inquiryId: string;
-    adminUserId: string;
+    adminUserId?: string;
     name: string;
     description: string;
 };

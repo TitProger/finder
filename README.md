@@ -4,7 +4,7 @@ Telegram-бот для поиска поставщиков и товаров. К
 
 ## Стек
 
-- **Backend**: NestJS 11, Fastify 5, MikroORM 6.5, PostgreSQL 17 + pgvector
+- **Backend**: NestJS 11, Fastify 5, MikroORM 6.5, PostgreSQL 17
 - **Runtime**: Node.js 24
 - **CI**: GitHub Actions
 
@@ -51,8 +51,6 @@ cp .env.example .env
 
 - `ADMIN_API_TOKEN` — статический токен для доступа к HTTP API админки
 - `ADMIN_TELEGRAM_IDS` — список Telegram ID админов через запятую (например: `871909427,123456789`)
-- `JWT_SECRET` — секрет для JWT (если используете JWT вместо статического токена)
-- `ADMIN_SEED_PASSWORD` — пароль для seed-админа
 
 **Telegram бот:**
 
@@ -150,9 +148,7 @@ curl -H "Authorization: Bearer YOUR_ADMIN_API_TOKEN" \
   http://localhost:8080/admin/categories
 ```
 
-Поддерживается два способа аутентификации:
-1. **Статический токен** (`ADMIN_API_TOKEN`) — рекомендуется
-2. **JWT** — для обратной совместимости (через `POST /admin/login`)
+Админские ручки принимают заголовок `Authorization: Bearer` со значением `ADMIN_API_TOKEN`. При старте для каждого id из `ADMIN_TELEGRAM_IDS` создаётся пользователь с ролью ADMIN, если его ещё нет.
 
 ### Telegram бот
 
@@ -238,9 +234,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ## Безопасность
 
-- Эндпоинты `/inquiries` защищены — требуют аутентификации
-- В production приложение не стартует без установленных секретов
-- Значения по умолчанию (`admin/admin`, dev JWT secret) запрещены в production
+- В production приложение не стартует без `ADMIN_API_TOKEN` и `RESEARCH_INGEST_TOKEN`
 - Цены НИКОГДА не отправляются клиенту — только менеджеру/админу
 
 ## Архитектура
@@ -319,17 +313,17 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ### База данных
 
-17 таблиц:
+16 таблиц:
 - Пользователи и роли: `app_user`
 - Категории и вопросы: `category`, `category_phrase`, `question_pack`, `category_question`, `category_site`
 - Заявки: `inquiry`, `inquiry_answer`
 - Каталог: `canonical_product`, `company`, `company_contact`, `storefront`, `offer`
-- Рынок: `market_snapshot`, `optimal_card`, `manual_economics`, `research_run`
+- Рынок: `optimal_card`, `manual_economics`, `research_run`
 - Тарифы: `plan`, `daily_usage`
 
 ## Следующие этапы
 
-См. `docs/plans/` для полного плана разработки. Сделаны этапы 0–7:
+См. `docs/plans/` для полного плана разработки. Сделаны этапы 0–8:
 
 - ✅ Этап 0: Гигиена (lint, CI, Docker, безопасность)
 - ✅ Этап 1: Админ по Telegram ID, дневные лимиты
@@ -339,6 +333,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - ✅ Этап 5: Запуск ресерча через webhook
 - ✅ Этап 6: Передача менеджеру в Telegram
 - ✅ Этап 7: Слои цен и ручная экономика менеджера
+- ✅ Этап 8: Чистка входа по логину, колонок похожести и снимка рынка
 
 ## Лицензия
 

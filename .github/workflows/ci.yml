@@ -65,6 +65,5 @@ jobs:
           PG_DATABASE: finder_test
           PG_USERNAME: finder_test
           PG_PASSWORD: finder_test
-          JWT_SECRET: test-jwt-secret
           ADMIN_API_TOKEN: test-admin-token
           ADMIN_TELEGRAM_IDS: "871909427"
