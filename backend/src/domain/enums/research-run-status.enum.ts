@@ -3,5 +3,7 @@ export enum ResearchRunStatus {
     RUNNING = 'RUNNING',
     SUCCEEDED = 'SUCCEEDED',
     FAILED = 'FAILED',
+    FAILED_TO_START = 'FAILED_TO_START',
+    STALE = 'STALE',
     CANCELLED = 'CANCELLED',
 }

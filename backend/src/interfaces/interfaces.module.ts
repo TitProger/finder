@@ -7,6 +7,7 @@ import { AdminAuthController } from './http/controllers/auth/admin-auth.controll
 import { CategoryController } from './http/controllers/category/category.controller';
 import { HealthController } from './http/controllers/health/health.controller';
 import { InquiryAdminController } from './http/controllers/inquiry/inquiry-admin.controller';
+import { ResearchRerunController } from './http/controllers/inquiry/research-rerun.controller';
 import { InquiryController } from './http/controllers/inquiry/inquiry.controller';
 import { OptimalCardAdminController } from './http/controllers/market/optimal-card-admin.controller';
 import { ResearchIngestController } from './http/controllers/research/research-ingest.controller';
@@ -28,6 +29,7 @@ import { TELEGRAM_OUTBOUND } from './telegram/telegram.types';
         CategoryController,
         InquiryController,
         InquiryAdminController,
+        ResearchRerunController,
         OptimalCardAdminController,
         PlanAdminController,
         ResearchIngestController,

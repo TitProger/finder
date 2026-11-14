@@ -4,6 +4,7 @@ import { DomainModule } from '../domain/domain.module';
 import { StubTextEmbedding } from '../infrastructure/embeddings/stub-text-embedding';
 import { InfrastructureModule } from '../infrastructure/config/modules/infrastructure.module';
 import { LlmCategoryClassifierService } from '../infrastructure/llm/llm-category-classifier.service';
+import { GrokWebhookTrigger } from '../infrastructure/research/grok-webhook.trigger';
 import { CategoryClassifierPort } from './ports/category-classifier.port';
 import { RESEARCH_RUNNER } from './ports/research-runner.port';
 import { TEXT_EMBEDDING_PORT } from './ports/text-embedding.port';
@@ -19,7 +20,10 @@ import { InquiryServiceImpl } from './services/impls/inquiry/inquiry.service.imp
 import { OptimalCardServiceImpl } from './services/impls/market/optimal-card.service.impl';
 import { LimitCheckerServiceImpl } from './services/impls/tariff/limit-checker.service.impl';
 import { PlanManagerServiceImpl } from './services/impls/tariff/plan-manager.service.impl';
+import { RESEARCH_TRIGGER } from './ports/research-trigger.port';
 import { JsonResearchRunner } from './services/impls/research/json-research-runner';
+import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from './services/impls/research/research-launch.service';
+import { ResearchStaleScheduler } from './services/impls/research/research-stale.scheduler';
 
 /**
  * Слой сценариев.
@@ -38,6 +42,9 @@ import { JsonResearchRunner } from './services/impls/research/json-research-runn
         { provide: LIMIT_CHECKER_SERVICE, useClass: LimitCheckerServiceImpl },
         { provide: PLAN_MANAGER_SERVICE, useClass: PlanManagerServiceImpl },
         { provide: RESEARCH_RUNNER, useClass: JsonResearchRunner },
+        { provide: RESEARCH_TRIGGER, useClass: GrokWebhookTrigger },
+        { provide: RESEARCH_LAUNCH_SERVICE, useClass: ResearchLaunchService },
+        ResearchStaleScheduler,
     ],
     exports: [
         DomainModule,
@@ -50,6 +57,7 @@ import { JsonResearchRunner } from './services/impls/research/json-research-runn
         LIMIT_CHECKER_SERVICE,
         PLAN_MANAGER_SERVICE,
         RESEARCH_RUNNER,
+        RESEARCH_LAUNCH_SERVICE,
     ],
 })
 export class ApplicationModule {}

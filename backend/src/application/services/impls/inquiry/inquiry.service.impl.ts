@@ -1,10 +1,11 @@
 import { UniqueConstraintViolationException } from '@mikro-orm/core';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
 import { CategoryClassifierPort } from '../../../ports/category-classifier.port';
 import { TextEmbeddingPort, TEXT_EMBEDDING_PORT } from '../../../ports/text-embedding.port';
 import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
+import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from '../research/research-launch.service';
 import {
     AdminRecipient,
     AnswerQuestionInput,
@@ -65,7 +66,7 @@ const PAUSE_REASON: Record<PauseOutcome, string> = {
  * Заявка и классификация.
  * Сомнение ставит паузу и не создаёт research_run.
  * Когда обязательные ответы собраны, живая карточка той же категории отдаётся сразу.
- * Нет карточки — заявка остаётся в сборе ответов, research_run не создаётся.
+ * Нет карточки — списывается дневной лимит и запускается ресерч.
  * Эмбеддинг-заглушка в category и category_phrase не пишется.
  */
 @Injectable()
@@ -92,6 +93,9 @@ export class InquiryServiceImpl implements InquiryService {
         @Inject(LIMIT_CHECKER_SERVICE)
         private readonly limitChecker: LimitCheckerService,
         private readonly llmClassifier?: CategoryClassifierPort,
+        @Optional()
+        @Inject(RESEARCH_LAUNCH_SERVICE)
+        private readonly researchLaunch?: ResearchLaunchService,
     ) {}
 
     async create(input: CreateInquiryInput): Promise<InquiryView> {
@@ -437,8 +441,8 @@ export class InquiryServiceImpl implements InquiryService {
 
     /**
      * Поиск перед ресерчем. Совпадение пишет карточку и статус «ответ из базы».
-     * research_run не создаётся ни при совпадении, ни при промахе.
-     * Проверяет дневной лимит перед тем, как отправлять запрос на ресерч.
+     * Совпадение с живой карточкой лимит не тратит.
+     * Промах списывает лимит один раз и создаёт research_run.
      */
     private async serveIfReady(inquiry: InquiryEntity): Promise<void> {
         if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
@@ -510,11 +514,12 @@ export class InquiryServiceImpl implements InquiryService {
                 return;
             }
 
-            // Увеличиваем счётчик использования
             await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
 
-            // TODO: Здесь будет запуск ресерча (этап 5)
-            // await this.triggerResearch(inquiry);
+            if (this.researchLaunch) {
+                await this.researchLaunch.startForInquiry(inquiry);
+            }
+
             return;
         }
 
