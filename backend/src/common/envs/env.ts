@@ -58,6 +58,13 @@ export const Envs = {
     tariffs: {
         freePlanDailyLimit: NumbersUtils.toNumberOrDefault(process.env.FREE_PLAN_DAILY_LIMIT, 3),
     },
+
+    llm: {
+        apiBaseUrl: process.env.LLM_API_BASE_URL || 'https://api.openai.com/v1/chat/completions',
+        apiKey: (process.env.LLM_API_KEY || '').trim(),
+        model: process.env.LLM_MODEL || 'gpt-4o-mini',
+        confidenceThreshold: NumbersUtils.toNumberOrDefault(process.env.LLM_CONFIDENCE_THRESHOLD, 0.7),
+    },
 };
 
 function requireInProduction(name: string, value: string | undefined, devDefault?: string): string {

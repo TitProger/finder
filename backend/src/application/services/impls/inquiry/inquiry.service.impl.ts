@@ -2,6 +2,7 @@ import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
+import { CategoryClassifierPort } from '../../../ports/category-classifier.port';
 import { TextEmbeddingPort, TEXT_EMBEDDING_PORT } from '../../../ports/text-embedding.port';
 import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
 import {
@@ -54,6 +55,8 @@ const ASSIGNABLE_STATUSES = new Set<InquiryStatus>([
 
 const PAUSE_REASON: Record<PauseOutcome, string> = {
     ambiguous_phrase: 'Сомнение классификатора: фраза есть в нескольких категориях.',
+    ambiguous_keyword: 'Сомнение классификатора: ключевые слова подходят нескольким категориям.',
+    llm_low_confidence: 'Сомнение классификатора: модель не уверена в выборе категории.',
     embedder_stub: 'Сомнение классификатора: точной фразы нет, эмбеддинг пока заглушка.',
     vector_unresolved: 'Сомнение классификатора: вектор не выбирает категорию, порог модели ещё не задан.',
 };
@@ -88,6 +91,7 @@ export class InquiryServiceImpl implements InquiryService {
         private readonly embeddings: TextEmbeddingPort,
         @Inject(LIMIT_CHECKER_SERVICE)
         private readonly limitChecker: LimitCheckerService,
+        private readonly llmClassifier?: CategoryClassifierPort,
     ) {}
 
     async create(input: CreateInquiryInput): Promise<InquiryView> {
@@ -350,11 +354,15 @@ export class InquiryServiceImpl implements InquiryService {
             })),
             categories.map((category) => ({
                 id: category.id,
+                code: category.code || null,
                 name: category.name,
+                description: category.description,
                 status: category.status,
                 embedding: category.embedding ?? null,
             })),
             this.embeddings,
+            this.llmClassifier,
+            Envs.llm.confidenceThreshold,
         );
     }
 

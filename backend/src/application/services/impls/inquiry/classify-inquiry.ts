@@ -1,6 +1,13 @@
 import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
-import { ClassificationCandidate, ClassificationScores, PauseOutcome } from '../../../../domain/inquiry/classification';
+import {
+    ClassificationCandidate,
+    ClassificationMatch,
+    ClassificationScores,
+    PauseOutcome,
+} from '../../../../domain/inquiry/classification';
 import { displayPhrase, normalizePhrase } from '../../../../domain/text/phrase-text';
+import { containsKeywords } from '../../../../domain/text/russian-normalizer';
+import { CategoryClassifierPort } from '../../../ports/category-classifier.port';
 import { TextEmbeddingPort } from '../../../ports/text-embedding.port';
 
 const TOP_CANDIDATES = 5;
@@ -15,8 +22,10 @@ export type PhraseSample = {
 
 export type CategorySample = {
     id: string;
+    code: string | null;
     name: string;
     status: CategoryStatus;
+    description: string;
     embedding: number[] | null;
 };
 
@@ -32,15 +41,20 @@ export type ClassificationDecision =
       };
 
 /**
- * Точная фраза активной категории выше вектора.
- * Заглушка и вектор без порога категорию не назначают.
- * Порог и модель — отдельный план. research_run отсюда не создаётся.
+ * Classification flow:
+ * 1. Exact phrase match (active categories)
+ * 2. Keyword/synonym matching (substring, word-form tolerant)
+ * 3. LLM classification (if configured and confident)
+ * 4. Vector fallback (legacy)
+ * 5. Pause (ambiguous or no match)
  */
 export async function classifyInquiry(
     text: string,
     phrases: readonly PhraseSample[],
     categories: readonly CategorySample[],
     embeddings: TextEmbeddingPort,
+    llmClassifier?: CategoryClassifierPort,
+    llmConfidenceThreshold = 0.7,
 ): Promise<ClassificationDecision> {
     const activePhrases = phrases.filter((phrase) => phrase.categoryStatus === CategoryStatus.ACTIVE);
     const normalized = normalizePhrase(text);
@@ -70,12 +84,35 @@ export async function classifyInquiry(
         );
     }
 
-    return vectorDecision(
-        categories.filter((category) => category.status === CategoryStatus.ACTIVE),
-        activePhrases,
-        embeddings,
-        text,
-    );
+    const activeCategories = categories.filter((category) => category.status === CategoryStatus.ACTIVE);
+
+    const keywordMatches = keywordMatchCategories(text, activePhrases, activeCategories);
+
+    if (keywordMatches.length === 1) {
+        return {
+            kind: 'confident',
+            categoryId: keywordMatches[0].categoryId,
+            scores: {
+                outcome: 'keyword_match',
+                stub: false,
+                candidates: [keywordMatches[0]],
+            },
+        };
+    }
+
+    if (keywordMatches.length > 1) {
+        return pause('ambiguous_keyword', false, keywordMatches);
+    }
+
+    if (llmClassifier) {
+        const llmDecision = await llmClassification(text, activeCategories, llmClassifier, llmConfidenceThreshold);
+
+        if (llmDecision) {
+            return llmDecision;
+        }
+    }
+
+    return vectorDecision(activeCategories, activePhrases, embeddings, text);
 }
 
 function confident(phrase: PhraseSample): ClassificationDecision {
@@ -208,4 +245,104 @@ function cosine(left: number[], right: number[]): number | null {
     }
 
     return dot / Math.sqrt(leftNorm * rightNorm);
+}
+
+function keywordMatchCategories(
+    text: string,
+    phrases: readonly PhraseSample[],
+    categories: readonly CategorySample[],
+): ClassificationCandidate[] {
+    const matchedCategories = new Map<string, ClassificationCandidate>();
+
+    for (const phrase of phrases) {
+        if (matchedCategories.has(phrase.categoryId)) {
+            continue;
+        }
+
+        const phraseKeywords = phrase.phrase.split(/\s+/).filter((word) => word.length > 2);
+
+        if (containsKeywords(text, phraseKeywords)) {
+            matchedCategories.set(phrase.categoryId, {
+                categoryId: phrase.categoryId,
+                categoryName: phrase.categoryName,
+                score: 0.9,
+                matchedBy: 'keyword',
+            });
+        }
+    }
+
+    return [...matchedCategories.values()].sort((left, right) =>
+        left.categoryName.localeCompare(right.categoryName, 'ru'),
+    );
+}
+
+async function llmClassification(
+    text: string,
+    categories: readonly CategorySample[],
+    llmClassifier: CategoryClassifierPort,
+    confidenceThreshold: number,
+): Promise<ClassificationDecision | null> {
+    try {
+        const categoriesWithCode = categories.filter((cat) => cat.code);
+
+        if (categoriesWithCode.length === 0) {
+            return null;
+        }
+
+        const result = await llmClassifier.classify({
+            text,
+            categories: categoriesWithCode.map((cat) => ({
+                code: cat.code!,
+                name: cat.name,
+                description: cat.description,
+                examplePhrases: [],
+            })),
+        });
+
+        if (result.categoryCode && result.confidence >= confidenceThreshold) {
+            const matchedCategory = categoriesWithCode.find((cat) => cat.code === result.categoryCode);
+
+            if (matchedCategory) {
+                return {
+                    kind: 'confident',
+                    categoryId: matchedCategory.id,
+                    scores: {
+                        outcome: 'llm_confident',
+                        stub: false,
+                        candidates: [
+                            {
+                                categoryId: matchedCategory.id,
+                                categoryName: matchedCategory.name,
+                                score: result.confidence,
+                                matchedBy: 'llm',
+                            },
+                        ],
+                    },
+                };
+            }
+        }
+
+        if (result.top3.length > 0) {
+            const top3Candidates: ClassificationCandidate[] = result.top3
+                .map((item) => {
+                    const cat = categoriesWithCode.find((c) => c.code === item.categoryCode);
+
+                    return cat
+                        ? {
+                              categoryId: cat.id,
+                              categoryName: cat.name,
+                              score: item.confidence,
+                              matchedBy: 'llm' as ClassificationMatch,
+                          }
+                        : null;
+                })
+                .filter((item): item is ClassificationCandidate => item !== null);
+
+            return pause('llm_low_confidence', false, top3Candidates);
+        }
+
+        return null;
+    } catch (error) {
+        return null;
+    }
 }

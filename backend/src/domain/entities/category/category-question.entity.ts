@@ -20,6 +20,9 @@ export class CategoryQuestionEntity extends BaseEntity<'isRequired' | 'sortOrder
     })
     questionPack?: Rel<QuestionPackEntity> | null;
 
+    @Property({ type: 'varchar', length: 64, nullable: true })
+    code?: string | null;
+
     @Property({ type: 'text' })
     prompt!: string;
 

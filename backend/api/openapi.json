@@ -2218,18 +2218,24 @@
       },
       "ClassificationMatch": {
         "type": "string",
-        "description": "Чем кандидат попал в оценку. exact_phrase выше vector.",
+        "description": "Чем кандидат попал в оценку.\nexact_phrase — точное совпадение фразы.\nkeyword — совпадение по ключевым словам.\nllm — классификация через LLM.\nvector — векторное сходство.\n",
         "enum": [
           "exact_phrase",
+          "keyword",
+          "llm",
           "vector"
         ]
       },
       "ClassificationOutcome": {
         "type": "string",
-        "description": "exact_phrase — одна активная категория по точной фразе, паузы нет. ambiguous_phrase — та же фраза в нескольких категориях, пауза. embedder_stub — точной фразы нет, заглушка эмбеддинга категорию не выбирает. vector_unresolved — вектор посчитан, порог модели ещё не задан, пауза.\n",
+        "description": "exact_phrase — одна активная категория по точной фразе.\nkeyword_match — совпадение по ключевым словам.\nllm_confident — LLM уверенно выбрала категорию.\nambiguous_phrase — та же фраза в нескольких категориях.\nambiguous_keyword — ключевые слова совпали с несколькими категориями.\nllm_low_confidence — LLM не уверена в выборе.\nembedder_stub — заглушка эмбеддинга.\nvector_unresolved — вектор не выбирает категорию.\n",
         "enum": [
           "exact_phrase",
+          "keyword_match",
+          "llm_confident",
           "ambiguous_phrase",
+          "ambiguous_keyword",
+          "llm_low_confidence",
           "embedder_stub",
           "vector_unresolved"
         ]

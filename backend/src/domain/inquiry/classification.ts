@@ -1,15 +1,19 @@
 export const CLASSIFICATION_OUTCOMES = [
     'exact_phrase',
+    'keyword_match',
+    'llm_confident',
     'ambiguous_phrase',
+    'ambiguous_keyword',
+    'llm_low_confidence',
     'embedder_stub',
     'vector_unresolved',
 ] as const;
 
 export type ClassificationOutcome = (typeof CLASSIFICATION_OUTCOMES)[number];
 
-export type PauseOutcome = Exclude<ClassificationOutcome, 'exact_phrase'>;
+export type PauseOutcome = Exclude<ClassificationOutcome, 'exact_phrase' | 'keyword_match' | 'llm_confident'>;
 
-export type ClassificationMatch = 'exact_phrase' | 'vector';
+export type ClassificationMatch = 'exact_phrase' | 'keyword' | 'llm' | 'vector';
 
 export type ClassificationCandidate = {
     categoryId: string;

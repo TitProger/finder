@@ -1,0 +1,740 @@
+# Справочник категорий для MVP sourcing bot
+# Источник правды для 7 начальных категорий
+# code — стабильный идентификатор для upsert и webhook
+
+categories:
+  - code: clothing
+    name: Одежда
+    description: >
+      Одежда, текстиль, обувь, аксессуары, спецодежда, лабораторные халаты.
+      Вопросы про ткань, размерный ряд, цвет, логотип. Площадки: 1688 фабрики, 
+      Made-in-China, текстильные кластеры Китая, Wildberries, Ozon.
+    
+    phrases:
+      - одежда
+      - текстиль
+      - халат
+      - лабораторный халат
+      - спецодежда
+      - СИЗ
+      - медицинская одежда
+      - униформа
+      - футболка
+      - платье
+      - куртка
+      - обувь
+    
+    base_questions:
+      - code: item_type
+        prompt: Что именно за изделие? (например: халат лабораторный, футболка, куртка)
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: quantity
+        prompt: Количество (штук)
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 2
+      
+      - code: material
+        prompt: Материал (например: хлопок, полиэстер, смесовая ткань)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 3
+      
+      - code: size_range
+        prompt: Размерный ряд и доли размеров (например: S-10%, M-40%, L-40%, XL-10%)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: color
+        prompt: Цвет
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: custom_logo
+        prompt: Нужен ли свой крой или логотип?
+        answer_type: BOOLEAN
+        is_required: false
+        sort_order: 6
+      
+      - code: known_price_ru
+        prompt: Какая цена в России уже попадалась? (рублей за штуку)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 7
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 8
+    
+    question_packs:
+      - code: workwear
+        title: Спецодежда и лабораторные халаты
+        description: Дополнительные вопросы для медицинской и защитной одежды
+        trigger_keywords:
+          - халат
+          - лабораторн
+          - медицинск
+          - спецодежд
+          - сиз
+          - защитн
+        questions:
+          - code: disposable
+            prompt: Многоразовый или одноразовый?
+            answer_type: SINGLE_CHOICE
+            is_required: true
+            sort_order: 1
+            choices:
+              - Многоразовый
+              - Одноразовый
+          
+          - code: fabric_density
+            prompt: Плотность ткани (г/м²)
+            answer_type: NUMBER
+            is_required: false
+            sort_order: 2
+          
+          - code: gender
+            prompt: Мужской, женский или унисекс?
+            answer_type: SINGLE_CHOICE
+            is_required: false
+            sort_order: 3
+            choices:
+              - Мужской
+              - Женский
+              - Унисекс
+          
+          - code: certificate
+            prompt: Нужен ли сертификат или стандарт?
+            answer_type: TEXT
+            is_required: false
+            sort_order: 4
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: 1688 (фабрики текстиля)
+        priority: 100
+        requires_login: true
+        query_template: '{товар} 生产厂家'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Made-in-China
+        priority: 90
+        requires_login: false
+        query_template: '{product} manufacturer'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Alibaba
+        priority: 85
+        requires_login: false
+        query_template: '{product} factory contact'
+        exclude_note: null
+      
+      - role: CHINA_OPEN_PRICE
+        name: Taobao
+        priority: 50
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: Только как розничный ориентир
+      
+      - role: RUSSIA_RETAIL
+        name: Wildberries
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Ozon
+        priority: 90
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+
+  - code: auto
+    name: Авто
+    description: >
+      Легковые и грузовые автомобили, новые и с пробегом. Вопросы про марку, 
+      модель, год, комплектацию, двигатель. Площадки: Автохоум, Дунчэди, Авто.ру, Дром.
+    
+    phrases:
+      - автомобиль
+      - машина
+      - авто
+      - chery
+      - tiggo
+      - geely
+      - haval
+      - cherry
+      - джип
+      - кроссовер
+      - седан
+    
+    base_questions:
+      - code: condition
+        prompt: Новая или с пробегом?
+        answer_type: SINGLE_CHOICE
+        is_required: true
+        sort_order: 1
+        choices:
+          - Новая
+          - С пробегом
+      
+      - code: brand_model
+        prompt: Марка и модель (например: Chery Tiggo 7 Pro)
+        answer_type: TEXT
+        is_required: true
+        sort_order: 2
+      
+      - code: year
+        prompt: Год выпуска
+        answer_type: NUMBER
+        is_required: false
+        sort_order: 3
+      
+      - code: trim
+        prompt: Комплектация
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: engine
+        prompt: Двигатель (объем, тип)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: color
+        prompt: Цвет
+        answer_type: TEXT
+        is_required: false
+        sort_order: 6
+      
+      - code: quantity
+        prompt: Сколько машин?
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 7
+      
+      - code: delivery_city
+        prompt: Город в России
+        answer_type: TEXT
+        is_required: true
+        sort_order: 8
+      
+      - code: budget
+        prompt: Бюджет или цена, которую уже видели в России (рублей)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 9
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: Автохоум (汽车之家)
+        priority: 100
+        requires_login: false
+        query_template: '{марка} {модель} 经销商 报价'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Дунчэди (懂车帝)
+        priority: 95
+        requires_login: false
+        query_template: '{марка} {модель} 价格'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Авто.ру
+        priority: 100
+        requires_login: false
+        query_template: '{марка} {модель}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Дром
+        priority: 90
+        requires_login: false
+        query_template: '{марка} {модель}'
+        exclude_note: null
+
+  - code: electronics
+    name: Электроника и гаджеты
+    description: >
+      Смартфоны, планшеты, ноутбуки, аксессуары, бытовая электроника.
+      Вопросы про модель, количество, характеристики. Площадки: 1688, JD, 
+      Taobao, Wildberries, DNS.
+    
+    phrases:
+      - электроника
+      - смартфон
+      - телефон
+      - планшет
+      - ноутбук
+      - наушники
+      - колонка
+      - гаджет
+      - аксессуар
+      - зарядка
+    
+    base_questions:
+      - code: model
+        prompt: Точная модель
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: condition
+        prompt: Новая или уценённая?
+        answer_type: SINGLE_CHOICE
+        is_required: true
+        sort_order: 2
+        choices:
+          - Новая
+          - Уценённая
+      
+      - code: quantity
+        prompt: Количество (штук)
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 3
+      
+      - code: specs
+        prompt: Ключевые характеристики (память, цвет, и т.д.)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: known_price_ru
+        prompt: Какая цена в России уже есть? (рублей за штуку)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 6
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: 1688
+        priority: 100
+        requires_login: true
+        query_template: '{товар} 批发'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Alibaba
+        priority: 90
+        requires_login: false
+        query_template: '{product} wholesale'
+        exclude_note: null
+      
+      - role: CHINA_OPEN_PRICE
+        name: JD (京东)
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: CHINA_OPEN_PRICE
+        name: Taobao
+        priority: 90
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Wildberries
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: DNS
+        priority: 90
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+
+  - code: equipment
+    name: Оборудование, станки и запчасти
+    description: >
+      Промышленное оборудование, станки, запчасти к станкам и оборудованию.
+      Вопросы про тип, модель, мощность, стандарты. Площадки: Made-in-China, 
+      Alibaba, 慧聪网, Пульс цен.
+    
+    phrases:
+      - оборудование
+      - станок
+      - запчасти
+      - запчасть
+      - агрегат
+      - промышленн
+      - производственн
+      - механизм
+    
+    base_questions:
+      - code: type_model
+        prompt: Тип и модель
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: condition
+        prompt: Новое или б/у?
+        answer_type: SINGLE_CHOICE
+        is_required: true
+        sort_order: 2
+        choices:
+          - Новое
+          - Б/у
+      
+      - code: quantity
+        prompt: Количество
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 3
+      
+      - code: power
+        prompt: Питание и мощность
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: standards
+        prompt: Нужные стандарты
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: installation
+        prompt: Нужен ли монтаж? (своими словами)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 6
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 7
+      
+      - code: known_price_ru
+        prompt: Известная цена в России
+        answer_type: TEXT
+        is_required: false
+        sort_order: 8
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: Made-in-China
+        priority: 100
+        requires_login: false
+        query_template: '{product} manufacturer'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Alibaba
+        priority: 95
+        requires_login: false
+        query_template: '{product} supplier'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: 1688
+        priority: 90
+        requires_login: true
+        query_template: '{товар} 厂家'
+        exclude_note: null
+      
+      - role: RUSSIA_WHOLESALE
+        name: Пульс цен
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+
+  - code: home
+    name: Дом, косметика и хозтовары
+    description: >
+      Товары для дома, косметика, бытовая химия, хозяйственные товары.
+      Вопросы про продукт, объём, бренд, состав. Площадки: 1688, Taobao, 
+      Wildberries, Ozon.
+    
+    phrases:
+      - косметика
+      - бытовая химия
+      - хозтовары
+      - для дома
+      - шампунь
+      - крем
+      - моющее средство
+      - посуда
+      - декор
+    
+    base_questions:
+      - code: product
+        prompt: Что за продукт?
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: volume
+        prompt: Объём упаковки
+        answer_type: TEXT
+        is_required: false
+        sort_order: 2
+      
+      - code: quantity
+        prompt: Количество
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 3
+      
+      - code: brand
+        prompt: Бренд или без бренда?
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: composition
+        prompt: Состав (если известен)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: certificate
+        prompt: Нужен ли сертификат? (своими словами)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 6
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 7
+      
+      - code: known_price_ru
+        prompt: Известная цена
+        answer_type: TEXT
+        is_required: false
+        sort_order: 8
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: 1688
+        priority: 100
+        requires_login: true
+        query_template: '{товар} 生产厂家'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Made-in-China
+        priority: 85
+        requires_login: false
+        query_template: '{product} factory'
+        exclude_note: null
+      
+      - role: CHINA_OPEN_PRICE
+        name: Taobao
+        priority: 80
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Wildberries
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Ozon
+        priority: 90
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+
+  - code: construction
+    name: Стройматериалы и фурнитура
+    description: >
+      Строительные материалы, фурнитура, металл, плитка. Вопросы про материал, 
+      размер, единицу, сорт. Площадки: 1688, Made-in-China, Петрович, Wildberries.
+    
+    phrases:
+      - стройматериалы
+      - фурнитура
+      - металл
+      - плитка
+      - кирпич
+      - цемент
+      - профиль
+      - труба
+      - арматура
+    
+    base_questions:
+      - code: material
+        prompt: Материал
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: size
+        prompt: Размер или сечение
+        answer_type: TEXT
+        is_required: false
+        sort_order: 2
+      
+      - code: unit
+        prompt: Единица (штука, метр, м², тонна)
+        answer_type: SINGLE_CHOICE
+        is_required: true
+        sort_order: 3
+        choices:
+          - штука
+          - метр
+          - м²
+          - м³
+          - тонна
+          - кг
+      
+      - code: grade
+        prompt: Сорт или стандарт
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: quantity
+        prompt: Количество
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 5
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 6
+      
+      - code: known_price_ru
+        prompt: Известная цена
+        answer_type: TEXT
+        is_required: false
+        sort_order: 7
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: 1688
+        priority: 100
+        requires_login: true
+        query_template: '{товар} 厂家'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Made-in-China
+        priority: 90
+        requires_login: false
+        query_template: '{product} manufacturer'
+        exclude_note: null
+      
+      - role: RUSSIA_WHOLESALE
+        name: Петрович
+        priority: 100
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Wildberries
+        priority: 50
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: Только если есть в рознице
+
+  - code: general
+    name: Общее
+    description: >
+      Общая категория для товаров, не подпадающих под специализированные категории.
+      Используется только когда админ явно назначил. Вопросы короткие, площадки широкие.
+    
+    phrases:
+      - общее
+    
+    base_questions:
+      - code: what
+        prompt: Что это?
+        answer_type: TEXT
+        is_required: true
+        sort_order: 1
+      
+      - code: quantity
+        prompt: Количество
+        answer_type: NUMBER
+        is_required: true
+        sort_order: 2
+      
+      - code: photo_or_link
+        prompt: Фото или ссылка (если есть)
+        answer_type: TEXT
+        is_required: false
+        sort_order: 3
+      
+      - code: specs
+        prompt: Характеристики своими словами
+        answer_type: TEXT
+        is_required: false
+        sort_order: 4
+      
+      - code: known_price_ru
+        prompt: Известная цена
+        answer_type: TEXT
+        is_required: false
+        sort_order: 5
+      
+      - code: delivery_city
+        prompt: Город доставки
+        answer_type: TEXT
+        is_required: true
+        sort_order: 6
+    
+    sites:
+      - role: FACTORY_CONTACT
+        name: 1688
+        priority: 90
+        requires_login: true
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: FACTORY_CONTACT
+        name: Alibaba
+        priority: 85
+        requires_login: false
+        query_template: '{product}'
+        exclude_note: null
+      
+      - role: CHINA_OPEN_PRICE
+        name: Taobao
+        priority: 70
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null
+      
+      - role: RUSSIA_RETAIL
+        name: Wildberries
+        priority: 80
+        requires_login: false
+        query_template: '{товар}'
+        exclude_note: null

@@ -39,6 +39,7 @@ import { ManualEconomicsRepositoryImpl } from '../../database/postgres/repositor
 import { PlanRepositoryImpl } from '../../database/postgres/repositories/tariff/plan.repository.impl';
 import { DailyUsageRepositoryImpl } from '../../database/postgres/repositories/tariff/daily-usage.repository.impl';
 import { AdminSeeder } from '../../database/seeders/admin.seeder';
+import { CategorySeederService } from '../../database/seeders/category-seeder.service';
 import { JwtTokenService } from '../../security/jwt-token.service';
 
 const entities = [
@@ -85,6 +86,7 @@ const entities = [
         { provide: REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY, useClass: DailyUsageRepositoryImpl },
         JwtTokenService,
         AdminSeeder,
+        CategorySeederService,
     ],
     exports: [
         MikroOrmModule,

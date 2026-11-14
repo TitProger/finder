@@ -10,6 +10,10 @@ import { QuestionPackEntity } from './question-pack.entity';
 
 @Entity({ tableName: 'category' })
 export class CategoryEntity extends BaseEntity<'status'> {
+    @Property({ type: 'varchar', length: 64, nullable: true })
+    @Unique()
+    code?: string | null;
+
     @Property({ type: 'varchar', length: 255 })
     @Unique()
     name!: string;
