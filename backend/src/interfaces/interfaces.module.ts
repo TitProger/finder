@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
 import { ApplicationModule } from '../application/application.module';
-import { JwtAuthGuard } from './http/auth/jwt-auth.guard';
+import { AdminTokenGuard } from './http/auth/admin-token.guard';
 import { AdminAuthController } from './http/controllers/auth/admin-auth.controller';
 import { CategoryController } from './http/controllers/category/category.controller';
 import { HealthController } from './http/controllers/health/health.controller';
@@ -29,7 +29,7 @@ import { TELEGRAM_OUTBOUND } from './telegram/telegram.types';
         OptimalCardAdminController,
     ],
     providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
+        { provide: APP_GUARD, useClass: AdminTokenGuard },
         TelegramBotApi,
         { provide: TELEGRAM_OUTBOUND, useExisting: TelegramBotApi },
         TelegramDialog,

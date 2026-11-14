@@ -6,7 +6,10 @@ import { MarketSnapshotRepository as MarketSnapshotRepositoryPort } from '../../
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class MarketSnapshotRepositoryImpl extends BaseRepositoryImpl<MarketSnapshotEntity> implements MarketSnapshotRepositoryPort {
+export class MarketSnapshotRepositoryImpl
+    extends BaseRepositoryImpl<MarketSnapshotEntity>
+    implements MarketSnapshotRepositoryPort
+{
     constructor(
         @InjectRepository(MarketSnapshotEntity)
         repository: BaseRepositoryImpl<MarketSnapshotEntity>,

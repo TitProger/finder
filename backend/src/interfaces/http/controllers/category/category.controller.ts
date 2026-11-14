@@ -43,12 +43,14 @@ export class CategoryController {
             description: body.description,
             status: body.status as CategoryStatus | undefined,
         });
+
         return CategoryMapper.toCategory(entity);
     }
 
     @Get(':id')
     async getById(@Param('id') id: string): Promise<CategoryDetail> {
         const entity = await this.categoryAdminService.getCategoryById(id);
+
         return CategoryMapper.toDetail(entity);
     }
 
@@ -59,6 +61,7 @@ export class CategoryController {
             description: body.description,
             status: body.status as CategoryStatus | undefined,
         });
+
         return CategoryMapper.toCategory(entity);
     }
 
@@ -68,6 +71,7 @@ export class CategoryController {
         @Body() body: CreateCategoryPhraseRequest,
     ): Promise<CategoryPhrase> {
         const entity = await this.categoryAdminService.createPhrase(categoryId, body);
+
         return CategoryMapper.toPhrase(entity);
     }
 
@@ -78,6 +82,7 @@ export class CategoryController {
         @Body() body: UpdateCategoryPhraseRequest,
     ): Promise<CategoryPhrase> {
         const entity = await this.categoryAdminService.updatePhrase(categoryId, id, body);
+
         return CategoryMapper.toPhrase(entity);
     }
 
@@ -93,6 +98,7 @@ export class CategoryController {
             sortOrder: body.sortOrder,
             isActive: body.isActive,
         });
+
         return CategoryMapper.toPack(entity);
     }
 
@@ -109,6 +115,7 @@ export class CategoryController {
             sortOrder: body.sortOrder,
             isActive: body.isActive,
         });
+
         return CategoryMapper.toPack(entity);
     }
 
@@ -125,6 +132,7 @@ export class CategoryController {
             isRequired: body.isRequired,
             sortOrder: body.sortOrder,
         });
+
         return CategoryMapper.toQuestion(entity);
     }
 
@@ -142,6 +150,7 @@ export class CategoryController {
             isRequired: body.isRequired,
             sortOrder: body.sortOrder,
         });
+
         return CategoryMapper.toQuestion(entity);
     }
 
@@ -160,6 +169,7 @@ export class CategoryController {
             excludeNote: body.excludeNote,
             isActive: body.isActive,
         });
+
         return CategoryMapper.toSite(entity);
     }
 
@@ -179,6 +189,7 @@ export class CategoryController {
             excludeNote: body.excludeNote,
             isActive: body.isActive,
         });
+
         return CategoryMapper.toSite(entity);
     }
 }

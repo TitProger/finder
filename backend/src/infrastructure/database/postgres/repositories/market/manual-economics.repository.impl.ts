@@ -6,7 +6,10 @@ import { ManualEconomicsRepository as ManualEconomicsRepositoryPort } from '../.
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class ManualEconomicsRepositoryImpl extends BaseRepositoryImpl<ManualEconomicsEntity> implements ManualEconomicsRepositoryPort {
+export class ManualEconomicsRepositoryImpl
+    extends BaseRepositoryImpl<ManualEconomicsEntity>
+    implements ManualEconomicsRepositoryPort
+{
     constructor(
         @InjectRepository(ManualEconomicsEntity)
         repository: BaseRepositoryImpl<ManualEconomicsEntity>,

@@ -42,7 +42,7 @@ export type CreateCategoryQuestionInput = {
     questionPackId?: string | null;
     prompt: string;
     answerType: QuestionAnswerType;
-    choices?: unknown | null;
+    choices?: unknown;
     isRequired?: boolean;
     sortOrder?: number;
 };
@@ -51,7 +51,7 @@ export type UpdateCategoryQuestionInput = {
     questionPackId?: string | null;
     prompt?: string;
     answerType?: QuestionAnswerType;
-    choices?: unknown | null;
+    choices?: unknown;
     isRequired?: boolean;
     sortOrder?: number;
 };

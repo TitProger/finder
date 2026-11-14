@@ -27,19 +27,23 @@ export class JwtAuthGuard implements CanActivate {
             context.getHandler(),
             context.getClass(),
         ]);
+
         if (isPublic) {
             return true;
         }
 
         const request = context.switchToHttp().getRequest<FastifyRequest & { user?: AuthUser }>();
         const header = request.headers.authorization;
+
         if (!header?.startsWith('Bearer ')) {
             throw new UnauthorizedAppException(AppErrors.auth.unauthorized.message, {
                 code: AppErrors.auth.unauthorized.code,
             });
         }
+
         const token = header.slice('Bearer '.length).trim();
         let payload;
+
         try {
             payload = this.jwt.verify(token, 'access');
         } catch {
@@ -47,12 +51,15 @@ export class JwtAuthGuard implements CanActivate {
                 code: AppErrors.auth.unauthorized.code,
             });
         }
+
         if (payload.role !== UserRole.ADMIN) {
             throw new ForbiddenAppException(AppErrors.auth.forbidden.message, {
                 code: AppErrors.auth.forbidden.code,
             });
         }
+
         request.user = { id: payload.sub, login: payload.login, role: payload.role };
+
         return true;
     }
 }

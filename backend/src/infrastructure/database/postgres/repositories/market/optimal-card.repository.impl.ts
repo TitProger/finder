@@ -6,7 +6,10 @@ import { OptimalCardRepository as OptimalCardRepositoryPort } from '../../../../
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class OptimalCardRepositoryImpl extends BaseRepositoryImpl<OptimalCardEntity> implements OptimalCardRepositoryPort {
+export class OptimalCardRepositoryImpl
+    extends BaseRepositoryImpl<OptimalCardEntity>
+    implements OptimalCardRepositoryPort
+{
     constructor(
         @InjectRepository(OptimalCardEntity)
         repository: BaseRepositoryImpl<OptimalCardEntity>,

@@ -27,7 +27,7 @@ export class CategoryQuestionEntity extends BaseEntity<'isRequired' | 'sortOrder
     answerType!: QuestionAnswerType;
 
     @Property({ type: 'jsonb', nullable: true })
-    choices?: unknown | null;
+    choices?: unknown;
 
     @Property({ type: 'boolean', fieldName: 'is_required', default: true })
     isRequired: boolean = true;

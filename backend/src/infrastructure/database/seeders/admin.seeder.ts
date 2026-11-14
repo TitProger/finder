@@ -38,6 +38,7 @@ export class AdminSeeder implements OnModuleInit {
             displayName: Envs.adminSeed.displayName,
             telegramUserId,
             isActive: true,
+            planCode: 'unlimited',
         });
 
         await this.users.getEntityManager().persistAndFlush(admin);

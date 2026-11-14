@@ -19,5 +19,40 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finder-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+      PG_ENABLED: "true"
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: ${PG_DATABASE:-finder}
+      PG_USERNAME: ${PG_USERNAME:-finder}
+      PG_PASSWORD: ${PG_PASSWORD:-finder}
+      PG_MIGRATIONS_RUN: "true"
+      PG_LOGGING: "false"
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      JWT_SECRET: ${JWT_SECRET:-finder-dev-jwt-secret-change-me}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      FREE_PLAN_DAILY_LIMIT: ${FREE_PLAN_DAILY_LIMIT:-3}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 volumes:
   postgres_data:

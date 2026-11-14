@@ -571,6 +571,7 @@ export class InquiryServiceImpl implements InquiryService {
             passwordHash: null,
             displayName: null,
             isActive: true,
+            planCode: 'free',
         });
         const em = this.users.getEntityManager();
 

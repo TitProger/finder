@@ -6,7 +6,10 @@ import { CanonicalProductRepository as CanonicalProductRepositoryPort } from '..
 import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
-export class CanonicalProductRepositoryImpl extends BaseRepositoryImpl<CanonicalProductEntity> implements CanonicalProductRepositoryPort {
+export class CanonicalProductRepositoryImpl
+    extends BaseRepositoryImpl<CanonicalProductEntity>
+    implements CanonicalProductRepositoryPort
+{
     constructor(
         @InjectRepository(CanonicalProductEntity)
         repository: BaseRepositoryImpl<CanonicalProductEntity>,
