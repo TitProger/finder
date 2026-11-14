@@ -6,6 +6,8 @@ import { CategoryClassifierPort } from '../../../ports/category-classifier.port'
 import { TextEmbeddingPort, TEXT_EMBEDDING_PORT } from '../../../ports/text-embedding.port';
 import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from '../research/research-launch.service';
+import { MANAGER_HANDOFF, ManagerHandoffService } from '../manager/manager-handoff.service';
+import { adminTelegramIds } from '../../../telegram/admin-telegram-ids';
 import {
     AdminRecipient,
     AnswerQuestionInput,
@@ -24,6 +26,7 @@ import { ForbiddenAppException } from '../../../../common/exceptions/forbidden.e
 import { NotFoundAppException } from '../../../../common/exceptions/not-found.exception';
 import { UnauthorizedAppException } from '../../../../common/exceptions/unauthorized.exception';
 import { Envs } from '../../../../common/envs/env';
+import { Logger } from '../../../../common/logger/logger';
 import { CategoryQuestionEntity } from '../../../../domain/entities/category/category-question.entity';
 import { CategoryEntity } from '../../../../domain/entities/category/category.entity';
 import { QuestionPackEntity } from '../../../../domain/entities/category/question-pack.entity';
@@ -96,6 +99,9 @@ export class InquiryServiceImpl implements InquiryService {
         @Optional()
         @Inject(RESEARCH_LAUNCH_SERVICE)
         private readonly researchLaunch?: ResearchLaunchService,
+        @Optional()
+        @Inject(MANAGER_HANDOFF)
+        private readonly handoff?: ManagerHandoffService,
     ) {}
 
     async create(input: CreateInquiryInput): Promise<InquiryView> {
@@ -533,6 +539,7 @@ export class InquiryServiceImpl implements InquiryService {
         inquiry.optimalCard = card;
         inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
         await this.inquiries.getEntityManager().flush();
+        await this.tellHandoff(() => this.handoff?.onCardServed(inquiry));
     }
 
     private async viewOf(inquiry: InquiryEntity): Promise<InquiryView> {
@@ -749,7 +756,17 @@ export class InquiryServiceImpl implements InquiryService {
     }
 
     private isAdminTelegramId(telegramId: string): boolean {
-        return Envs.admin.telegramIds.includes(telegramId);
+        return adminTelegramIds().includes(telegramId);
+    }
+
+    private async tellHandoff(send: () => Promise<void> | undefined): Promise<void> {
+        try {
+            await send();
+        } catch (error) {
+            Logger.error('Уведомление менеджера не ушло', Logger.statuses.FAIL, {
+                data: { message: error instanceof Error ? error.message : String(error) },
+            });
+        }
     }
 
     private async createAdminFromTelegram(telegramUserId: number): Promise<AppUserEntity> {

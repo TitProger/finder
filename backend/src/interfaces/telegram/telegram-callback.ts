@@ -14,6 +14,9 @@ export type ParsedCallback =
     | { type: 'list'; inquiryId: string; page: number }
     | { type: 'pick'; inquiryId: string; page: number; index: number }
     | { type: 'new'; inquiryId: string }
+    | { type: 'make_optimal'; inquiryId: string }
+    | { type: 'close'; inquiryId: string }
+    | { type: 'rerun'; inquiryId: string }
     | { type: 'site_role'; role: SiteRole };
 
 /** callback_data короче 64 байт: действие, id заявки и номер кнопки. */
@@ -40,6 +43,24 @@ export function parseCallback(data: string): ParsedCallback | null {
 
     if (created) {
         return { type: 'new', inquiryId: created[1] };
+    }
+
+    const optimal = new RegExp(`^mo:(${UUID})$`).exec(data);
+
+    if (optimal) {
+        return { type: 'make_optimal', inquiryId: optimal[1] };
+    }
+
+    const closed = new RegExp(`^cl:(${UUID})$`).exec(data);
+
+    if (closed) {
+        return { type: 'close', inquiryId: closed[1] };
+    }
+
+    const rerun = new RegExp(`^rr:(${UUID})$`).exec(data);
+
+    if (rerun) {
+        return { type: 'rerun', inquiryId: rerun[1] };
     }
 
     const site = /^sr:([fcrw])$/.exec(data);

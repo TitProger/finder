@@ -5,6 +5,9 @@ import { StubTextEmbedding } from '../infrastructure/embeddings/stub-text-embedd
 import { InfrastructureModule } from '../infrastructure/config/modules/infrastructure.module';
 import { LlmCategoryClassifierService } from '../infrastructure/llm/llm-category-classifier.service';
 import { GrokWebhookTrigger } from '../infrastructure/research/grok-webhook.trigger';
+import { TelegramManagerNotify } from '../infrastructure/telegram/telegram-manager-notify';
+import { TelegramBotApi } from '../interfaces/telegram/telegram-api';
+import { TELEGRAM_OUTBOUND } from '../interfaces/telegram/telegram.types';
 import { CategoryClassifierPort } from './ports/category-classifier.port';
 import { RESEARCH_RUNNER } from './ports/research-runner.port';
 import { TEXT_EMBEDDING_PORT } from './ports/text-embedding.port';
@@ -20,7 +23,9 @@ import { InquiryServiceImpl } from './services/impls/inquiry/inquiry.service.imp
 import { OptimalCardServiceImpl } from './services/impls/market/optimal-card.service.impl';
 import { LimitCheckerServiceImpl } from './services/impls/tariff/limit-checker.service.impl';
 import { PlanManagerServiceImpl } from './services/impls/tariff/plan-manager.service.impl';
+import { MANAGER_NOTIFY } from './ports/manager-notify.port';
 import { RESEARCH_TRIGGER } from './ports/research-trigger.port';
+import { MANAGER_HANDOFF, ManagerHandoffService } from './services/impls/manager/manager-handoff.service';
 import { JsonResearchRunner } from './services/impls/research/json-research-runner';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from './services/impls/research/research-launch.service';
 import { ResearchStaleScheduler } from './services/impls/research/research-stale.scheduler';
@@ -44,6 +49,9 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         { provide: RESEARCH_RUNNER, useClass: JsonResearchRunner },
         { provide: RESEARCH_TRIGGER, useClass: GrokWebhookTrigger },
         { provide: RESEARCH_LAUNCH_SERVICE, useClass: ResearchLaunchService },
+        { provide: TELEGRAM_OUTBOUND, useClass: TelegramBotApi },
+        { provide: MANAGER_NOTIFY, useClass: TelegramManagerNotify },
+        { provide: MANAGER_HANDOFF, useClass: ManagerHandoffService },
         ResearchStaleScheduler,
     ],
     exports: [
@@ -58,6 +66,7 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         PLAN_MANAGER_SERVICE,
         RESEARCH_RUNNER,
         RESEARCH_LAUNCH_SERVICE,
+        MANAGER_HANDOFF,
     ],
 })
 export class ApplicationModule {}

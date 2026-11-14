@@ -72,4 +72,7 @@ export class ResearchRunEntity extends BaseEntity<'status' | 'triggerAttempts'> 
 
     @Property({ type: 'text', fieldName: 'trigger_last_error', nullable: true })
     triggerLastError?: string | null;
+
+    @Property({ type: 'text', fieldName: 'notify_last_error', nullable: true })
+    notifyLastError?: string | null;
 }

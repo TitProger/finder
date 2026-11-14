@@ -9,4 +9,8 @@ export const ResearchErrors = {
     runReused: appError('RUN_ID_REUSED', 'Этот run_id уже принят с другим телом'),
     categoryMismatch: appError('RESEARCH_CATEGORY_MISMATCH', 'Категория досье не совпала с категорией заявки'),
     rerunNotAllowed: appError('RESEARCH_RERUN_NOT_ALLOWED', 'Эту заявку нельзя отправить на ресерч повторно'),
+    noFactoryOffer: appError(
+        'RESEARCH_NO_FACTORY_OFFER',
+        'В досье нет заводского оффера. Карточку можно собрать позже.',
+    ),
 } as const;

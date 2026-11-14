@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
 import { ResearchIngestResult, ResearchRunner } from '../../../ports/research-runner.port';
@@ -18,6 +18,8 @@ import { OfferRepository } from '../../../../domain/repositories/catalog/offer.r
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { ResearchRunRepository } from '../../../../domain/repositories/market/research-run.repository';
 import { REPOSITORY_TOKENS } from '../../../../domain/repositories/repository.tokens';
+import { Logger } from '../../../../common/logger/logger';
+import { MANAGER_HANDOFF, ManagerHandoffService } from '../manager/manager-handoff.service';
 import { DossierShapeError, ParsedCompany, ParsedDossier, parseDossier, payloadSha256 } from './parse-dossier';
 
 const JSON_IMPORT_SOURCE = 'research_ingest';
@@ -52,6 +54,9 @@ export class JsonResearchRunner implements ResearchRunner {
         private readonly offers: OfferRepository,
         @Inject(REPOSITORY_TOKENS.RESEARCH_RUN_REPOSITORY)
         private readonly runs: ResearchRunRepository,
+        @Optional()
+        @Inject(MANAGER_HANDOFF)
+        private readonly handoff?: ManagerHandoffService,
     ) {}
 
     async ingest(dossier: unknown): Promise<ResearchIngestResult> {
@@ -85,7 +90,29 @@ export class JsonResearchRunner implements ResearchRunner {
         const run = this.prepareRun(existingRun, inquiry, parsed, dossier, hash, now);
         const stored = await this.persist(inquiry, run, parsed, knownCompanies, knownContacts, now);
 
+        await this.tellManagers(inquiry, run);
+
         return this.resultOf(run, inquiry, stored, false);
+    }
+
+    private async tellManagers(inquiry: InquiryEntity, run: ResearchRunEntity): Promise<void> {
+        if (!this.handoff) {
+            return;
+        }
+
+        try {
+            if (run.status === ResearchRunStatus.FAILED || run.dossierStatus === 'failed') {
+                await this.handoff.onRunProblem(run);
+
+                return;
+            }
+
+            await this.handoff.onDossierReady(inquiry, run);
+        } catch (error) {
+            Logger.error('Уведомление о досье не ушло', Logger.statuses.FAIL, {
+                data: { message: error instanceof Error ? error.message : String(error), runId: run.runId },
+            });
+        }
     }
 
     private parse(dossier: unknown, now: Date): ParsedDossier {
