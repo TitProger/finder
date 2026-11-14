@@ -210,3 +210,84 @@ rerunResearch:
         $ref: '../../components/responses/errors.yaml#/Conflict'
       '500':
         $ref: '../../components/responses/errors.yaml#/InternalError'
+
+economics:
+  get:
+    operationId: getInquiryEconomics
+    tags: [inquiries]
+    summary: Слои цен и ручная экономика заявки
+    description: >
+      Только админ (статический ADMIN_API_TOKEN или JWT).
+      Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики.
+      Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается.
+      Клиенту этот ответ не отправляется.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Слои и, если менеджер уже ввёл затраты, себестоимость
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/InquiryEconomics'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'
+  post:
+    operationId: saveInquiryEconomics
+    tags: [inquiries]
+    summary: Записать ручные затраты и посчитать себестоимость
+    description: >
+      Только админ. Доставка за единицу, пошлина в процентах, прочие затраты и наценка в процентах.
+      Себестоимость считается от минимальной заводской цены в рублях и сравнивается с розницей РФ той же единицы.
+      client_price не заполняется: клиенту цена не уходит.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/inquiry/inquiry.yaml#/SaveInquiryEconomicsRequest'
+    responses:
+      '200':
+        description: Затраты записаны, себестоимость посчитана
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/InquiryEconomics'
+      '400':
+        $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'

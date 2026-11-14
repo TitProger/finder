@@ -26,8 +26,20 @@ export class ManualEconomicsEntity extends BaseEntity {
     @Property({ type: 'numeric', fieldName: 'logistics_cost', nullable: true })
     logisticsCost?: string | null;
 
+    /** Процент пошлины от цены товара. Сумма в рублях лежит в dutyCost. */
+    @Property({ type: 'numeric', fieldName: 'duty_percent', nullable: true })
+    dutyPercent?: string | null;
+
     @Property({ type: 'numeric', fieldName: 'duty_cost', nullable: true })
     dutyCost?: string | null;
+
+    /** Прочие затраты за единицу, в рублях. */
+    @Property({ type: 'numeric', fieldName: 'other_cost', nullable: true })
+    otherCost?: string | null;
+
+    /** Процент наценки. Сумма в рублях лежит в markupAmount. */
+    @Property({ type: 'numeric', fieldName: 'markup_percent', nullable: true })
+    markupPercent?: string | null;
 
     @Property({ type: 'numeric', fieldName: 'markup_amount', nullable: true })
     markupAmount?: string | null;

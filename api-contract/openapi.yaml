@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Finder API
-  version: 0.6.0
+  version: 0.7.0
   description: >
     Контракт API Finder.
     Источник правды — этот репозиторий (git tag).
@@ -58,6 +58,8 @@ paths:
     $ref: './paths/inquiry/inquiries.yaml#/assignNewCategory'
   /admin/inquiries/{id}/rerun-research:
     $ref: './paths/inquiry/inquiries.yaml#/rerunResearch'
+  /admin/inquiries/{id}/economics:
+    $ref: './paths/inquiry/inquiries.yaml#/economics'
   /admin/optimal-cards:
     $ref: './paths/market/optimal-cards.yaml#/collection'
   /admin/optimal-cards/{id}:
@@ -151,6 +153,10 @@ components:
       $ref: './components/schemas/inquiry/inquiry.yaml#/CreateCategoryAndAssignRequest'
     ResearchRerunResult:
       $ref: './components/schemas/inquiry/inquiry.yaml#/ResearchRerunResult'
+    SaveInquiryEconomicsRequest:
+      $ref: './components/schemas/inquiry/inquiry.yaml#/SaveInquiryEconomicsRequest'
+    InquiryEconomics:
+      $ref: './components/schemas/inquiry/inquiry.yaml#/InquiryEconomics'
     ContactChannel:
       $ref: './components/schemas/market/optimal-card.yaml#/ContactChannel'
     AttributeValue:

@@ -17,6 +17,7 @@ export type ParsedCallback =
     | { type: 'make_optimal'; inquiryId: string }
     | { type: 'close'; inquiryId: string }
     | { type: 'rerun'; inquiryId: string }
+    | { type: 'economics'; inquiryId: string }
     | { type: 'site_role'; role: SiteRole };
 
 /** callback_data короче 64 байт: действие, id заявки и номер кнопки. */
@@ -61,6 +62,12 @@ export function parseCallback(data: string): ParsedCallback | null {
 
     if (rerun) {
         return { type: 'rerun', inquiryId: rerun[1] };
+    }
+
+    const economics = new RegExp(`^ec:(${UUID})$`).exec(data);
+
+    if (economics) {
+        return { type: 'economics', inquiryId: economics[1] };
     }
 
     const site = /^sr:([fcrw])$/.exec(data);

@@ -335,6 +335,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/inquiries/{id}/economics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Слои цен и ручная экономика заявки
+         * @description Только админ (статический ADMIN_API_TOKEN или JWT). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.
+         */
+        get: operations["getInquiryEconomics"];
+        put?: never;
+        /**
+         * Записать ручные затраты и посчитать себестоимость
+         * @description Только админ. Доставка за единицу, пошлина в процентах, прочие затраты и наценка в процентах. Себестоимость считается от минимальной заводской цены в рублях и сравнивается с розницей РФ той же единицы. client_price не заполняется: клиенту цена не уходит.
+         */
+        post: operations["saveInquiryEconomics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/optimal-cards": {
         parameters: {
             query?: never;
@@ -737,6 +761,26 @@ export interface components {
             /** @enum {string} */
             runStatus: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "FAILED_TO_START" | "STALE" | "CANCELLED";
         };
+        SaveInquiryEconomicsRequest: {
+            /** @description Доставка за одну единицу, в рублях. */
+            deliveryPerUnit: number;
+            /** @description Пошлина в процентах от цены товара. */
+            dutyPercent: number;
+            /** @description Прочие затраты за единицу, в рублях. Пусто значит 0. */
+            otherCost?: number;
+            /** @description Наценка в процентах после доставки, пошлины и прочих. */
+            markupPercent: number;
+        };
+        InquiryEconomics: {
+            /** Format: uuid */
+            inquiryId: string;
+            quotes: components["schemas"]["LayerQuote"][];
+            /** @description true, если хотя бы один слой взял запасной курс. */
+            fxFallback: boolean;
+            economics: components["schemas"]["SaveInquiryEconomicsRequest"] | null;
+            /** @description Пустой, пока менеджер не ввёл затраты или нет заводской цены. */
+            landed: components["schemas"]["LandedUnit"][];
+        };
         /**
          * @description Канал контакта на оптимальной карточке.
          * @enum {string}
@@ -904,6 +948,31 @@ export interface components {
             duplicate: boolean;
             counts: components["schemas"]["ResearchIngestCounts"];
             discarded: components["schemas"]["DiscardedItem"][];
+        };
+        LayerQuote: {
+            /** @enum {string} */
+            layer: "FACTORY" | "CHINA_OPEN" | "RUSSIA_RETAIL" | "RUSSIA_WHOLESALE";
+            unit: string;
+            count: number;
+            minRub: number;
+            medianRub: number;
+            /** @enum {string} */
+            fxUsed: "dossier" | "fallback" | "rub";
+        };
+        LandedUnit: {
+            unit: string;
+            baseRub: number;
+            deliveryPerUnit: number;
+            dutyAmount: number;
+            otherCost: number;
+            markupAmount: number;
+            landedRub: number;
+            retailRub: number | null;
+            deltaRub: number | null;
+            /** @enum {string|null} */
+            verdict: "выгодно" | "не выгодно" | null;
+            /** @enum {string} */
+            fxUsed: "dossier" | "fallback" | "rub";
         };
         /** @enum {string} */
         DossierStatus: "complete" | "partial" | "failed";
@@ -1633,6 +1702,65 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getInquiryEconomics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Слои и, если менеджер уже ввёл затраты, себестоимость */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["InquiryEconomics"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    saveInquiryEconomics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveInquiryEconomicsRequest"];
+            };
+        };
+        responses: {
+            /** @description Затраты записаны, себестоимость посчитана */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["InquiryEconomics"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };

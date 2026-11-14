@@ -8,3 +8,4 @@ import type { components } from '../schema';
 export type AssignCategoryRequest = components['schemas']['AssignCategoryRequest'];
 export type CreateCategoryAndAssignRequest = components['schemas']['CreateCategoryAndAssignRequest'];
 export type CreateInquiryRequest = components['schemas']['CreateInquiryRequest'];
+export type SaveInquiryEconomicsRequest = components['schemas']['SaveInquiryEconomicsRequest'];

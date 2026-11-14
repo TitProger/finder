@@ -18,6 +18,12 @@ import { OptimalCardEntity } from '../../../../domain/entities/market/optimal-ca
 import { ResearchRunEntity } from '../../../../domain/entities/market/research-run.entity';
 import { InquiryStatus } from '../../../../domain/enums/inquiry-status.enum';
 import { MarketPriceLayer } from '../../../../domain/enums/market-price-layer.enum';
+import {
+    aggregateLayerPrices,
+    formatLayerLines,
+    readFallbackRates,
+    readFxTable,
+} from '../../../../domain/market/layer-prices';
 import { QuestionAnswerType } from '../../../../domain/enums/question-answer-type.enum';
 import { ResearchRunStatus } from '../../../../domain/enums/research-run-status.enum';
 import { UserRole } from '../../../../domain/enums/user-role.enum';
@@ -102,6 +108,7 @@ export class ManagerHandoffService {
             `Площадки: ${sites || '—'}`,
             'Заводские:',
             factory.length > 0 ? factory.map((line, index) => `${index + 1}. ${line}`).join('\n') : '—',
+            formatLayerLines(layerQuotes(offers, run.fx)),
         ];
 
         await this.fanout(lines.join('\n'), managerButtons(inquiry.id), run);
@@ -335,7 +342,35 @@ function managerButtons(inquiryId: string): ManagerButton[][] {
             { text: 'Закрыть', callbackData: `cl:${inquiryId}` },
             { text: 'Перезапустить', callbackData: `rr:${inquiryId}` },
         ],
+        [{ text: 'Рассчитать', callbackData: `ec:${inquiryId}` }],
     ];
+}
+
+function layerQuotes(offers: readonly OfferEntity[], fx: unknown) {
+    return aggregateLayerPrices(
+        offers.flatMap((offer) => {
+            if (offer.price === null || offer.price === undefined) {
+                return [];
+            }
+
+            const price = Number(offer.price);
+
+            if (!Number.isFinite(price)) {
+                return [];
+            }
+
+            return [
+                {
+                    layer: offer.layer ?? null,
+                    unit: offer.unit ?? null,
+                    price,
+                    currency: offer.currency ?? null,
+                },
+            ];
+        }),
+        readFxTable(fx),
+        readFallbackRates(),
+    );
 }
 
 function countByLayer(offers: readonly OfferEntity[]): Map<string, number> {
