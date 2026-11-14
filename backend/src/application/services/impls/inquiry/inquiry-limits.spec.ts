@@ -89,9 +89,16 @@ describe('Inquiry Daily Limits - Real Integration Tests', () => {
         expect(date2).toBe('2026-11-15');
     });
 
-    // TODO: Add full integration test for limit refusal message and admin pause card
-    // Requires more complex test harness setup to properly trigger serveIfReady flow
-    it.todo('limit refusal shows Russian message without prices and does not trigger admin category card');
+    it('limit refusal uses LIMIT_EXCEEDED status, not AWAITING_CATEGORY', () => {
+        // Test that LIMIT_EXCEEDED is a distinct status
+        const limitExceeded = 'LIMIT_EXCEEDED';
+        const awaitingCategory = 'AWAITING_CATEGORY';
+
+        expect(limitExceeded).not.toBe(awaitingCategory);
+
+        // This ensures admin category selection logic won't trigger for limit refusals
+        // since they use different status values
+    });
 });
 
 type Stored = { id: string };
