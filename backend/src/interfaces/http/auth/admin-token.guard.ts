@@ -47,9 +47,9 @@ export class AdminTokenGuard implements CanActivate {
         }
 
         const token = header.slice('Bearer '.length).trim();
+        const staticToken = (process.env.ADMIN_API_TOKEN || Envs.admin.apiToken || '').trim();
 
-        // Проверяем статический токен админа
-        if (Envs.admin.apiToken && token === Envs.admin.apiToken) {
+        if (staticToken && token === staticToken) {
             return true;
         }
 

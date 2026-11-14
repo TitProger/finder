@@ -8,4 +8,5 @@ export const ResearchErrors = {
     duplicate: appError('RESEARCH_DOSSIER_DUPLICATE', 'Компания или витрина уже есть в базе'),
     runReused: appError('RUN_ID_REUSED', 'Этот run_id уже принят с другим телом'),
     categoryMismatch: appError('RESEARCH_CATEGORY_MISMATCH', 'Категория досье не совпала с категорией заявки'),
+    rerunNotAllowed: appError('RESEARCH_RERUN_NOT_ALLOWED', 'Эту заявку нельзя отправить на ресерч повторно'),
 } as const;

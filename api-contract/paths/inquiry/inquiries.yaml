@@ -168,3 +168,45 @@ assignNewCategory:
         $ref: '../../components/responses/errors.yaml#/Conflict'
       '500':
         $ref: '../../components/responses/errors.yaml#/InternalError'
+
+rerunResearch:
+  post:
+    operationId: rerunInquiryResearch
+    tags: [inquiries]
+    summary: Повторно запустить ресерч
+    description: >
+      Только админ (статический ADMIN_API_TOKEN или JWT).
+      Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается.
+      Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией.
+      В ответе нет цен.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Новый прогон поставлен в очередь
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../components/schemas/common.yaml#/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../../components/schemas/inquiry/inquiry.yaml#/ResearchRerunResult'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
+      '403':
+        $ref: '../../components/responses/errors.yaml#/Forbidden'
+      '404':
+        $ref: '../../components/responses/errors.yaml#/NotFound'
+      '409':
+        $ref: '../../components/responses/errors.yaml#/Conflict'
+      '500':
+        $ref: '../../components/responses/errors.yaml#/InternalError'

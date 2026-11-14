@@ -10,7 +10,7 @@ export type StoredIngestResult = {
 };
 
 @Entity({ tableName: 'research_run' })
-export class ResearchRunEntity extends BaseEntity<'status'> {
+export class ResearchRunEntity extends BaseEntity<'status' | 'triggerAttempts'> {
     @ManyToOne(() => InquiryEntity, {
         fieldName: 'inquiry_id',
         deleteRule: 'cascade',
@@ -66,4 +66,10 @@ export class ResearchRunEntity extends BaseEntity<'status'> {
 
     @Property({ type: 'json', fieldName: 'ingest_result', nullable: true })
     ingestResult?: StoredIngestResult | null;
+
+    @Property({ type: 'int', fieldName: 'trigger_attempts', default: 0 })
+    triggerAttempts: number = 0;
+
+    @Property({ type: 'text', fieldName: 'trigger_last_error', nullable: true })
+    triggerLastError?: string | null;
 }

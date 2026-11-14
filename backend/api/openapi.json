@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
   },
   "servers": [
@@ -34,7 +34,7 @@
     },
     {
       "name": "research",
-      "description": "Приём досье ресерча"
+      "description": "Запуск ресерча и приём досье"
     }
   ],
   "paths": {
@@ -1200,6 +1200,71 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/inquiries/{id}/rerun-research": {
+      "post": {
+        "operationId": "rerunInquiryResearch",
+        "tags": [
+          "inquiries"
+        ],
+        "summary": "Повторно запустить ресерч",
+        "description": "Только админ (статический ADMIN_API_TOKEN или JWT). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Новый прогон поставлен в очередь",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ResearchRerunResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -2597,6 +2662,41 @@
             "type": "string",
             "minLength": 1,
             "description": "Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем."
+          }
+        }
+      },
+      "ResearchRerunResult": {
+        "type": "object",
+        "required": [
+          "inquiryId",
+          "runId",
+          "inquiryStatus",
+          "runStatus"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "inquiryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inquiryStatus": {
+            "$ref": "#/components/schemas/InquiryStatus"
+          },
+          "runStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "FAILED_TO_START",
+              "STALE",
+              "CANCELLED"
+            ]
           }
         }
       },

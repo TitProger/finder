@@ -9,3 +9,4 @@ export type ClassificationCandidate = components['schemas']['ClassificationCandi
 export type ClassificationScores = components['schemas']['ClassificationScores'];
 export type Inquiry = components['schemas']['Inquiry'];
 export type InquiryQuestion = components['schemas']['InquiryQuestion'];
+export type ResearchRerunResult = components['schemas']['ResearchRerunResult'];

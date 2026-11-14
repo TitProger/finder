@@ -315,6 +315,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/inquiries/{id}/rerun-research": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Повторно запустить ресерч
+         * @description Только админ (статический ADMIN_API_TOKEN или JWT). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.
+         */
+        post: operations["rerunInquiryResearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/optimal-cards": {
         parameters: {
             query?: never;
@@ -707,6 +727,15 @@ export interface components {
             name: string;
             /** @description Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем. */
             description: string;
+        };
+        ResearchRerunResult: {
+            /** Format: uuid */
+            inquiryId: string;
+            /** Format: uuid */
+            runId: string;
+            inquiryStatus: components["schemas"]["InquiryStatus"];
+            /** @enum {string} */
+            runStatus: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "FAILED_TO_START" | "STALE" | "CANCELLED";
         };
         /**
          * @description Канал контакта на оптимальной карточке.
@@ -1571,6 +1600,35 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    rerunInquiryResearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Новый прогон поставлен в очередь */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ResearchRerunResult"];
+                    };
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
