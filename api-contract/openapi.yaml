@@ -1,18 +1,16 @@
 openapi: 3.1.0
 info:
   title: Finder API
-  version: 0.7.0
+  version: 0.8.0
   description: >
     Контракт API Finder.
-    Источник правды — этот репозиторий (git tag).
+    Источник правды — каталог api-contract в этом репозитории.
 servers:
   - url: http://localhost:8090
     description: local
 tags:
   - name: health
     description: Проверка работоспособности
-  - name: auth
-    description: Вход админа (JWT)
   - name: categories
     description: Справочник категорий для админа
   - name: inquiries
@@ -24,10 +22,6 @@ tags:
 paths:
   /health:
     $ref: './paths/common/health.yaml#/health'
-  /admin/login:
-    $ref: './paths/auth/admin-auth.yaml#/login'
-  /admin/refresh:
-    $ref: './paths/auth/admin-auth.yaml#/refresh'
   /admin/categories:
     $ref: './paths/category/categories.yaml#/listCreate'
   /admin/categories/{id}:
@@ -71,7 +65,7 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      description: Статический ADMIN_API_TOKEN.
     researchIngestToken:
       type: http
       scheme: bearer
@@ -87,12 +81,6 @@ components:
       $ref: './components/schemas/common.yaml#/HealthData'
     ApiResponse:
       $ref: './components/schemas/common.yaml#/ApiResponse'
-    AdminLoginRequest:
-      $ref: './components/schemas/auth/auth.yaml#/AdminLoginRequest'
-    AdminRefreshRequest:
-      $ref: './components/schemas/auth/auth.yaml#/AdminRefreshRequest'
-    AdminAuthTokens:
-      $ref: './components/schemas/auth/auth.yaml#/AdminAuthTokens'
     CategoryStatus:
       $ref: './components/schemas/category/category.yaml#/CategoryStatus'
     QuestionAnswerType:

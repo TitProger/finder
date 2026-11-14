@@ -130,8 +130,6 @@ function buildHarness() {
         stamp(new AppUserEntity(), {
             role: UserRole.ADMIN,
             telegramUserId: null,
-            login: 'admin',
-            passwordHash: 'hash',
             displayName: 'Админ',
             isActive: true,
         }),
@@ -141,7 +139,6 @@ function buildHarness() {
             name: 'Халаты',
             description: 'без цены',
             status: CategoryStatus.ACTIVE,
-            embedding: null,
         }),
     );
     const quantity = save(

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.7.0",
-    "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
+    "version": "0.8.0",
+    "description": "Контракт API Finder. Источник правды — каталог api-contract в этом репозитории.\n"
   },
   "servers": [
     {
@@ -15,10 +15,6 @@
     {
       "name": "health",
       "description": "Проверка работоспособности"
-    },
-    {
-      "name": "auth",
-      "description": "Вход админа (JWT)"
     },
     {
       "name": "categories",
@@ -68,114 +64,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/admin/login": {
-      "post": {
-        "operationId": "adminLogin",
-        "tags": [
-          "auth"
-        ],
-        "summary": "Вход админа",
-        "description": "Публичный эндпоинт. Учётка засеяна в БД. Пароль в ответе не возвращается. Ошибки 401: INVALID_CREDENTIALS, USER_INACTIVE.\n",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminLoginRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Токены админа",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/AdminAuthTokens"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
-        }
-      }
-    },
-    "/admin/refresh": {
-      "post": {
-        "operationId": "adminRefresh",
-        "tags": [
-          "auth"
-        ],
-        "summary": "Обновить access-токен админа",
-        "description": "Публичный эндпоинт. Принимает refreshToken в теле. Ошибка 401: INVALID_REFRESH_TOKEN.\n",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminRefreshRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Новые токены",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/AdminAuthTokens"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
           }
         }
       }
@@ -961,8 +849,12 @@
           "inquiries"
         ],
         "summary": "Создать заявку текстом",
-        "description": "Без JWT. Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.\n",
-        "security": [],
+        "description": "Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -999,6 +891,9 @@
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
@@ -1015,8 +910,12 @@
           "inquiries"
         ],
         "summary": "Прочитать заявку",
-        "description": "Без JWT. Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.\n",
-        "security": [],
+        "description": "Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
@@ -1054,6 +953,9 @@
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -1070,7 +972,7 @@
           "inquiries"
         ],
         "summary": "Назначить категорию",
-        "description": "Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase. Повтор той же фразы в категории ошибкой не считается. Вектор фразы не заполняется. research_run не создаётся.\n",
+        "description": "Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase. Повтор той же фразы в категории ошибкой не считается. research_run не создаётся.\n",
         "security": [
           {
             "bearerAuth": []
@@ -1148,7 +1050,7 @@
           "inquiries"
         ],
         "summary": "Создать категорию и назначить",
-        "description": "Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента. Пауза снимается. research_run не создаётся. Эмбеддинг категории не пишется.\n",
+        "description": "Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента. Пауза снимается. research_run не создаётся.\n",
         "security": [
           {
             "bearerAuth": []
@@ -1226,7 +1128,7 @@
           "inquiries"
         ],
         "summary": "Повторно запустить ресерч",
-        "description": "Только админ (статический ADMIN_API_TOKEN или JWT). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.\n",
+        "description": "Только админ (статический ADMIN_API_TOKEN). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.\n",
         "security": [
           {
             "bearerAuth": []
@@ -1291,7 +1193,7 @@
           "inquiries"
         ],
         "summary": "Слои цен и ручная экономика заявки",
-        "description": "Только админ (статический ADMIN_API_TOKEN или JWT). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.\n",
+        "description": "Только админ (статический ADMIN_API_TOKEN). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.\n",
         "security": [
           {
             "bearerAuth": []
@@ -1694,7 +1596,7 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "description": "Статический ADMIN_API_TOKEN."
       },
       "researchIngestToken": {
         "type": "http",
@@ -1799,94 +1701,6 @@
           },
           "error": {
             "$ref": "#/components/schemas/ApiError"
-          }
-        }
-      },
-      "AdminLoginRequest": {
-        "type": "object",
-        "required": [
-          "login",
-          "password"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "login": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "password": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 255,
-            "writeOnly": true
-          }
-        }
-      },
-      "AdminRefreshRequest": {
-        "type": "object",
-        "required": [
-          "refreshToken"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "refreshToken": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "AdminAuthTokens": {
-        "type": "object",
-        "required": [
-          "accessToken",
-          "refreshToken",
-          "tokenType",
-          "expiresIn"
-        ],
-        "properties": {
-          "accessToken": {
-            "type": "string"
-          },
-          "refreshToken": {
-            "type": "string"
-          },
-          "tokenType": {
-            "type": "string",
-            "enum": [
-              "Bearer"
-            ]
-          },
-          "expiresIn": {
-            "type": "integer",
-            "description": "Срок access-токена в секундах"
-          },
-          "admin": {
-            "type": "object",
-            "required": [
-              "id",
-              "login",
-              "role"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "login": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "ADMIN"
-                ]
-              },
-              "displayName": {
-                "type": "string",
-                "nullable": true
-              }
-            }
           }
         }
       },
@@ -2488,17 +2302,16 @@
       },
       "ClassificationMatch": {
         "type": "string",
-        "description": "Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM. vector — векторное сходство.\n",
+        "description": "Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM.\n",
         "enum": [
           "exact_phrase",
           "keyword",
-          "llm",
-          "vector"
+          "llm"
         ]
       },
       "ClassificationOutcome": {
         "type": "string",
-        "description": "exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. embedder_stub — заглушка эмбеддинга. vector_unresolved — вектор не выбирает категорию.\n",
+        "description": "exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. no_match — фраза, ключевые слова и LLM категорию не выбрали.\n",
         "enum": [
           "exact_phrase",
           "keyword_match",
@@ -2506,8 +2319,7 @@
           "ambiguous_phrase",
           "ambiguous_keyword",
           "llm_low_confidence",
-          "embedder_stub",
-          "vector_unresolved"
+          "no_match"
         ]
       },
       "ClassificationCandidate": {
@@ -2528,7 +2340,7 @@
           },
           "score": {
             "type": "number",
-            "description": "1 у точной фразы. У вектора — косинус, без порога назначения."
+            "description": "1 у точной фразы и у уверенного LLM. У ключевых слов — доля совпадения."
           },
           "matchedBy": {
             "$ref": "#/components/schemas/ClassificationMatch"
@@ -2548,7 +2360,7 @@
           },
           "stub": {
             "type": "boolean",
-            "description": "true, если на этом проходе эмбеддинг был заглушкой."
+            "description": "Всегда false. Отдельной заглушки классификатора больше нет."
           },
           "candidates": {
             "type": "array",
@@ -2790,7 +2602,7 @@
           "description": {
             "type": "string",
             "minLength": 1,
-            "description": "Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем."
+            "description": "Текст категории. Цену не класть."
           }
         }
       },

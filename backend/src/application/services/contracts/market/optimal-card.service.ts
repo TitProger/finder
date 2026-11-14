@@ -5,7 +5,7 @@ import { AttributeValue } from '../../../../domain/market/attribute-value';
 export const OPTIMAL_CARD_SERVICE = Symbol('OPTIMAL_CARD_SERVICE');
 
 export type CreateOptimalCardInput = {
-    adminUserId: string;
+    adminUserId?: string;
     categoryId: string;
     offerId?: string | null;
     canonicalProductId?: string | null;
@@ -27,7 +27,7 @@ export type CreateOptimalCardInput = {
 };
 
 export type UpdateOptimalCardInput = {
-    adminUserId: string;
+    adminUserId?: string;
     canonicalProductId?: string | null;
     nameRu?: string | null;
     nameZh?: string | null;

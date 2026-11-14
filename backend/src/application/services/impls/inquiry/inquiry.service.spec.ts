@@ -22,7 +22,6 @@ import { InquiryAnswerRepository } from '../../../../domain/repositories/inquiry
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { OptimalCardRepository } from '../../../../domain/repositories/market/optimal-card.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
-import { TextEmbeddingPort } from '../../../ports/text-embedding.port';
 import { InquiryServiceImpl } from './inquiry.service.impl';
 
 type Stored = { id: string };
@@ -129,14 +128,6 @@ function buildHarness() {
             return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
         },
     };
-    const embedder: TextEmbeddingPort & { calls: number } = {
-        calls: 0,
-        async embed() {
-            this.calls += 1;
-
-            return { vector: [1], stub: true };
-        },
-    };
     const limitChecker = {
         canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
         incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
@@ -150,7 +141,6 @@ function buildHarness() {
         repo(CategoryQuestionEntity, questions) as unknown as CategoryQuestionRepository,
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        embedder,
         limitChecker as any,
     );
     const usersRepo = {
@@ -202,8 +192,6 @@ function buildHarness() {
     const admin = usersRepo.create({
         role: UserRole.ADMIN,
         telegramUserId: null,
-        login: 'admin',
-        passwordHash: 'hash',
         displayName: 'Админ',
         isActive: true,
     });
@@ -220,7 +208,6 @@ function buildHarness() {
 
     return {
         service,
-        embedder,
         admin,
         phrases,
         categories,
@@ -238,7 +225,6 @@ function seedShoes(harness: ReturnType<typeof buildHarness>) {
         name: 'Обувь',
         description: 'Обувь без цены',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     });
     const work = harness.packsRepo.create({
         category,
@@ -257,7 +243,7 @@ function seedShoes(harness: ReturnType<typeof buildHarness>) {
         isActive: true,
     });
 
-    harness.phrasesRepo.create({ category, phrase: 'кроссовки', embedding: null });
+    harness.phrasesRepo.create({ category, phrase: 'кроссовки' });
     harness.questionsRepo.create({
         category,
         questionPack: null,
@@ -301,7 +287,6 @@ describe('InquiryServiceImpl', () => {
         expect(view.inquiry.questionPack).toBeNull();
         expect(view.inquiry.rawText).toBe('Кроссовки');
         expect(view.questions.map((question) => question.prompt)).toEqual(['Размер?']);
-        expect(harness.embedder.calls).toBe(0);
         expect(view.inquiry.status).not.toBe(InquiryStatus.RESEARCHING);
     });
 
@@ -314,11 +299,10 @@ describe('InquiryServiceImpl', () => {
         expect(view.inquiry.category ?? null).toBeNull();
         expect(view.inquiry.status).toBe(InquiryStatus.AWAITING_CATEGORY);
         expect(view.inquiry.isPaused).toBe(true);
-        expect(view.inquiry.pauseReason).toContain('заглушка');
-        expect(view.inquiry.classificationScores).toMatchObject({ outcome: 'embedder_stub', stub: true });
+        expect(view.inquiry.pauseReason).toContain('категория не выбрана');
+        expect(view.inquiry.classificationScores).toMatchObject({ outcome: 'no_match', stub: false });
         expect(view.questions).toEqual([]);
         expect(view.inquiry.status).not.toBe(InquiryStatus.RESEARCHING);
-        expect(harness.embedder.calls).toBe(1);
     });
 
     it('назначение админом снимает паузу и сохраняет фразу', async () => {
@@ -340,7 +324,6 @@ describe('InquiryServiceImpl', () => {
         expect(assigned.inquiry.category?.id).toBe(category.id);
         expect(assigned.inquiry.assignedByUser?.id).toBe(harness.admin.id);
         expect(saved?.phrase).toBe('нужен станок');
-        expect(saved?.embedding ?? null).toBeNull();
         expect(assigned.questions.map((question) => question.prompt)).toEqual(['Размер?']);
         expect(assigned.inquiry.status).not.toBe(InquiryStatus.RESEARCHING);
 
@@ -348,7 +331,6 @@ describe('InquiryServiceImpl', () => {
 
         expect(again.inquiry.category?.id).toBe(category.id);
         expect(again.inquiry.isPaused).toBe(false);
-        expect(harness.embedder.calls).toBe(1);
     });
 
     it('создание категории назначает её и сохраняет фразу без вектора', async () => {
@@ -366,11 +348,9 @@ describe('InquiryServiceImpl', () => {
         const phrase = harness.phrases.find((item) => item.category.id === category?.id);
 
         expect(category?.status).toBe(CategoryStatus.ACTIVE);
-        expect(category?.embedding ?? null).toBeNull();
         expect(assigned.inquiry.category?.id).toBe(category?.id);
         expect(assigned.inquiry.isPaused).toBe(false);
         expect(phrase?.phrase).toBe('насос');
-        expect(phrase?.embedding ?? null).toBeNull();
         expect(assigned.inquiry.status).not.toBe(InquiryStatus.RESEARCHING);
     });
 
@@ -378,7 +358,7 @@ describe('InquiryServiceImpl', () => {
         const harness = buildHarness();
         const category = seedShoes(harness);
 
-        harness.phrasesRepo.create({ category, phrase: 'Спецодежда', embedding: null });
+        harness.phrasesRepo.create({ category, phrase: 'Спецодежда' });
         const view = await harness.service.create({ telegramUserId: 100, text: 'Спецодежда' });
 
         expect(view.inquiry.questionPack?.code).toBe('WORKWEAR');
@@ -391,7 +371,6 @@ describe('InquiryServiceImpl', () => {
             name: 'Архив',
             description: 'скрыто',
             status: CategoryStatus.ARCHIVED,
-            embedding: null,
         });
         const created = await harness.service.create({ telegramUserId: 100, text: 'станок' });
 
@@ -444,7 +423,7 @@ describe('InquiryServiceImpl', () => {
         const harness = buildHarness();
         const category = seedShoes(harness);
 
-        harness.phrasesRepo.create({ category, phrase: 'Спецодежда', embedding: null });
+        harness.phrasesRepo.create({ category, phrase: 'Спецодежда' });
         const created = await harness.service.create({ telegramUserId: 100, text: 'Спецодежда' });
         const next = await harness.service.answerQuestion({
             inquiryId: created.inquiry.id,
@@ -497,16 +476,14 @@ describe('InquiryServiceImpl', () => {
             name: 'Халаты',
             description: 'Халаты без цены',
             status: CategoryStatus.ACTIVE,
-            embedding: null,
         });
         const other = harness.categoriesRepo.create({
             name: 'Насосы',
             description: 'Насосы без цены',
             status: CategoryStatus.ACTIVE,
-            embedding: null,
         });
 
-        harness.phrasesRepo.create({ category, phrase: 'халаты', embedding: null });
+        harness.phrasesRepo.create({ category, phrase: 'халаты' });
         const fabric = harness.questionsRepo.create({
             category,
             questionPack: null,
@@ -539,7 +516,6 @@ describe('InquiryServiceImpl', () => {
             nameRu: 'Халат хлопок',
             nameZh: null,
             attributes: { [fabric.id]: 'хлопок' },
-            embedding: null,
         });
         const card = harness.cardsRepo.create({
             category,

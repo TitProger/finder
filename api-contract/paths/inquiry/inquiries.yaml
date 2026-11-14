@@ -4,12 +4,13 @@ create:
     tags: [inquiries]
     summary: Создать заявку текстом
     description: >
-      Без JWT. Клиент определяется telegram user id — это вход, не регистрация.
+      Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация.
       Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории
       и одного пакета, если текст точно совпал с его code или title.
       Иначе заявка на паузе, category_id пустой, research_run не создаётся.
       Telegram-бот и парсеры не вызываются.
-    security: []
+    security:
+      - bearerAuth: []
     requestBody:
       required: true
       content:
@@ -30,6 +31,8 @@ create:
                       $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
       '400':
         $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
       '403':
         $ref: '../../components/responses/errors.yaml#/Forbidden'
       '500':
@@ -41,11 +44,12 @@ byId:
     tags: [inquiries]
     summary: Прочитать заявку
     description: >
-      Без JWT. Идентификатор заявки — uuid.
+      Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid.
       На паузе questions пустой. После категории — вопросы базы и выбранного пакета.
       Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE
       и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
-    security: []
+    security:
+      - bearerAuth: []
     parameters:
       - name: id
         in: path
@@ -67,6 +71,8 @@ byId:
                       $ref: '../../components/schemas/inquiry/inquiry.yaml#/Inquiry'
       '400':
         $ref: '../../components/responses/errors.yaml#/BadRequest'
+      '401':
+        $ref: '../../components/responses/errors.yaml#/Unauthorized'
       '404':
         $ref: '../../components/responses/errors.yaml#/NotFound'
       '500':
@@ -79,7 +85,7 @@ assignCategory:
     summary: Назначить категорию
     description: >
       Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase.
-      Повтор той же фразы в категории ошибкой не считается. Вектор фразы не заполняется.
+      Повтор той же фразы в категории ошибкой не считается.
       research_run не создаётся.
     security:
       - bearerAuth: []
@@ -128,7 +134,7 @@ assignNewCategory:
     summary: Создать категорию и назначить
     description: >
       Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента.
-      Пауза снимается. research_run не создаётся. Эмбеддинг категории не пишется.
+      Пауза снимается. research_run не создаётся.
     security:
       - bearerAuth: []
     parameters:
@@ -175,7 +181,7 @@ rerunResearch:
     tags: [inquiries]
     summary: Повторно запустить ресерч
     description: >
-      Только админ (статический ADMIN_API_TOKEN или JWT).
+      Только админ (статический ADMIN_API_TOKEN).
       Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается.
       Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией.
       В ответе нет цен.
@@ -217,7 +223,7 @@ economics:
     tags: [inquiries]
     summary: Слои цен и ручная экономика заявки
     description: >
-      Только админ (статический ADMIN_API_TOKEN или JWT).
+      Только админ (статический ADMIN_API_TOKEN).
       Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики.
       Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается.
       Клиенту этот ответ не отправляется.

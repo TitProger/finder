@@ -76,35 +76,31 @@ Enum contact_channel {
 
 Table app_user {
   id uuid [pk, not null, note: 'Первичный ключ пользователя.']
-  role user_role [not null, note: 'ADMIN — учётка JWT и кнопки бота; CLIENT — вход по Telegram user id.']
+  role user_role [not null, note: 'ADMIN — кнопки бота и статический токен HTTP; CLIENT — вход по Telegram user id.']
   telegram_user_id bigint [null, unique, note: 'Telegram user id. Обязателен при role=CLIENT. У ADMIN заполняется, если он работает в боте: бот читает роль этой строки. Unique.']
-  login varchar(100) [null, unique, note: 'Логин админа для JWT. Обязателен при role=ADMIN. У CLIENT пусто. Unique.']
-  password_hash varchar(255) [null, note: 'Хэш пароля админа. Обязателен при role=ADMIN. У CLIENT пусто. Регистрации нет — сид в БД.']
   display_name varchar(255) [null, note: 'Отображаемое имя для админки и логов.']
   is_active boolean [not null, default: true, note: 'Выключенный пользователь не входит.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда создана запись.']
   updated_at timestamptz [default: `now()`, note: 'Когда последний раз меняли запись.']
 
-  Note: 'Роли MVP: ADMIN и CLIENT. Отдельной регистрации нет. Бот узнаёт человека по telegram_user_id и отдаёт админские кнопки только при role=ADMIN. Partial: telegram_user_id NOT NULL при CLIENT; login и password_hash NOT NULL при ADMIN.'
+  Note: 'Роли MVP: ADMIN и CLIENT. Отдельной регистрации нет. Бот узнаёт человека по telegram_user_id и отдаёт админские кнопки только при role=ADMIN.'
 }
 
 Table category {
   id uuid [pk, not null, note: 'Первичный ключ категории.']
   name varchar(255) [not null, unique, note: 'Имя категории для админа и бота. Unique.']
-  description text [not null, note: 'Текст для эмбеддинга и подсказок классификатору. Без цены.']
+  description text [not null, note: 'Текст описания для классификатора. Без цены.']
   status category_status [not null, default: 'ACTIVE', note: 'ACTIVE участвует в классификации; ARCHIVED скрыта.']
-  embedding vector [null, note: 'Вектор description. Размерность фиксируется миграцией под модель. Цену не класть.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда создана категория.']
   updated_at timestamptz [default: `now()`, note: 'Когда последний раз меняли категорию.']
 
-  Note: 'Справочник категорий. Семь стартовых — данные сида, не схема. Вектор только от текста описания.'
+  Note: 'Справочник категорий. Семь стартовых — данные сида, не схема.'
 }
 
 Table category_phrase {
   id uuid [pk, not null, note: 'Первичный ключ фразы.']
   category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория, к которой относится фраза.']
   phrase text [not null, note: 'Пример или синоним клиента. Точное совпадение сразу выбирает категорию.']
-  embedding vector [null, note: 'Вектор phrase для похожести. Размерность как у category.embedding. Цену не класть.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда фразу добавили.']
   updated_at timestamptz [default: `now()`, note: 'Когда фразу правили.']
 
@@ -179,7 +175,6 @@ Table canonical_product {
   name_ru varchar(512) [not null, note: 'Нормализованное русское имя товара.']
   name_zh varchar(512) [null, note: 'Нормализованное китайское имя, если есть.']
   attributes jsonb [null, note: 'Ключевые признаки из вопросов категории (ткань, год, комплектация).']
-  embedding vector [null, note: 'Вектор текстового описания товара. Без цены. Размерность как у category.embedding.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда товар завели.']
   updated_at timestamptz [default: `now()`, note: 'Когда товар меняли.']
 
@@ -311,31 +306,6 @@ Table offer {
   }
 
   Note: 'Предложение с обязательным source_url. Контакт и цена без адреса страницы не принимаются.'
-}
-
-Table market_snapshot {
-  id uuid [pk, not null, note: 'Первичный ключ снимка слоя цен.']
-  research_run_id uuid [null, ref: > research_run.id, note: 'ON DELETE SET NULL. Прогон, из которого собрали слой.']
-  inquiry_id uuid [null, ref: > inquiry.id, note: 'ON DELETE SET NULL. Заявка снимка, если известна.']
-  canonical_product_id uuid [null, ref: > canonical_product.id, note: 'ON DELETE SET NULL. Товар, по которому посчитан слой.']
-  layer market_price_layer [not null, note: 'Слой: розница РФ, опт РФ или открытая цена Китая.']
-  source varchar(255) [not null, note: 'Откуда медиана: список площадок или описание выборки.']
-  median_price numeric [null, note: 'Медиана цен слоя. Не кладётся в вектор.']
-  currency varchar(3) [null, note: 'Валюта медианы и разброса.']
-  spread_low numeric [null, note: 'Нижняя граница разброса цен слоя.']
-  spread_high numeric [null, note: 'Верхняя граница разброса цен слоя.']
-  sample_points jsonb [null, note: 'Примеры внутри снимка: цена, url, краткая метка источника.']
-  captured_at timestamptz [not null, note: 'Дата съёма слоя.']
-  expires_at timestamptz [not null, note: 'Срок годности снимка (ориентир 14 дней от captured_at).']
-  created_at timestamptz [not null, default: `now()`, note: 'Когда снимок записали.']
-  updated_at timestamptz [default: `now()`, note: 'Когда снимок правили.']
-
-  indexes {
-    (canonical_product_id, layer, captured_at)
-    research_run_id
-  }
-
-  Note: 'Снимок одного ценового слоя. Слои не склеиваются в одну цифру. Примеры — в sample_points.'
 }
 
 Table optimal_card {

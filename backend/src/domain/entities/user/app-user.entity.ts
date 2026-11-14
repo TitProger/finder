@@ -12,13 +12,6 @@ export class AppUserEntity extends BaseEntity<'isActive'> {
     @Unique()
     telegramUserId?: string | null;
 
-    @Property({ type: 'varchar', length: 100, nullable: true })
-    @Unique()
-    login?: string | null;
-
-    @Property({ type: 'varchar', length: 255, fieldName: 'password_hash', nullable: true })
-    passwordHash?: string | null;
-
     @Property({ type: 'varchar', length: 255, fieldName: 'display_name', nullable: true })
     displayName?: string | null;
 

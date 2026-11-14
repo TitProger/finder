@@ -3,10 +3,10 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
 import { CategoryClassifierPort } from '../../../ports/category-classifier.port';
-import { TextEmbeddingPort, TEXT_EMBEDDING_PORT } from '../../../ports/text-embedding.port';
 import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from '../research/research-launch.service';
 import { MANAGER_HANDOFF, ManagerHandoffService } from '../manager/manager-handoff.service';
+import { findActingAdmin } from '../../../telegram/acting-admin';
 import { adminTelegramIds } from '../../../telegram/admin-telegram-ids';
 import {
     AdminRecipient,
@@ -61,8 +61,7 @@ const PAUSE_REASON: Record<PauseOutcome, string> = {
     ambiguous_phrase: 'Сомнение классификатора: фраза есть в нескольких категориях.',
     ambiguous_keyword: 'Сомнение классификатора: ключевые слова подходят нескольким категориям.',
     llm_low_confidence: 'Сомнение классификатора: модель не уверена в выборе категории.',
-    embedder_stub: 'Сомнение классификатора: точной фразы нет, эмбеддинг пока заглушка.',
-    vector_unresolved: 'Сомнение классификатора: вектор не выбирает категорию, порог модели ещё не задан.',
+    no_match: 'Сомнение классификатора: категория не выбрана.',
 };
 
 /**
@@ -70,7 +69,6 @@ const PAUSE_REASON: Record<PauseOutcome, string> = {
  * Сомнение ставит паузу и не создаёт research_run.
  * Когда обязательные ответы собраны, живая карточка той же категории отдаётся сразу.
  * Нет карточки — списывается дневной лимит и запускается ресерч.
- * Эмбеддинг-заглушка в category и category_phrase не пишется.
  */
 @Injectable()
 export class InquiryServiceImpl implements InquiryService {
@@ -91,8 +89,6 @@ export class InquiryServiceImpl implements InquiryService {
         private readonly answers: InquiryAnswerRepository,
         @Inject(REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY)
         private readonly optimalCards: OptimalCardRepository,
-        @Inject(TEXT_EMBEDDING_PORT)
-        private readonly embeddings: TextEmbeddingPort,
         @Inject(LIMIT_CHECKER_SERVICE)
         private readonly limitChecker: LimitCheckerService,
         private readonly llmClassifier?: CategoryClassifierPort,
@@ -139,7 +135,7 @@ export class InquiryServiceImpl implements InquiryService {
 
     async assignCategory(input: AssignCategoryInput): Promise<InquiryView> {
         const inquiry = await this.requireAssignable(input.inquiryId);
-        const admin = await this.requireAdmin(input.adminUserId);
+        const admin = await this.adminOf(input.adminUserId);
         const category = await this.categories.findOne({ id: input.categoryId });
 
         if (!category) {
@@ -163,7 +159,7 @@ export class InquiryServiceImpl implements InquiryService {
 
     async createCategoryAndAssign(input: CreateCategoryAndAssignInput): Promise<InquiryView> {
         const inquiry = await this.requireAssignable(input.inquiryId);
-        const admin = await this.requireAdmin(input.adminUserId);
+        const admin = await this.adminOf(input.adminUserId);
         const fields = requireCategoryFields(input.name, input.description);
         const duplicate = await this.categories.findOne({ name: fields.name });
 
@@ -177,7 +173,6 @@ export class InquiryServiceImpl implements InquiryService {
             name: fields.name,
             description: fields.description,
             status: CategoryStatus.ACTIVE,
-            embedding: null,
         });
         const em = this.inquiries.getEntityManager();
 
@@ -360,7 +355,6 @@ export class InquiryServiceImpl implements InquiryService {
                 categoryId: phrase.category.id,
                 categoryName: phrase.category.name,
                 categoryStatus: phrase.category.status,
-                embedding: phrase.embedding ?? null,
             })),
             categories.map((category) => ({
                 id: category.id,
@@ -368,9 +362,7 @@ export class InquiryServiceImpl implements InquiryService {
                 name: category.name,
                 description: category.description,
                 status: category.status,
-                embedding: category.embedding ?? null,
             })),
-            this.embeddings,
             this.llmClassifier,
             Envs.llm.confidenceThreshold,
         );
@@ -431,7 +423,6 @@ export class InquiryServiceImpl implements InquiryService {
             const phrase = this.phrases.create({
                 category,
                 phrase: phraseText,
-                embedding: null,
             });
 
             this.phrases.getEntityManager().persist(phrase);
@@ -609,6 +600,14 @@ export class InquiryServiceImpl implements InquiryService {
         return inquiry;
     }
 
+    private async adminOf(adminUserId?: string): Promise<AppUserEntity> {
+        if (!adminUserId) {
+            return findActingAdmin(this.users);
+        }
+
+        return this.requireAdmin(adminUserId);
+    }
+
     private async requireAdmin(adminUserId: string): Promise<AppUserEntity> {
         const admin = await this.users.findOne({ id: adminUserId, role: UserRole.ADMIN });
 
@@ -638,8 +637,6 @@ export class InquiryServiceImpl implements InquiryService {
         const created = this.users.create({
             role: UserRole.CLIENT,
             telegramUserId: telegramId,
-            login: null,
-            passwordHash: null,
             displayName: null,
             isActive: true,
             planCode: 'free',
@@ -774,8 +771,6 @@ export class InquiryServiceImpl implements InquiryService {
         const admin = this.users.create({
             role: UserRole.ADMIN,
             telegramUserId: telegramId,
-            login: null,
-            passwordHash: null,
             displayName: `Admin ${telegramUserId}`,
             isActive: true,
             planCode: 'unlimited',

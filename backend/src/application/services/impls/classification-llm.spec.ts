@@ -1,13 +1,6 @@
 import { CategoryStatus } from '../../../domain/enums/category-status.enum';
 import { classifyInquiry, CategorySample, PhraseSample } from './inquiry/classify-inquiry';
 import { CategoryClassifierPort, CategoryClassificationResult } from '../../../application/ports/category-classifier.port';
-import { TextEmbeddingPort } from '../../../application/ports/text-embedding.port';
-
-const stubEmbeddings: TextEmbeddingPort = {
-    async embed() {
-        return { stub: true, vector: [] };
-    },
-};
 
 class MockLlmClassifier extends CategoryClassifierPort {
     constructor(private result: CategoryClassificationResult) {
@@ -30,7 +23,6 @@ describe('Classification: LLM fallback', () => {
         name: 'Одежда',
         description: 'Одежда, текстиль, спецодежда',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     };
 
     const phrases: PhraseSample[] = [
@@ -39,7 +31,6 @@ describe('Classification: LLM fallback', () => {
             categoryId: 'cat-clothing',
             categoryName: 'Одежда',
             categoryStatus: CategoryStatus.ACTIVE,
-            embedding: null,
         },
     ];
 
@@ -54,7 +45,6 @@ describe('Classification: LLM fallback', () => {
             'Непонятный текст, но LLM уверена',
             phrases,
             [clothingCategory],
-            stubEmbeddings,
             mockLlm,
             0.7,
         );
@@ -78,7 +68,6 @@ describe('Classification: LLM fallback', () => {
             'Непонятный текст, LLM не уверена',
             phrases,
             [clothingCategory],
-            stubEmbeddings,
             mockLlm,
             0.7,
         );
@@ -95,7 +84,6 @@ describe('Classification: LLM fallback', () => {
             'Непонятный текст без LLM',
             phrases,
             [clothingCategory],
-            stubEmbeddings,
             undefined,
             0.7,
         );
@@ -103,7 +91,7 @@ describe('Classification: LLM fallback', () => {
         expect(decision.kind).toBe('pause');
 
         if (decision.kind === 'pause') {
-            expect(decision.scores.outcome).toBe('embedder_stub');
+            expect(decision.scores.outcome).toBe('no_match');
         }
     });
 });

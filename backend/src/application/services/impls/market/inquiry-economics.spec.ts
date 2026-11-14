@@ -32,14 +32,12 @@ import { OptimalCardRepository } from '../../../../domain/repositories/market/op
 import { ResearchRunRepository } from '../../../../domain/repositories/market/research-run.repository';
 import { OfferRepository } from '../../../../domain/repositories/catalog/offer.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
-import { TextEmbeddingPort } from '../../../ports/text-embedding.port';
 import { LimitCheckerService } from '../../contracts/tariff/limit-checker.service';
 import { InquiryServiceImpl } from '../inquiry/inquiry.service.impl';
 import { ApiExceptionFilter } from '../../../../interfaces/http/filters/api-exception.filter';
 import { AdminTokenGuard } from '../../../../interfaces/http/auth/admin-token.guard';
 import { InquiryEconomicsController } from '../../../../interfaces/http/controllers/inquiry/inquiry-economics.controller';
 import { ApiResponseInterceptor } from '../../../../interfaces/http/interceptors/api-response.interceptor';
-import { JwtTokenService } from '../../../../infrastructure/security/jwt-token.service';
 import { TelegramDialog } from '../../../../interfaces/telegram/telegram-dialog';
 import { TelegramOutgoing } from '../../../../interfaces/telegram/telegram.types';
 import { INQUIRY_ECONOMICS, InquiryEconomicsService, InquiryEconomicsView } from './inquiry-economics.service';
@@ -57,14 +55,6 @@ const state: { economics: InquiryEconomicsService | null } = { economics: null }
     controllers: [InquiryEconomicsController],
     providers: [
         { provide: APP_GUARD, useClass: AdminTokenGuard },
-        {
-            provide: JwtTokenService,
-            useValue: {
-                verify: () => {
-                    throw new Error('jwt');
-                },
-            },
-        },
         {
             provide: INQUIRY_ECONOMICS,
             useFactory: () => {
@@ -197,11 +187,6 @@ function build() {
             return undefined;
         },
     };
-    const embedder: TextEmbeddingPort = {
-        async embed() {
-            return { vector: [1], stub: true };
-        },
-    };
     const inquiriesService = new InquiryServiceImpl(
         inquiryRepo as unknown as InquiryRepository,
         userRepo as unknown as AppUserRepository,
@@ -211,7 +196,6 @@ function build() {
         repo(CategoryQuestionEntity, questions) as unknown as CategoryQuestionRepository,
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        embedder,
         limitChecker,
     );
     const service = new InquiryEconomicsService(

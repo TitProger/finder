@@ -35,7 +35,6 @@ import { DailyUsageRepository } from '../../../../domain/repositories/tariff/dai
 import { PlanRepository } from '../../../../domain/repositories/tariff/plan.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
 import { ManagerNotifyPort } from '../../../ports/manager-notify.port';
-import { TextEmbeddingPort } from '../../../ports/text-embedding.port';
 import { GrokWebhookTrigger } from '../../../../infrastructure/research/grok-webhook.trigger';
 import { TelegramButton, TelegramIncoming, TelegramOutgoing } from '../../../../interfaces/telegram/telegram.types';
 import { TelegramDialog } from '../../../../interfaces/telegram/telegram-dialog';
@@ -207,7 +206,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         plans as PlanRepository,
         dailyUsage as DailyUsageRepository,
     );
-    const embedder: TextEmbeddingPort = { async embed() { return { vector: [1], stub: true }; } };
     const inquiryRepo = repo(InquiryEntity, inquiries);
     const answerRepo = repo(InquiryAnswerEntity, answers);
     const questionRepo = repo(CategoryQuestionEntity, questions);
@@ -256,7 +254,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         questionRepo as unknown as CategoryQuestionRepository,
         answerRepo as unknown as InquiryAnswerRepository,
         cardRepo as unknown as OptimalCardRepository,
-        embedder,
         limitChecker,
         undefined,
         launch,
@@ -283,7 +280,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         name: 'Одежда',
         description: 'Одежда',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     });
     const question = stamp(new CategoryQuestionEntity(), {
         category,
@@ -297,7 +293,7 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
     });
 
     em.persist(category);
-    em.persist(stamp(new CategoryPhraseEntity(), { category, phrase: TEXT, embedding: null }));
+    em.persist(stamp(new CategoryPhraseEntity(), { category, phrase: TEXT }));
     em.persist(question);
 
     if (options?.liveCard) {
@@ -306,7 +302,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
             nameRu: 'Халат',
             nameZh: null,
             attributes: {},
-            embedding: null,
         });
         const company = stamp(new CompanyEntity(), { legalNameZh: '义乌工厂', name: 'Иуская фабрика' });
         const offer = stamp(new OfferEntity(), {

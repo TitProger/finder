@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 if [[ -f .env ]]; then
   set -a
-  # source ломается на значениях с пробелом (ADMIN_SEED_DISPLAY_NAME).
+  # source ломается на значениях с пробелом.
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line%$'\r'}"
     [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
@@ -23,39 +23,15 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-VERSION="$(tr -d '[:space:]' < CONTRACT_VERSION)"
-CONTRACT_REPO="${CONTRACT_REPO:-}"
-TMP_DIR="$(mktemp -d)"
-SOURCE_DIR=""
+CONTRACT_REPO="${CONTRACT_REPO:-../api-contract}"
 
-cleanup() {
-  rm -rf "$TMP_DIR"
-}
-trap cleanup EXIT
-
-if [[ -z "$CONTRACT_REPO" ]]; then
-  echo "Ошибка: задайте CONTRACT_REPO (git URL или локальный путь к api-contract)" >&2
+if [[ ! -d "$CONTRACT_REPO" ]]; then
+  echo "Ошибка: CONTRACT_REPO должен быть каталогом с openapi.yaml" >&2
   echo "Пример: CONTRACT_REPO=../api-contract" >&2
   exit 1
 fi
 
-echo "→ Синхронизация контракта ${VERSION}"
-echo "→ Источник: ${CONTRACT_REPO}"
-
-# Локальный путь к уже клонированному/лежащему рядом репо
-if [[ -d "$CONTRACT_REPO" ]]; then
-  SOURCE_DIR="$(cd "$CONTRACT_REPO" && pwd)"
-  if [[ -d "$SOURCE_DIR/.git" ]]; then
-    echo "→ Локальный git-репо: checkout ${VERSION} (если tag есть)"
-    git -C "$SOURCE_DIR" fetch --tags --depth 1 2>/dev/null || true
-    git -C "$SOURCE_DIR" checkout "$VERSION" 2>/dev/null \
-      || echo "⚠ Tag/ветка ${VERSION} не найдена локально — используем текущее дерево"
-  fi
-else
-  echo "→ Клонируем ${CONTRACT_REPO} @ ${VERSION}"
-  git clone --depth 1 --branch "$VERSION" "$CONTRACT_REPO" "$TMP_DIR/contract"
-  SOURCE_DIR="$TMP_DIR/contract"
-fi
+SOURCE_DIR="$(cd "$CONTRACT_REPO" && pwd)"
 
 if [[ ! -f "$SOURCE_DIR/openapi.yaml" ]]; then
   echo "Ошибка: не найден $SOURCE_DIR/openapi.yaml" >&2
@@ -64,6 +40,7 @@ fi
 
 mkdir -p api src/interfaces/http/generated
 
+echo "→ Источник: ${SOURCE_DIR}"
 echo "→ Bundle OpenAPI → api/openapi.yaml / api/openapi.json"
 npx --yes @redocly/cli@1 bundle "$SOURCE_DIR/openapi.yaml" -o api/openapi.yaml
 npx --yes @redocly/cli@1 bundle "$SOURCE_DIR/openapi.yaml" -o api/openapi.json
@@ -74,4 +51,4 @@ npx --yes openapi-typescript@7 api/openapi.yaml -o src/interfaces/http/generated
 echo "→ Разбиение типов → common / requests / responses"
 node scripts/split-generated-types.mjs
 
-echo "✓ Контракт ${VERSION} синхронизирован"
+echo "✓ Контракт синхронизирован из текущего дерева"

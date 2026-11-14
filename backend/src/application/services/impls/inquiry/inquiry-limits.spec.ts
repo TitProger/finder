@@ -209,12 +209,6 @@ function buildTestHarness(limitChecker: LimitCheckerService) {
         },
     };
 
-    const embeddings = {
-        async embed() {
-            return { stub: true, vector: [] };
-        },
-    };
-
     const answerRepo = {
         async find() {
             return [];
@@ -230,7 +224,6 @@ function buildTestHarness(limitChecker: LimitCheckerService) {
         questionRepo as any,
         answerRepo as any,
         cardRepo as any,
-        embeddings as any,
         limitChecker,
     );
 

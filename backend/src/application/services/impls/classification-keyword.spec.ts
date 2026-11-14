@@ -1,12 +1,5 @@
 import { CategoryStatus } from '../../../domain/enums/category-status.enum';
 import { classifyInquiry, CategorySample, PhraseSample } from './inquiry/classify-inquiry';
-import { TextEmbeddingPort } from '../../../application/ports/text-embedding.port';
-
-const stubEmbeddings: TextEmbeddingPort = {
-    async embed() {
-        return { stub: true, vector: [] };
-    },
-};
 
 /**
  * Test keyword/synonym matching for classification.
@@ -19,7 +12,6 @@ describe('Classification: keyword matching', () => {
         name: 'Одежда',
         description: 'Одежда, текстиль, спецодежда',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     };
 
     const autoCategory: CategorySample = {
@@ -28,7 +20,6 @@ describe('Classification: keyword matching', () => {
         name: 'Авто',
         description: 'Автомобили',
         status: CategoryStatus.ACTIVE,
-        embedding: null,
     };
 
     const clothingPhrases: PhraseSample[] = [
@@ -37,14 +28,12 @@ describe('Classification: keyword matching', () => {
             categoryId: 'cat-clothing',
             categoryName: 'Одежда',
             categoryStatus: CategoryStatus.ACTIVE,
-            embedding: null,
         },
         {
             phrase: 'спецодежда',
             categoryId: 'cat-clothing',
             categoryName: 'Одежда',
             categoryStatus: CategoryStatus.ACTIVE,
-            embedding: null,
         },
     ];
 
@@ -54,14 +43,12 @@ describe('Classification: keyword matching', () => {
             categoryId: 'cat-auto',
             categoryName: 'Авто',
             categoryStatus: CategoryStatus.ACTIVE,
-            embedding: null,
         },
         {
             phrase: 'Chery Tiggo',
             categoryId: 'cat-auto',
             categoryName: 'Авто',
             categoryStatus: CategoryStatus.ACTIVE,
-            embedding: null,
         },
     ];
 
@@ -70,7 +57,6 @@ describe('Classification: keyword matching', () => {
             'Нужны лабораторные халаты 1000 шт, хлопок',
             [...clothingPhrases, ...autoPhrases],
             [clothingCategory, autoCategory],
-            stubEmbeddings,
         );
 
         expect(decision.kind).toBe('confident');
@@ -85,7 +71,6 @@ describe('Classification: keyword matching', () => {
             'Нужен автомобиль Chery Tiggo 7 Pro',
             [...clothingPhrases, ...autoPhrases],
             [clothingCategory, autoCategory],
-            stubEmbeddings,
         );
 
         expect(decision.kind).toBe('confident');
@@ -100,13 +85,12 @@ describe('Classification: keyword matching', () => {
             'Непонятный товар без ключевых слов',
             [...clothingPhrases, ...autoPhrases],
             [clothingCategory, autoCategory],
-            stubEmbeddings,
         );
 
         expect(decision.kind).toBe('pause');
 
         if (decision.kind === 'pause') {
-            expect(decision.scores.outcome).toBe('embedder_stub');
+            expect(decision.scores.outcome).toBe('no_match');
         }
     });
 });

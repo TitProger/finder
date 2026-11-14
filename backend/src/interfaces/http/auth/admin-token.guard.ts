@@ -3,29 +3,16 @@ import { Reflector } from '@nestjs/core';
 import { FastifyRequest } from 'fastify';
 
 import { AppErrors } from '../../../application/errors';
-import { ForbiddenAppException } from '../../../common/exceptions/forbidden.exception';
 import { UnauthorizedAppException } from '../../../common/exceptions/unauthorized.exception';
 import { Envs } from '../../../common/envs/env';
-import { UserRole } from '../../../domain/enums/user-role.enum';
-import { JwtTokenService } from '../../../infrastructure/security/jwt-token.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
-export type AuthUser = {
-    id: string;
-    login: string;
-    role: UserRole;
-};
-
 /**
- * Комбинированный guard: проверяет статический ADMIN_API_TOKEN или JWT.
- * Это позволяет использовать либо Bearer <ADMIN_API_TOKEN>, либо JWT токен.
+ * Guard админских HTTP-ручек: Bearer должен совпасть с ADMIN_API_TOKEN.
  */
 @Injectable()
 export class AdminTokenGuard implements CanActivate {
-    constructor(
-        private readonly reflector: Reflector,
-        private readonly jwt: JwtTokenService,
-    ) {}
+    constructor(private readonly reflector: Reflector) {}
 
     canActivate(context: ExecutionContext): boolean {
         const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -37,7 +24,7 @@ export class AdminTokenGuard implements CanActivate {
             return true;
         }
 
-        const request = context.switchToHttp().getRequest<FastifyRequest & { user?: AuthUser }>();
+        const request = context.switchToHttp().getRequest<FastifyRequest>();
         const header = request.headers.authorization;
 
         if (!header?.startsWith('Bearer ')) {
@@ -49,28 +36,11 @@ export class AdminTokenGuard implements CanActivate {
         const token = header.slice('Bearer '.length).trim();
         const staticToken = (process.env.ADMIN_API_TOKEN || Envs.admin.apiToken || '').trim();
 
-        if (staticToken && token === staticToken) {
-            return true;
-        }
-
-        // Проверяем JWT токен (для обратной совместимости)
-        let payload;
-
-        try {
-            payload = this.jwt.verify(token, 'access');
-        } catch {
+        if (!staticToken || token !== staticToken) {
             throw new UnauthorizedAppException(AppErrors.auth.unauthorized.message, {
                 code: AppErrors.auth.unauthorized.code,
             });
         }
-
-        if (payload.role !== UserRole.ADMIN) {
-            throw new ForbiddenAppException(AppErrors.auth.forbidden.message, {
-                code: AppErrors.auth.forbidden.code,
-            });
-        }
-
-        request.user = { id: payload.sub, login: payload.login, role: payload.role };
 
         return true;
     }

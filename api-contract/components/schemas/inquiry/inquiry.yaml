@@ -17,8 +17,7 @@ ClassificationMatch:
     exact_phrase — точное совпадение фразы.
     keyword — совпадение по ключевым словам.
     llm — классификация через LLM.
-    vector — векторное сходство.
-  enum: [exact_phrase, keyword, llm, vector]
+  enum: [exact_phrase, keyword, llm]
 
 ClassificationOutcome:
   type: string
@@ -29,8 +28,7 @@ ClassificationOutcome:
     ambiguous_phrase — та же фраза в нескольких категориях.
     ambiguous_keyword — ключевые слова совпали с несколькими категориями.
     llm_low_confidence — LLM не уверена в выборе.
-    embedder_stub — заглушка эмбеддинга.
-    vector_unresolved — вектор не выбирает категорию.
+    no_match — фраза, ключевые слова и LLM категорию не выбрали.
   enum:
     - exact_phrase
     - keyword_match
@@ -38,8 +36,7 @@ ClassificationOutcome:
     - ambiguous_phrase
     - ambiguous_keyword
     - llm_low_confidence
-    - embedder_stub
-    - vector_unresolved
+    - no_match
 
 ClassificationCandidate:
   type: object
@@ -52,7 +49,7 @@ ClassificationCandidate:
       type: string
     score:
       type: number
-      description: 1 у точной фразы. У вектора — косинус, без порога назначения.
+      description: 1 у точной фразы и у уверенного LLM. У ключевых слов — доля совпадения.
     matchedBy:
       $ref: '#/ClassificationMatch'
 
@@ -64,7 +61,7 @@ ClassificationScores:
       $ref: '#/ClassificationOutcome'
     stub:
       type: boolean
-      description: true, если на этом проходе эмбеддинг был заглушкой.
+      description: Всегда false. Отдельной заглушки классификатора больше нет.
     candidates:
       type: array
       maxItems: 5
@@ -246,7 +243,7 @@ CreateCategoryAndAssignRequest:
     description:
       type: string
       minLength: 1
-      description: Текст категории для будущего эмбеддинга. Цену не класть. Вектор на этом этапе не пишем.
+      description: Текст категории. Цену не класть.
 
 ResearchRerunResult:
   type: object
