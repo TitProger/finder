@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
   },
   "servers": [
@@ -31,6 +31,10 @@
     {
       "name": "optimal-cards",
       "description": "Оптимальная карточка, которую админ помечает живой"
+    },
+    {
+      "name": "research",
+      "description": "Приём досье ресерча"
     }
   ],
   "paths": {
@@ -1422,6 +1426,73 @@
           }
         }
       }
+    },
+    "/research/ingest": {
+      "post": {
+        "operationId": "ingestResearchDossier",
+        "tags": [
+          "research"
+        ],
+        "summary": "Принять JSON-досье ресерча",
+        "description": "Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.\n",
+        "security": [
+          {
+            "researchIngestToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchDossier"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Досье принято или повтор того же тела",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ResearchIngestResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1430,6 +1501,11 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      },
+      "researchIngestToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Секрет RESEARCH_INGEST_TOKEN. Не путать с токеном админки."
       }
     },
     "schemas": {
@@ -2218,7 +2294,7 @@
       },
       "ClassificationMatch": {
         "type": "string",
-        "description": "Чем кандидат попал в оценку.\nexact_phrase — точное совпадение фразы.\nkeyword — совпадение по ключевым словам.\nllm — классификация через LLM.\nvector — векторное сходство.\n",
+        "description": "Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM. vector — векторное сходство.\n",
         "enum": [
           "exact_phrase",
           "keyword",
@@ -2228,7 +2304,7 @@
       },
       "ClassificationOutcome": {
         "type": "string",
-        "description": "exact_phrase — одна активная категория по точной фразе.\nkeyword_match — совпадение по ключевым словам.\nllm_confident — LLM уверенно выбрала категорию.\nambiguous_phrase — та же фраза в нескольких категориях.\nambiguous_keyword — ключевые слова совпали с несколькими категориями.\nllm_low_confidence — LLM не уверена в выборе.\nembedder_stub — заглушка эмбеддинга.\nvector_unresolved — вектор не выбирает категорию.\n",
+        "description": "exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. embedder_stub — заглушка эмбеддинга. vector_unresolved — вектор не выбирает категорию.\n",
         "enum": [
           "exact_phrase",
           "keyword_match",
@@ -2904,6 +2980,384 @@
             "nullable": true
           }
         }
+      },
+      "ResearchDossier": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "inquiry_id",
+          "run_id",
+          "status",
+          "category",
+          "sites",
+          "companies",
+          "offers"
+        ],
+        "properties": {
+          "inquiry_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DossierStatus"
+          },
+          "category": {
+            "type": "string",
+            "description": "code категории заявки"
+          },
+          "pack": {
+            "type": "string",
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "sites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierSite"
+            }
+          },
+          "companies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierCompany"
+            }
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierOffer"
+            }
+          },
+          "fx": {
+            "$ref": "#/components/schemas/DossierFx"
+          },
+          "summary_ru": {
+            "type": "string",
+            "nullable": true,
+            "description": "Текст для админа, клиенту не отправляется"
+          }
+        }
+      },
+      "ResearchIngestResult": {
+        "type": "object",
+        "description": "Ответ приёма досье. Цен нет.",
+        "required": [
+          "research_run_id",
+          "inquiry_id",
+          "inquiry_status",
+          "duplicate",
+          "counts",
+          "discarded"
+        ],
+        "properties": {
+          "research_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inquiry_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inquiry_status": {
+            "$ref": "#/components/schemas/InquiryStatus"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ResearchIngestCounts"
+          },
+          "discarded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscardedItem"
+            }
+          }
+        }
+      },
+      "DossierStatus": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "partial",
+          "failed"
+        ]
+      },
+      "SiteStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "captcha",
+          "login_required",
+          "blocked",
+          "empty",
+          "skipped"
+        ]
+      },
+      "DossierSite": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "site",
+          "status"
+        ],
+        "properties": {
+          "site": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SiteStatus"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RegistryStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "revoked",
+          "unknown"
+        ]
+      },
+      "CompanyRole": {
+        "type": "string",
+        "enum": [
+          "DIRECT_FACTORY",
+          "FACTORY_WITH_EXPORTER",
+          "TRADER",
+          "UNVERIFIED",
+          "DEALER_OR_LIST_PRICE"
+        ]
+      },
+      "DossierContactChannel": {
+        "type": "string",
+        "enum": [
+          "phone",
+          "email",
+          "wechat",
+          "site"
+        ]
+      },
+      "DossierContact": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "channel",
+          "value"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/DossierContactChannel"
+          },
+          "value": {
+            "type": "string"
+          },
+          "source_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DossierCompany": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "name_cn": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "uscc": {
+            "type": "string",
+            "nullable": true,
+            "description": "18 символов единого социального кода или null"
+          },
+          "registry_status": {
+            "$ref": "#/components/schemas/RegistryStatus"
+          },
+          "scope": {
+            "type": "string",
+            "nullable": true
+          },
+          "insured_count": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "role": {
+            "$ref": "#/components/schemas/CompanyRole"
+          },
+          "role_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierContact"
+            }
+          }
+        }
+      },
+      "OfferCurrency": {
+        "type": "string",
+        "enum": [
+          "CNY",
+          "USD",
+          "RUB"
+        ]
+      },
+      "OfferUnit": {
+        "type": "string",
+        "enum": [
+          "piece",
+          "set",
+          "car",
+          "m",
+          "m2",
+          "t"
+        ]
+      },
+      "OfferLayer": {
+        "type": "string",
+        "enum": [
+          "FACTORY",
+          "CHINA_OPEN",
+          "RUSSIA_RETAIL",
+          "RUSSIA_WHOLESALE"
+        ]
+      },
+      "DossierOffer": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Оффер без source_url или без quote не отклоняет всё досье: он попадает в discarded.\n",
+        "properties": {
+          "company_ref": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Индекс в companies[] или null"
+          },
+          "site": {
+            "type": "string",
+            "nullable": true
+          },
+          "source_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "quote": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "nullable": true,
+            "description": "Хранится у оффера для админа. Клиенту не отдаётся."
+          },
+          "currency": {
+            "$ref": "#/components/schemas/OfferCurrency"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/OfferUnit"
+          },
+          "qty_from": {
+            "type": "number",
+            "nullable": true
+          },
+          "moq": {
+            "type": "number",
+            "nullable": true
+          },
+          "layer": {
+            "$ref": "#/components/schemas/OfferLayer"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DossierFx": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "cny_rub": {
+            "type": "number"
+          },
+          "usd_rub": {
+            "type": "number"
+          },
+          "as_of": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
+      "ResearchIngestCounts": {
+        "type": "object",
+        "required": [
+          "companies",
+          "offers",
+          "contacts"
+        ],
+        "properties": {
+          "companies": {
+            "type": "integer"
+          },
+          "offers": {
+            "type": "integer"
+          },
+          "contacts": {
+            "type": "integer"
+          }
+        }
+      },
+      "DiscardedItem": {
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
       }
     },
     "responses": {
@@ -2959,6 +3413,16 @@
       },
       "InternalError": {
         "description": "Внутренняя ошибка сервера",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiResponse"
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "Категория досье не совпала с категорией заявки",
         "content": {
           "application/json": {
             "schema": {

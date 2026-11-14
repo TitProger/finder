@@ -59,6 +59,11 @@ export const Envs = {
         freePlanDailyLimit: NumbersUtils.toNumberOrDefault(process.env.FREE_PLAN_DAILY_LIMIT, 3),
     },
 
+    research: {
+        /** Секрет POST /research/ingest. Пустой в dev — ручка отвечает 401. */
+        ingestToken: requireInProduction('RESEARCH_INGEST_TOKEN', process.env.RESEARCH_INGEST_TOKEN, ''),
+    },
+
     llm: {
         apiBaseUrl: process.env.LLM_API_BASE_URL || 'https://api.openai.com/v1/chat/completions',
         apiKey: (process.env.LLM_API_KEY || '').trim(),

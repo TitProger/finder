@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Finder API
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Контракт API Finder.
     Источник правды — этот репозиторий (git tag).
@@ -19,6 +19,8 @@ tags:
     description: Заявка клиента и назначение категории админом
   - name: optimal-cards
     description: Оптимальная карточка, которую админ помечает живой
+  - name: research
+    description: Приём досье ресерча
 paths:
   /health:
     $ref: './paths/common/health.yaml#/health'
@@ -58,12 +60,18 @@ paths:
     $ref: './paths/market/optimal-cards.yaml#/collection'
   /admin/optimal-cards/{id}:
     $ref: './paths/market/optimal-cards.yaml#/byId'
+  /research/ingest:
+    $ref: './paths/research/ingest.yaml#/ingest'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    researchIngestToken:
+      type: http
+      scheme: bearer
+      description: Секрет RESEARCH_INGEST_TOKEN. Не путать с токеном админки.
   schemas:
     ApiStatus:
       $ref: './components/schemas/common.yaml#/ApiStatus'
@@ -149,6 +157,10 @@ components:
       $ref: './components/schemas/market/optimal-card.yaml#/CreateOptimalCardRequest'
     UpdateOptimalCardRequest:
       $ref: './components/schemas/market/optimal-card.yaml#/UpdateOptimalCardRequest'
+    ResearchDossier:
+      $ref: './components/schemas/research/dossier.yaml#/ResearchDossier'
+    ResearchIngestResult:
+      $ref: './components/schemas/research/dossier.yaml#/ResearchIngestResult'
   responses:
     Unauthorized:
       $ref: './components/responses/errors.yaml#/Unauthorized'

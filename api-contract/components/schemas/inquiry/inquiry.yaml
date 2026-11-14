@@ -7,21 +7,39 @@ InquiryStatus:
     - SERVED_FROM_DATABASE
     - RESEARCHING
     - DOSSIER_WITH_ADMIN
+    - LIMIT_EXCEEDED
     - CLOSED
 
 ClassificationMatch:
   type: string
-  description: Чем кандидат попал в оценку. exact_phrase выше vector.
-  enum: [exact_phrase, vector]
+  description: >
+    Чем кандидат попал в оценку.
+    exact_phrase — точное совпадение фразы.
+    keyword — совпадение по ключевым словам.
+    llm — классификация через LLM.
+    vector — векторное сходство.
+  enum: [exact_phrase, keyword, llm, vector]
 
 ClassificationOutcome:
   type: string
   description: >
-    exact_phrase — одна активная категория по точной фразе, паузы нет.
-    ambiguous_phrase — та же фраза в нескольких категориях, пауза.
-    embedder_stub — точной фразы нет, заглушка эмбеддинга категорию не выбирает.
-    vector_unresolved — вектор посчитан, порог модели ещё не задан, пауза.
-  enum: [exact_phrase, ambiguous_phrase, embedder_stub, vector_unresolved]
+    exact_phrase — одна активная категория по точной фразе.
+    keyword_match — совпадение по ключевым словам.
+    llm_confident — LLM уверенно выбрала категорию.
+    ambiguous_phrase — та же фраза в нескольких категориях.
+    ambiguous_keyword — ключевые слова совпали с несколькими категориями.
+    llm_low_confidence — LLM не уверена в выборе.
+    embedder_stub — заглушка эмбеддинга.
+    vector_unresolved — вектор не выбирает категорию.
+  enum:
+    - exact_phrase
+    - keyword_match
+    - llm_confident
+    - ambiguous_phrase
+    - ambiguous_keyword
+    - llm_low_confidence
+    - embedder_stub
+    - vector_unresolved
 
 ClassificationCandidate:
   type: object

@@ -33,6 +33,13 @@ Conflict:
       schema:
         $ref: '../schemas/common.yaml#/ApiResponse'
 
+Unprocessable:
+  description: Категория досье не совпала с категорией заявки
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/common.yaml#/ApiResponse'
+
 InternalError:
   description: Внутренняя ошибка сервера
   content:

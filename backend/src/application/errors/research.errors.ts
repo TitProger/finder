@@ -6,4 +6,6 @@ export const ResearchErrors = {
     notOpen: appError('RESEARCH_INQUIRY_NOT_OPEN', 'Заявка в этом статусе досье не принимает'),
     dossierShape: appError('RESEARCH_DOSSIER_SHAPE', 'Досье не разобрано'),
     duplicate: appError('RESEARCH_DOSSIER_DUPLICATE', 'Компания или витрина уже есть в базе'),
+    runReused: appError('RUN_ID_REUSED', 'Этот run_id уже принят с другим телом'),
+    categoryMismatch: appError('RESEARCH_CATEGORY_MISMATCH', 'Категория досье не совпала с категорией заявки'),
 } as const;

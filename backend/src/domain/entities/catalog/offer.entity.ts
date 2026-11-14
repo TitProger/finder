@@ -1,5 +1,6 @@
 import { Entity, Enum, ManyToOne, Property, Rel } from '@mikro-orm/core';
 
+import { MarketPriceLayer } from '../../enums/market-price-layer.enum';
 import { SupplierRole } from '../../enums/supplier-role.enum';
 import { BaseEntity } from '../common/base.entity';
 import { CategorySiteEntity } from '../category/category-site.entity';
@@ -47,6 +48,25 @@ export class OfferEntity extends BaseEntity<'supplierRole'> {
 
     @Property({ type: 'varchar', length: 2048, fieldName: 'source_url' })
     sourceUrl!: string;
+
+    @Property({ type: 'text', nullable: true })
+    title?: string | null;
+
+    @Property({ type: 'varchar', length: 128, nullable: true })
+    site?: string | null;
+
+    @Enum({
+        items: () => MarketPriceLayer,
+        nativeEnumName: 'market_price_layer',
+        nullable: true,
+    })
+    layer?: MarketPriceLayer | null;
+
+    @Property({ type: 'varchar', length: 32, nullable: true })
+    unit?: string | null;
+
+    @Property({ type: 'numeric', fieldName: 'qty_from', nullable: true })
+    qtyFrom?: string | null;
 
     @Property({ type: 'numeric', nullable: true })
     price?: string | null;

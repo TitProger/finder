@@ -1,29 +1,24 @@
+import { createHash } from 'crypto';
+
 import { CompanyRegistryStatus } from '../../../../domain/enums/company-registry-status.enum';
 import { MarketPriceLayer } from '../../../../domain/enums/market-price-layer.enum';
 import { SupplierRole } from '../../../../domain/enums/supplier-role.enum';
-import { OFFER_TTL_MS, SNAPSHOT_TTL_MS, addTtl } from '../../../../domain/research/dossier-clock';
-import { KeptOffer, partitionOffers } from '../../../../domain/research/partition-offers';
+import { OFFER_TTL_MS, addTtl } from '../../../../domain/research/dossier-clock';
+import { partitionOffers } from '../../../../domain/research/partition-offers';
 
-const REGISTRY_STATUSES: readonly CompanyRegistryStatus[] = [
-    CompanyRegistryStatus.ACTIVE,
-    CompanyRegistryStatus.REVOKED,
-    CompanyRegistryStatus.UNKNOWN,
-    CompanyRegistryStatus.OTHER,
-];
-
-const SUPPLIER_ROLES: readonly SupplierRole[] = [
-    SupplierRole.DIRECT_FACTORY,
-    SupplierRole.FACTORY_WITH_EXPORTER,
-    SupplierRole.TRADER,
-    SupplierRole.UNVERIFIED,
-    SupplierRole.DEALER_OR_LIST_PRICE,
-];
-
-const PRICE_LAYERS: readonly MarketPriceLayer[] = [
-    MarketPriceLayer.RUSSIA_RETAIL,
-    MarketPriceLayer.RUSSIA_WHOLESALE,
-    MarketPriceLayer.CHINA_OPEN,
-];
+const DOSSIER_STATUSES = ['complete', 'partial', 'failed'] as const;
+const SITE_STATUSES = ['ok', 'captcha', 'login_required', 'blocked', 'empty', 'skipped'] as const;
+const REGISTRY = {
+    active: CompanyRegistryStatus.ACTIVE,
+    revoked: CompanyRegistryStatus.REVOKED,
+    unknown: CompanyRegistryStatus.UNKNOWN,
+} as const;
+const ROLES = new Set<string>(Object.values(SupplierRole));
+const LAYERS = new Set<string>(Object.values(MarketPriceLayer));
+const UNITS = new Set(['piece', 'set', 'car', 'm', 'm2', 't']);
+const CURRENCIES = new Set(['CNY', 'USD', 'RUB']);
+const CHANNELS = new Set(['phone', 'email', 'wechat', 'site']);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class DossierShapeError extends Error {
     constructor(message: string) {
@@ -32,242 +27,256 @@ export class DossierShapeError extends Error {
     }
 }
 
-export type ParsedStorefront = {
-    ref: string;
-    platformName: string;
-    sellerExternalId: string | null;
-    storefrontUrl: string;
-    factoryLabels: unknown;
-    city: string | null;
+export type DossierStatus = (typeof DOSSIER_STATUSES)[number];
+
+export type ParsedContact = {
+    channel: string;
+    value: string;
+    sourceUrl: string;
 };
 
 export type ParsedCompany = {
-    ref: string;
+    index: number;
     legalNameZh: string;
-    unifiedSocialCreditCode: string | null;
+    name: string | null;
+    uscc: string | null;
     registryStatus: CompanyRegistryStatus;
-    address: string | null;
     businessScope: string | null;
     insuredEmployeeCount: number | null;
-    storefronts: ParsedStorefront[];
-};
-
-export type SamplePoint = {
-    price: string | null;
-    url: string | null;
-    label: string | null;
+    role: SupplierRole;
+    roleEvidence: string[] | null;
+    contacts: ParsedContact[];
 };
 
 export type ParsedOffer = {
+    index: number;
+    companyIndex: number | null;
+    site: string | null;
     sourceUrl: string;
-    companyRef: string | null;
-    storefrontRef: string | null;
+    quote: string;
+    title: string | null;
     price: string | null;
     currency: string | null;
-    volumeTier: string | null;
+    unit: string | null;
+    qtyFrom: string | null;
     moq: string | null;
-    quoteText: string | null;
-    supplierRole: SupplierRole;
+    layer: MarketPriceLayer | null;
     capturedAt: Date;
     expiresAt: Date;
+    supplierRole: SupplierRole;
 };
 
-export type ParsedSnapshot = {
-    layer: MarketPriceLayer;
-    source: string;
-    medianPrice: string | null;
-    currency: string | null;
-    spreadLow: string | null;
-    spreadHigh: string | null;
-    samplePoints: SamplePoint[] | null;
-    capturedAt: Date;
-    expiresAt: Date;
+export type DiscardedItem = {
+    path: string;
+    reason: string;
 };
 
 export type ParsedDossier = {
+    inquiryId: string;
+    runId: string;
+    status: DossierStatus;
+    category: string;
+    pack: string | null;
+    startedAt: Date | null;
+    finishedAt: Date | null;
+    sites: Record<string, unknown>[];
     companies: ParsedCompany[];
     offers: ParsedOffer[];
-    snapshots: ParsedSnapshot[];
-    discarded: { index: number; reason: string }[];
+    fx: Record<string, unknown> | null;
+    summaryRu: string | null;
+    discarded: DiscardedItem[];
 };
+
+export function payloadSha256(raw: unknown): string {
+    return createHash('sha256').update(stableStringify(raw)).digest('hex');
+}
 
 export function parseDossier(raw: unknown, now: Date): ParsedDossier {
     const body = asRecord(raw, 'Досье');
-    const companies = parseCompanies(readArray(body.companies, 'Список компаний'));
-    const companyByRef = new Map<string, ParsedCompany>(
-        companies.map((company) => [company.ref, company] as [string, ParsedCompany]),
-    );
-    const storefrontByRef = new Map<string, { companyRef: string }>(
-        companies.flatMap((company) =>
-            company.storefronts.map(
-                (shop) => [shop.ref, { companyRef: company.ref }] as [string, { companyRef: string }],
-            ),
-        ),
-    );
-    const partitioned = partitionOffers(readArray(body.offers, 'Список офферов'));
-    const offers = partitioned.kept.map((offer) => parseOffer(offer, companyByRef, storefrontByRef, now));
-    const snapshots = readArray(body.snapshots, 'Список снимков').map((item, index) => parseSnapshot(item, index, now));
+    const inquiryId = readUuid(body.inquiry_id, 'inquiry_id');
+    const runId = readUuid(body.run_id, 'run_id');
+    const status = readStatus(body.status);
+    const category = readRequiredText(body.category, 'category', 64);
+    const discarded: DiscardedItem[] = [];
+    const companies = parseCompanies(readRequiredArray(body.companies, 'companies'), discarded);
+    const partitioned = partitionOffers(readRequiredArray(body.offers, 'offers'));
+    const offers = partitioned.kept.flatMap((offer) => {
+        const parsed = parseOffer(offer, companies.length, now, discarded);
+
+        return parsed ? [parsed] : [];
+    });
+
+    discarded.push(...partitioned.discarded.map((item) => ({ path: item.path, reason: item.reason })));
 
     return {
+        inquiryId,
+        runId,
+        status,
+        category,
+        pack: readOptionalText(body.pack, 'pack', 64),
+        startedAt: readDate(body.started_at, 'started_at'),
+        finishedAt: readDate(body.finished_at, 'finished_at'),
+        sites: parseSites(readRequiredArray(body.sites, 'sites')),
         companies,
         offers,
-        snapshots,
-        discarded: partitioned.discarded,
+        fx: parseFx(body.fx),
+        summaryRu: readOptionalText(body.summary_ru, 'summary_ru', 8000),
+        discarded,
     };
 }
 
-function parseCompanies(items: readonly unknown[]): ParsedCompany[] {
-    const companies: ParsedCompany[] = [];
-    const refs = new Set<string>();
-    const creditCodes = new Set<string>();
-    const sellers = new Set<string>();
-    const storefrontRefs = new Set<string>();
+function parseCompanies(items: readonly unknown[], discarded: DiscardedItem[]): ParsedCompany[] {
+    return items.map((item, index) => {
+        const label = `companies[${index}]`;
+        const body = asRecord(item, label);
+        const nameCn = readOptionalText(body.name_cn, `${label}.name_cn`, 512);
+        const name = readOptionalText(body.name, `${label}.name`, 512);
 
-    for (let index = 0; index < items.length; index += 1) {
-        const label = `Компания ${index + 1}`;
-        const body = asRecord(items[index], label);
-        const ref = readRequiredText(body.ref, `${label}: ключ`, 64);
-
-        if (refs.has(ref)) {
-            throw new DossierShapeError(`${label}: ключ ${ref} повторяется`);
+        if (!nameCn && !name) {
+            throw new DossierShapeError(`${label}: нет имени`);
         }
 
-        refs.add(ref);
+        const uscc = readUscc(body.uscc, label);
+        const contacts = parseContacts(body.contacts, index, discarded);
 
-        const unifiedSocialCreditCode = readOptionalText(body.unifiedSocialCreditCode, `${label}: код`, 32);
-
-        if (unifiedSocialCreditCode) {
-            if (creditCodes.has(unifiedSocialCreditCode)) {
-                throw new DossierShapeError(`${label}: код ${unifiedSocialCreditCode} повторяется`);
-            }
-
-            creditCodes.add(unifiedSocialCreditCode);
-        }
-
-        const storefronts = readArray(body.storefronts, `${label}: витрины`).map((shop, shopIndex) =>
-            parseStorefront(shop, shopIndex, storefrontRefs, sellers),
-        );
-
-        companies.push({
-            ref,
-            legalNameZh: readRequiredText(body.legalNameZh, `${label}: имя`, 512),
-            unifiedSocialCreditCode,
-            registryStatus: readRegistry(body.registryStatus, label),
-            address: readOptionalText(body.address, `${label}: адрес`, 8000),
-            businessScope: readOptionalText(body.businessScope, `${label}: сфера`, 8000),
-            insuredEmployeeCount: readCount(body.insuredEmployeeCount, label),
-            storefronts,
-        });
-    }
-
-    return companies;
+        return {
+            index,
+            legalNameZh: nameCn ?? name!,
+            name,
+            uscc,
+            registryStatus: readRegistry(body.registry_status, label),
+            businessScope: readOptionalText(body.scope, `${label}.scope`, 8000),
+            insuredEmployeeCount: readCount(body.insured_count, label),
+            role: readRole(body.role, label),
+            roleEvidence: readEvidence(body.role_evidence, label),
+            contacts,
+        };
+    });
 }
 
-function parseStorefront(raw: unknown, index: number, refs: Set<string>, sellers: Set<string>): ParsedStorefront {
-    const label = `Витрина ${index + 1}`;
-    const body = asRecord(raw, label);
-    const ref = readRequiredText(body.ref, `${label}: ключ`, 64);
-
-    if (refs.has(ref)) {
-        throw new DossierShapeError(`${label}: ключ ${ref} повторяется`);
+function parseContacts(value: unknown, companyIndex: number, discarded: DiscardedItem[]): ParsedContact[] {
+    if (value === undefined || value === null) {
+        return [];
     }
 
-    refs.add(ref);
+    if (!Array.isArray(value)) {
+        throw new DossierShapeError(`companies[${companyIndex}].contacts должен быть массивом`);
+    }
 
-    const platformName = readRequiredText(body.platformName, `${label}: площадка`, 128);
-    const sellerExternalId = readOptionalText(body.sellerExternalId, `${label}: id продавца`, 255);
+    const contacts: ParsedContact[] = [];
 
-    if (sellerExternalId) {
-        const sellerKey = `${platformName}\0${sellerExternalId}`;
+    value.forEach((item, index) => {
+        const path = `companies[${companyIndex}].contacts[${index}]`;
+        const body = asRecord(item, path);
+        const channel = readOptionalText(body.channel, `${path}.channel`, 16);
+        const contactValue = readOptionalText(body.value, `${path}.value`, 8000);
+        const sourceUrl = readOptionalText(body.source_url, `${path}.source_url`, 2048);
 
-        if (sellers.has(sellerKey)) {
-            throw new DossierShapeError(`${label}: продавец ${sellerExternalId} на ${platformName} повторяется`);
+        if (!channel || !CHANNELS.has(channel) || !contactValue) {
+            discarded.push({ path, reason: 'контакт без канала или значения' });
+
+            return;
         }
 
-        sellers.add(sellerKey);
-    }
+        if (!sourceUrl || !isHttpUrl(sourceUrl)) {
+            discarded.push({ path, reason: 'нет source_url' });
 
-    return {
-        ref,
-        platformName,
-        sellerExternalId,
-        storefrontUrl: readRequiredText(body.storefrontUrl, `${label}: ссылка`, 2048),
-        factoryLabels: readLabels(body.factoryLabels, label),
-        city: readOptionalText(body.city, `${label}: город`, 255),
-    };
+            return;
+        }
+
+        contacts.push({ channel, value: contactValue, sourceUrl });
+    });
+
+    return contacts;
 }
 
 function parseOffer(
-    kept: KeptOffer,
-    companies: Map<string, ParsedCompany>,
-    storefronts: Map<string, { companyRef: string }>,
+    kept: { index: number; sourceUrl: string; quote: string; body: Record<string, unknown> },
+    companyCount: number,
     now: Date,
-): ParsedOffer {
-    const label = `Оффер ${kept.index + 1}`;
+    discarded: DiscardedItem[],
+): ParsedOffer | null {
+    const path = `offers[${kept.index}]`;
     const body = kept.body;
-    const companyRef = readOptionalText(body.companyRef, `${label}: компания`, 64);
-    const storefrontRef = readOptionalText(body.storefrontRef, `${label}: витрина`, 64);
+    const layer = readLayer(body.layer);
+    const currency = readCurrency(body.currency);
+    const unit = readUnit(body.unit);
 
-    if (companyRef && !companies.has(companyRef)) {
-        throw new DossierShapeError(`${label}: неизвестная компания ${companyRef}`);
+    if (layer.invalid || currency.invalid || unit.invalid) {
+        discarded.push({
+            path,
+            reason: layer.invalid || currency.invalid || unit.invalid || 'поле оффера не из списка',
+        });
+
+        return null;
     }
 
-    const owner = storefrontRef ? storefronts.get(storefrontRef) : undefined;
+    let companyIndex: number | null = null;
 
-    if (storefrontRef && !owner) {
-        throw new DossierShapeError(`${label}: неизвестная витрина ${storefrontRef}`);
+    if (body.company_ref !== undefined && body.company_ref !== null) {
+        if (typeof body.company_ref !== 'number' || !Number.isInteger(body.company_ref)) {
+            discarded.push({ path, reason: 'company_ref вне массива' });
+        } else if (body.company_ref < 0 || body.company_ref >= companyCount) {
+            discarded.push({ path, reason: 'company_ref вне массива' });
+        } else {
+            companyIndex = body.company_ref;
+        }
     }
 
-    if (owner && companyRef && owner.companyRef !== companyRef) {
-        throw new DossierShapeError(`${label}: витрина не этой компании`);
-    }
-
-    const capturedAt = readDate(body.capturedAt, `${label}: дата съёма`) ?? now;
-    const expiresAt = readDate(body.expiresAt, `${label}: срок`) ?? addTtl(capturedAt, OFFER_TTL_MS);
-
-    assertExpiry(capturedAt, expiresAt, label);
+    const capturedAt = readDate(body.captured_at, `${path}.captured_at`) ?? now;
 
     return {
+        index: kept.index,
+        companyIndex,
+        site: readOptionalText(body.site, `${path}.site`, 128),
         sourceUrl: kept.sourceUrl,
-        companyRef: companyRef ?? owner?.companyRef ?? null,
-        storefrontRef,
-        price: readDecimal(body.price, `${label}: цена`),
-        currency: readCurrency(body.currency, `${label}: валюта`),
-        volumeTier: readOptionalText(body.volumeTier, `${label}: ступень объёма`, 8000),
-        moq: readDecimal(body.moq, `${label}: MOQ`),
-        quoteText: readOptionalText(body.quoteText, `${label}: цитата`, 8000),
-        supplierRole: readSupplierRole(body.supplierRole, label),
+        quote: kept.quote,
+        title: readOptionalText(body.title, `${path}.title`, 8000),
+        price: readDecimal(body.price, `${path}.price`),
+        currency: currency.value,
+        unit: unit.value,
+        qtyFrom: readDecimal(body.qty_from, `${path}.qty_from`),
+        moq: readDecimal(body.moq, `${path}.moq`),
+        layer: layer.value,
         capturedAt,
-        expiresAt,
+        expiresAt: addTtl(capturedAt, OFFER_TTL_MS),
+        supplierRole: SupplierRole.UNVERIFIED,
     };
 }
 
-function parseSnapshot(raw: unknown, index: number, now: Date): ParsedSnapshot {
-    const label = `Снимок ${index + 1}`;
-    const body = asRecord(raw, label);
-    const capturedAt = readDate(body.capturedAt, `${label}: дата съёма`) ?? now;
-    const expiresAt = readDate(body.expiresAt, `${label}: срок`) ?? addTtl(capturedAt, SNAPSHOT_TTL_MS);
+function parseSites(items: readonly unknown[]): Record<string, unknown>[] {
+    return items.map((item, index) => {
+        const label = `sites[${index}]`;
+        const body = asRecord(item, label);
+        const site = readRequiredText(body.site, `${label}.site`, 128);
+        const status = readOptionalText(body.status, `${label}.status`, 32);
 
-    assertExpiry(capturedAt, expiresAt, label);
+        if (!status || !isOneOf(status, SITE_STATUSES)) {
+            throw new DossierShapeError(`${label}.status не из списка`);
+        }
 
-    const spreadLow = readDecimal(body.spreadLow, `${label}: нижняя граница`);
-    const spreadHigh = readDecimal(body.spreadHigh, `${label}: верхняя граница`);
+        return {
+            ...body,
+            site,
+            status,
+        };
+    });
+}
 
-    if (spreadLow !== null && spreadHigh !== null && Number(spreadLow) > Number(spreadHigh)) {
-        throw new DossierShapeError(`${label}: нижняя граница выше верхней`);
+function parseFx(value: unknown): Record<string, unknown> | null {
+    if (value === undefined || value === null) {
+        return null;
     }
 
-    return {
-        layer: readLayer(body.layer, label),
-        source: readRequiredText(body.source, `${label}: источник`, 255),
-        medianPrice: readDecimal(body.medianPrice, `${label}: медиана`),
-        currency: readCurrency(body.currency, `${label}: валюта`),
-        spreadLow,
-        spreadHigh,
-        samplePoints: readSamplePoints(body.samplePoints, label),
-        capturedAt,
-        expiresAt,
-    };
+    return asRecord(value, 'fx');
+}
+
+function readStatus(value: unknown): DossierStatus {
+    if (!isOneOf(value, DOSSIER_STATUSES)) {
+        throw new DossierShapeError('status не из списка');
+    }
+
+    return value;
 }
 
 function readRegistry(value: unknown, label: string): CompanyRegistryStatus {
@@ -275,83 +284,110 @@ function readRegistry(value: unknown, label: string): CompanyRegistryStatus {
         return CompanyRegistryStatus.UNKNOWN;
     }
 
-    if (!isOneOf(value, REGISTRY_STATUSES)) {
-        throw new DossierShapeError(`${label}: статус реестра не из списка`);
+    if (typeof value !== 'string' || !(value in REGISTRY)) {
+        throw new DossierShapeError(`${label}.registry_status не из списка`);
     }
 
-    return value;
+    return REGISTRY[value as keyof typeof REGISTRY];
 }
 
-function readSupplierRole(value: unknown, label: string): SupplierRole {
+function readRole(value: unknown, label: string): SupplierRole {
     if (value === undefined || value === null) {
         return SupplierRole.UNVERIFIED;
     }
 
-    if (!isOneOf(value, SUPPLIER_ROLES)) {
-        throw new DossierShapeError(`${label}: роль поставщика не из списка`);
+    if (typeof value !== 'string' || !ROLES.has(value)) {
+        throw new DossierShapeError(`${label}.role не из списка`);
     }
 
-    return value;
+    return value as SupplierRole;
 }
 
-function readLayer(value: unknown, label: string): MarketPriceLayer {
-    if (!isOneOf(value, PRICE_LAYERS)) {
-        throw new DossierShapeError(`${label}: слой не из списка`);
+function readLayer(value: unknown): { value: MarketPriceLayer | null; invalid: string | null } {
+    if (value === undefined || value === null) {
+        return { value: null, invalid: null };
     }
 
-    return value;
+    if (typeof value !== 'string' || !LAYERS.has(value)) {
+        return { value: null, invalid: 'layer не из списка' };
+    }
+
+    return { value: value as MarketPriceLayer, invalid: null };
 }
 
-function readSamplePoints(value: unknown, label: string): SamplePoint[] | null {
+function readCurrency(value: unknown): { value: string | null; invalid: string | null } {
+    if (value === undefined || value === null || value === '') {
+        return { value: null, invalid: null };
+    }
+
+    if (typeof value !== 'string' || !CURRENCIES.has(value.toUpperCase())) {
+        return { value: null, invalid: 'currency не из списка' };
+    }
+
+    return { value: value.toUpperCase(), invalid: null };
+}
+
+function readUnit(value: unknown): { value: string | null; invalid: string | null } {
+    if (value === undefined || value === null || value === '') {
+        return { value: null, invalid: null };
+    }
+
+    if (typeof value !== 'string' || !UNITS.has(value)) {
+        return { value: null, invalid: 'unit не из списка' };
+    }
+
+    return { value, invalid: null };
+}
+
+function readEvidence(value: unknown, label: string): string[] | null {
     if (value === undefined || value === null) {
         return null;
     }
 
     if (!Array.isArray(value)) {
-        throw new DossierShapeError(`${label}: примеры должны быть массивом`);
+        throw new DossierShapeError(`${label}.role_evidence должен быть массивом строк`);
     }
 
-    return value.map((point, index) => {
-        const pointLabel = `${label}, пример ${index + 1}`;
-        const body = asRecord(point, pointLabel);
+    const evidence: string[] = [];
 
-        return {
-            price: readDecimal(body.price, `${pointLabel}: цена`),
-            url: readOptionalText(body.url, `${pointLabel}: url`, 2048),
-            label: readOptionalText(body.label, `${pointLabel}: метка`, 255),
-        };
-    });
+    for (const item of value) {
+        if (typeof item !== 'string') {
+            throw new DossierShapeError(`${label}.role_evidence должен быть массивом строк`);
+        }
+
+        evidence.push(item);
+    }
+
+    return evidence;
 }
 
-function readLabels(value: unknown, label: string): unknown {
-    if (value === undefined || value === null) {
+function readUscc(value: unknown, label: string): string | null {
+    const text = readOptionalText(value, `${label}.uscc`, 32);
+
+    if (!text) {
         return null;
     }
 
-    if (typeof value !== 'object') {
-        throw new DossierShapeError(`${label}: метки должны быть объектом или массивом`);
+    const normalized = text.toUpperCase();
+
+    if (!/^[0-9A-Z]{18}$/.test(normalized)) {
+        throw new DossierShapeError(`${label}.uscc должен быть из 18 символов`);
     }
 
-    return value;
+    return normalized;
 }
 
-function readCount(value: unknown, label: string): number | null {
-    if (value === undefined || value === null) {
-        return null;
+function readUuid(value: unknown, label: string): string {
+    const text = readRequiredText(value, label, 36);
+
+    if (!UUID.test(text)) {
+        throw new DossierShapeError(`${label} должен быть uuid`);
     }
 
-    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-        throw new DossierShapeError(`${label}: число сотрудников должно быть целым от нуля`);
-    }
-
-    return value;
+    return text.toLowerCase();
 }
 
-function readArray(value: unknown, label: string): unknown[] {
-    if (value === undefined || value === null) {
-        return [];
-    }
-
+function readRequiredArray(value: unknown, label: string): unknown[] {
     if (!Array.isArray(value)) {
         throw new DossierShapeError(`${label} должен быть массивом`);
     }
@@ -399,6 +435,18 @@ function readOptionalText(value: unknown, label: string, max: number): string | 
     return text;
 }
 
+function readCount(value: unknown, label: string): number | null {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+        throw new DossierShapeError(`${label}.insured_count должно быть целым от нуля`);
+    }
+
+    return value;
+}
+
 function readDecimal(value: unknown, label: string): string | null {
     if (value === undefined || value === null || value === '') {
         return null;
@@ -421,18 +469,6 @@ function formatNumber(value: number): string {
     return Object.is(value, -0) ? '0' : String(value);
 }
 
-function readCurrency(value: unknown, label: string): string | null {
-    if (value === undefined || value === null || value === '') {
-        return null;
-    }
-
-    if (typeof value !== 'string' || !/^[A-Za-z]{3}$/.test(value)) {
-        throw new DossierShapeError(`${label} должна быть из трёх букв`);
-    }
-
-    return value.toUpperCase();
-}
-
 function readDate(value: unknown, label: string): Date | null {
     if (value === undefined || value === null || value === '') {
         return null;
@@ -451,12 +487,31 @@ function readDate(value: unknown, label: string): Date | null {
     return date;
 }
 
-function assertExpiry(capturedAt: Date, expiresAt: Date, label: string): void {
-    if (expiresAt.getTime() < capturedAt.getTime()) {
-        throw new DossierShapeError(`${label}: срок раньше съёма`);
+function isHttpUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
     }
 }
 
 function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
     return typeof value === 'string' && (allowed as readonly string[]).includes(value);
+}
+
+function stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        const keys = Object.keys(record).sort();
+
+        return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`;
+    }
+
+    return JSON.stringify(value) ?? 'null';
 }

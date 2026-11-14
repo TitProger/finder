@@ -7,3 +7,4 @@ export type * from './auth';
 export type * from './categories';
 export type * from './inquiries';
 export type * from './optimal-cards';
+export type * from './research';
