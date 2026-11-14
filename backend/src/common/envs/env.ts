@@ -96,7 +96,10 @@ function parseTelegramIds(raw: string | undefined): string[] {
         return [];
     }
 
-    const ids = value.split(',').map((id) => id.trim()).filter(Boolean);
+    const ids = value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
 
     for (const id of ids) {
         if (!/^[1-9]\d{0,18}$/.test(id)) {

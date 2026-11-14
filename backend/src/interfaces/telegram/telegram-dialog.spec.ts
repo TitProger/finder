@@ -121,6 +121,10 @@ function buildBot() {
     const questionRepo = repo(CategoryQuestionEntity, questions);
     const siteRepo = repo(CategorySiteEntity, sites);
     const userRepo = repo(AppUserEntity, users);
+    const limitChecker = {
+        canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
+        incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
+    };
     const inquiriesService = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
         userRepo as unknown as AppUserRepository,
@@ -131,6 +135,7 @@ function buildBot() {
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
         embedder,
+        limitChecker as any,
     );
     const categoryService = new CategoryAdminServiceImpl(
         categoryRepo as unknown as CategoryRepository,

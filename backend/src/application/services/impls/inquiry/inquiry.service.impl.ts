@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
 import { TextEmbeddingPort, TEXT_EMBEDDING_PORT } from '../../../ports/text-embedding.port';
+import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
 import {
     AdminRecipient,
     AnswerQuestionInput,
@@ -20,6 +21,7 @@ import { ConflictAppException } from '../../../../common/exceptions/conflict.exc
 import { ForbiddenAppException } from '../../../../common/exceptions/forbidden.exception';
 import { NotFoundAppException } from '../../../../common/exceptions/not-found.exception';
 import { UnauthorizedAppException } from '../../../../common/exceptions/unauthorized.exception';
+import { Envs } from '../../../../common/envs/env';
 import { CategoryQuestionEntity } from '../../../../domain/entities/category/category-question.entity';
 import { CategoryEntity } from '../../../../domain/entities/category/category.entity';
 import { QuestionPackEntity } from '../../../../domain/entities/category/question-pack.entity';
@@ -84,6 +86,8 @@ export class InquiryServiceImpl implements InquiryService {
         private readonly optimalCards: OptimalCardRepository,
         @Inject(TEXT_EMBEDDING_PORT)
         private readonly embeddings: TextEmbeddingPort,
+        @Inject(LIMIT_CHECKER_SERVICE)
+        private readonly limitChecker: LimitCheckerService,
     ) {}
 
     async create(input: CreateInquiryInput): Promise<InquiryView> {
@@ -178,7 +182,13 @@ export class InquiryServiceImpl implements InquiryService {
     }
 
     async resolveTelegramActor(telegramUserId: number): Promise<TelegramActor> {
-        const user = await this.users.findOne({ telegramUserId: String(telegramUserId) });
+        const telegramId = String(telegramUserId);
+        let user = await this.users.findOne({ telegramUserId: telegramId });
+
+        // Если пользователя нет, но его ID в списке админов - создаём админа
+        if (!user && this.isAdminTelegramId(telegramId)) {
+            user = await this.createAdminFromTelegram(telegramUserId);
+        }
 
         if (!user) {
             return { kind: 'new_client', telegramUserId };
@@ -204,17 +214,36 @@ export class InquiryServiceImpl implements InquiryService {
     }
 
     async listAdminRecipients(): Promise<AdminRecipient[]> {
+        // Получаем всех админов из базы
         const admins = await this.users.find({ role: UserRole.ADMIN, isActive: true });
 
-        return admins.flatMap((admin) => {
+        // Также добавляем админов из env, которых ещё может не быть в базе
+        const adminTelegramIds = Envs.admin.telegramIds.map((id) => toTelegramUserId(id)).filter((id) => id !== null);
+
+        const recipients = new Map<number, AdminRecipient>();
+
+        // Админы из базы
+        for (const admin of admins) {
             const telegramUserId = toTelegramUserId(admin.telegramUserId);
 
-            if (telegramUserId === null) {
-                return [];
+            if (telegramUserId !== null) {
+                recipients.set(telegramUserId, { userId: admin.id, telegramUserId });
             }
+        }
 
-            return [{ userId: admin.id, telegramUserId }];
-        });
+        // Админы из env (если их нет в базе, создадим при первом обращении)
+        for (const telegramUserId of adminTelegramIds) {
+            if (!recipients.has(telegramUserId)) {
+                // Временно добавляем с пустым userId - они будут созданы при первом контакте
+                const existing = await this.users.findOne({ telegramUserId: String(telegramUserId) });
+
+                if (existing) {
+                    recipients.set(telegramUserId, { userId: existing.id, telegramUserId });
+                }
+            }
+        }
+
+        return Array.from(recipients.values());
     }
 
     async findClientDialog(telegramUserId: number): Promise<ClientDialog> {
@@ -401,6 +430,7 @@ export class InquiryServiceImpl implements InquiryService {
     /**
      * Поиск перед ресерчем. Совпадение пишет карточку и статус «ответ из базы».
      * research_run не создаётся ни при совпадении, ни при промахе.
+     * Проверяет дневной лимит перед тем, как отправлять запрос на ресерч.
      */
     private async serveIfReady(inquiry: InquiryEntity): Promise<void> {
         if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
@@ -457,6 +487,24 @@ export class InquiryServiceImpl implements InquiryService {
         );
 
         if (!chosen) {
+            // Нет готовой карточки - нужен ресерч
+            // Проверяем дневной лимит
+            const telegramId = inquiry.clientUser.telegramUserId ?? '';
+            const limitCheck = await this.limitChecker.canStartResearch(inquiry.clientUser.id, telegramId);
+
+            if (!limitCheck.allowed) {
+                // Лимит исчерпан - ставим паузу
+                inquiry.isPaused = true;
+                inquiry.pauseReason = limitCheck.reason;
+                inquiry.status = InquiryStatus.AWAITING_CATEGORY;
+                await this.inquiries.getEntityManager().flush();
+
+                return;
+            }
+
+            // TODO: Здесь будет запуск ресерча (этап 5)
+            // await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
+            // await this.triggerResearch(inquiry);
             return;
         }
 
@@ -466,6 +514,7 @@ export class InquiryServiceImpl implements InquiryService {
             return;
         }
 
+        // Нашли готовую карточку - лимит не расходуется
         inquiry.optimalCard = card;
         inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
         await this.inquiries.getEntityManager().flush();
@@ -682,6 +731,29 @@ export class InquiryServiceImpl implements InquiryService {
         }
 
         throw error;
+    }
+
+    private isAdminTelegramId(telegramId: string): boolean {
+        return Envs.admin.telegramIds.includes(telegramId);
+    }
+
+    private async createAdminFromTelegram(telegramUserId: number): Promise<AppUserEntity> {
+        const telegramId = String(telegramUserId);
+        const admin = this.users.create({
+            role: UserRole.ADMIN,
+            telegramUserId: telegramId,
+            login: null,
+            passwordHash: null,
+            displayName: `Admin ${telegramUserId}`,
+            isActive: true,
+            planCode: 'unlimited',
+        });
+        const em = this.users.getEntityManager();
+
+        em.persist(admin);
+        await em.flush();
+
+        return admin;
     }
 }
 

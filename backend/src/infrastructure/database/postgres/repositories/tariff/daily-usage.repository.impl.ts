@@ -5,10 +5,7 @@ import { DailyUsageEntity } from '../../../../../domain/entities/tariff/daily-us
 import { DailyUsageRepository } from '../../../../../domain/repositories/tariff/daily-usage.repository';
 
 @Injectable()
-export class DailyUsageRepositoryImpl
-    extends BaseRepositoryImpl<DailyUsageEntity>
-    implements DailyUsageRepository
-{
+export class DailyUsageRepositoryImpl extends BaseRepositoryImpl<DailyUsageEntity> implements DailyUsageRepository {
     async findOrCreate(userId: string, usageDate: string): Promise<DailyUsageEntity> {
         const existing = await this.em.findOne(DailyUsageEntity, {
             user: userId,
