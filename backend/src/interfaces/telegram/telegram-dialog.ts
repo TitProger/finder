@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import {
     CATEGORY_ADMIN_SERVICE,
@@ -22,6 +22,14 @@ import { QuestionAnswerType } from '../../domain/enums/question-answer-type.enum
 import { SiteRole } from '../../domain/enums/site-role.enum';
 import { isCategoryRejection } from '../../domain/text/category-rejection';
 import { normalizePhrase } from '../../domain/text/phrase-text';
+import {
+    MANAGER_HANDOFF,
+    ManagerHandoffService,
+} from '../../application/services/impls/manager/manager-handoff.service';
+import {
+    RESEARCH_LAUNCH_SERVICE,
+    ResearchLaunchService,
+} from '../../application/services/impls/research/research-launch.service';
 import { parseCallback } from './telegram-callback';
 import { TELEGRAM_OUTBOUND, TelegramButton, TelegramIncoming, TelegramOutbound } from './telegram.types';
 
@@ -29,6 +37,8 @@ const NEAREST = 3;
 const PAGE_SIZE = 5;
 const PAUSE_TEXT = 'Менеджер уточняет направление.';
 const DONE_TEXT = 'Ответы записаны. Дальше считает менеджер.';
+const RESEARCH_ACCEPTED_TEXT = 'Заявка принята, менеджер скоро ответит';
+const CARD_SERVED_TEXT = 'Менеджер скоро ответит';
 const LIMIT_TEXT = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
 
 const SITE_ROLES: { key: string; role: SiteRole; label: string }[] = [
@@ -52,7 +62,7 @@ type CallbackUpdate = Extract<TelegramIncoming, { kind: 'callback' }>;
 
 /**
  * Диалог клиента и кнопки админа.
- * Заявку пишет через application. Цену клиенту не отправляет и ресерч не стартует.
+ * Заявку пишет через application. Клиенту не отправляет цену.
  */
 @Injectable()
 export class TelegramDialog {
@@ -68,6 +78,12 @@ export class TelegramDialog {
         private readonly planManager: PlanManagerService,
         @Inject(TELEGRAM_OUTBOUND)
         private readonly outbound: TelegramOutbound,
+        @Optional()
+        @Inject(MANAGER_HANDOFF)
+        private readonly handoff?: ManagerHandoffService,
+        @Optional()
+        @Inject(RESEARCH_LAUNCH_SERVICE)
+        private readonly launch?: ResearchLaunchService,
     ) {}
 
     async handle(update: TelegramIncoming): Promise<void> {
@@ -169,6 +185,14 @@ export class TelegramDialog {
 
                 return;
             }
+
+            const handoff = clientStatusText(next.view);
+
+            if (handoff) {
+                await this.send(update.chatId, handoff);
+
+                return;
+            }
         }
 
         await this.send(update.chatId, DONE_TEXT);
@@ -191,6 +215,14 @@ export class TelegramDialog {
 
         if (refused) {
             await this.send(update.chatId, refused);
+
+            return;
+        }
+
+        const handoff = clientStatusText(view);
+
+        if (handoff) {
+            await this.send(update.chatId, handoff);
 
             return;
         }
@@ -312,6 +344,30 @@ export class TelegramDialog {
 
         if (parsed.type === 'pick') {
             await this.pickListedCategory(update, actor.userId, parsed.inquiryId, parsed.page, parsed.index);
+
+            return;
+        }
+
+        if (parsed.type === 'make_optimal') {
+            await this.makeOptimal(update, actor.userId, parsed.inquiryId);
+
+            return;
+        }
+
+        if (parsed.type === 'close') {
+            await this.closeInquiry(update, actor.userId, parsed.inquiryId);
+
+            return;
+        }
+
+        if (parsed.type === 'rerun') {
+            await this.rerunResearch(update, parsed.inquiryId);
+
+            return;
+        }
+
+        if (parsed.type !== 'new') {
+            await this.send(update.chatId, 'Кнопка устарела.');
 
             return;
         }
@@ -457,10 +513,51 @@ export class TelegramDialog {
         await this.tellClient(view);
     }
 
+    private async makeOptimal(update: CallbackUpdate, adminUserId: string, inquiryId: string): Promise<void> {
+        if (!this.handoff) {
+            await this.send(update.chatId, 'Действие пока недоступно.');
+
+            return;
+        }
+
+        await this.handoff.makeOptimal(inquiryId, adminUserId);
+        await this.send(update.chatId, 'Оптимальная карточка сохранена. Её можно поправить позже.');
+    }
+
+    private async closeInquiry(update: CallbackUpdate, adminUserId: string, inquiryId: string): Promise<void> {
+        if (!this.handoff) {
+            await this.send(update.chatId, 'Действие пока недоступно.');
+
+            return;
+        }
+
+        await this.handoff.close(inquiryId, adminUserId);
+        await this.send(update.chatId, 'Заявка закрыта.');
+    }
+
+    private async rerunResearch(update: CallbackUpdate, inquiryId: string): Promise<void> {
+        if (!this.launch) {
+            await this.send(update.chatId, 'Действие пока недоступно.');
+
+            return;
+        }
+
+        await this.launch.rerun(inquiryId);
+        await this.send(update.chatId, 'Ресерч запущен заново.');
+    }
+
     private async tellClient(view: InquiryView): Promise<void> {
         const telegramUserId = toTelegramUserId(view.inquiry.clientUser.telegramUserId);
 
         if (telegramUserId === null) {
+            return;
+        }
+
+        const handoff = clientStatusText(view);
+
+        if (handoff) {
+            await this.send(telegramUserId, handoff);
+
             return;
         }
 
@@ -591,6 +688,18 @@ function emptyDraft(inquiryId: string): CategoryDraft {
         question: '',
         siteRole: null,
     };
+}
+
+function clientStatusText(view: InquiryView): string | null {
+    if (view.inquiry.status === InquiryStatus.RESEARCHING) {
+        return RESEARCH_ACCEPTED_TEXT;
+    }
+
+    if (view.inquiry.status === InquiryStatus.SERVED_FROM_DATABASE) {
+        return CARD_SERVED_TEXT;
+    }
+
+    return null;
 }
 
 function limitRefusalText(view: InquiryView): string | null {

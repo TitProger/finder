@@ -6,6 +6,7 @@ import { AppErrors } from '../../../errors';
 import { ConflictAppException } from '../../../../common/exceptions/conflict.exception';
 import { NotFoundAppException } from '../../../../common/exceptions/not-found.exception';
 import { RESEARCH_TRIGGER, ResearchTriggerBody, ResearchTriggerPort } from '../../../ports/research-trigger.port';
+import { MANAGER_HANDOFF, ManagerHandoffService } from '../manager/manager-handoff.service';
 import { CategorySiteEntity } from '../../../../domain/entities/category/category-site.entity';
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { ResearchRunEntity } from '../../../../domain/entities/market/research-run.entity';
@@ -48,6 +49,9 @@ export class ResearchLaunchService {
         @Optional()
         @Inject(RESEARCH_TRIGGER)
         private readonly trigger?: ResearchTriggerPort,
+        @Optional()
+        @Inject(MANAGER_HANDOFF)
+        private readonly handoff?: ManagerHandoffService,
     ) {}
 
     async startForInquiry(inquiry: InquiryEntity): Promise<ResearchRunEntity> {
@@ -107,6 +111,10 @@ export class ResearchLaunchService {
 
         if (stale.length > 0) {
             await this.runs.getEntityManager().flush();
+        }
+
+        for (const run of stale) {
+            await this.reportProblem(run);
         }
 
         return stale;
@@ -175,6 +183,7 @@ export class ResearchLaunchService {
             if (!retryable || attempt === maxAttempts) {
                 run.status = ResearchRunStatus.FAILED_TO_START;
                 await em.flush();
+                await this.reportProblem(run);
 
                 return run;
             }
@@ -184,8 +193,23 @@ export class ResearchLaunchService {
 
         run.status = ResearchRunStatus.FAILED_TO_START;
         await em.flush();
+        await this.reportProblem(run);
 
         return run;
+    }
+
+    private async reportProblem(run: ResearchRunEntity): Promise<void> {
+        if (!this.handoff) {
+            return;
+        }
+
+        try {
+            await this.handoff.onRunProblem(run);
+        } catch (error) {
+            Logger.error('Уведомление о сбое ресерча не ушло', Logger.statuses.FAIL, {
+                data: { message: error instanceof Error ? error.message : String(error), runId: run.runId },
+            });
+        }
     }
 
     private async payload(inquiry: InquiryEntity, runId: string, now: Date): Promise<ResearchTriggerBody> {
