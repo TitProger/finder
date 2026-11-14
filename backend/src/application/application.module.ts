@@ -26,6 +26,7 @@ import { PlanManagerServiceImpl } from './services/impls/tariff/plan-manager.ser
 import { MANAGER_NOTIFY } from './ports/manager-notify.port';
 import { RESEARCH_TRIGGER } from './ports/research-trigger.port';
 import { MANAGER_HANDOFF, ManagerHandoffService } from './services/impls/manager/manager-handoff.service';
+import { INQUIRY_ECONOMICS, InquiryEconomicsService } from './services/impls/market/inquiry-economics.service';
 import { JsonResearchRunner } from './services/impls/research/json-research-runner';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from './services/impls/research/research-launch.service';
 import { ResearchStaleScheduler } from './services/impls/research/research-stale.scheduler';
@@ -52,6 +53,7 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         { provide: TELEGRAM_OUTBOUND, useClass: TelegramBotApi },
         { provide: MANAGER_NOTIFY, useClass: TelegramManagerNotify },
         { provide: MANAGER_HANDOFF, useClass: ManagerHandoffService },
+        { provide: INQUIRY_ECONOMICS, useClass: InquiryEconomicsService },
         ResearchStaleScheduler,
     ],
     exports: [
@@ -67,6 +69,7 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         RESEARCH_RUNNER,
         RESEARCH_LAUNCH_SERVICE,
         MANAGER_HANDOFF,
+        INQUIRY_ECONOMICS,
     ],
 })
 export class ApplicationModule {}

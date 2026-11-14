@@ -264,3 +264,106 @@ ResearchRerunResult:
     runStatus:
       type: string
       enum: [PENDING, RUNNING, SUCCEEDED, FAILED, FAILED_TO_START, STALE, CANCELLED]
+
+SaveInquiryEconomicsRequest:
+  type: object
+  additionalProperties: false
+  required: [deliveryPerUnit, dutyPercent, markupPercent]
+  properties:
+    deliveryPerUnit:
+      type: number
+      minimum: 0
+      description: Доставка за одну единицу, в рублях.
+    dutyPercent:
+      type: number
+      minimum: 0
+      maximum: 1000
+      description: Пошлина в процентах от цены товара.
+    otherCost:
+      type: number
+      minimum: 0
+      description: Прочие затраты за единицу, в рублях. Пусто значит 0.
+    markupPercent:
+      type: number
+      minimum: 0
+      maximum: 1000
+      description: Наценка в процентах после доставки, пошлины и прочих.
+
+InquiryEconomics:
+  type: object
+  additionalProperties: false
+  required: [inquiryId, quotes, fxFallback, economics, landed]
+  properties:
+    inquiryId:
+      type: string
+      format: uuid
+    quotes:
+      type: array
+      items:
+        $ref: '#/LayerQuote'
+    fxFallback:
+      type: boolean
+      description: true, если хотя бы один слой взял запасной курс.
+    economics:
+      nullable: true
+      allOf:
+        - $ref: '#/SaveInquiryEconomicsRequest'
+    landed:
+      type: array
+      description: Пустой, пока менеджер не ввёл затраты или нет заводской цены.
+      items:
+        $ref: '#/LandedUnit'
+
+LayerQuote:
+  type: object
+  additionalProperties: false
+  required: [layer, unit, count, minRub, medianRub, fxUsed]
+  properties:
+    layer:
+      type: string
+      enum: [FACTORY, CHINA_OPEN, RUSSIA_RETAIL, RUSSIA_WHOLESALE]
+    unit:
+      type: string
+    count:
+      type: integer
+      minimum: 1
+    minRub:
+      type: number
+    medianRub:
+      type: number
+    fxUsed:
+      type: string
+      enum: [dossier, fallback, rub]
+
+LandedUnit:
+  type: object
+  additionalProperties: false
+  required: [unit, baseRub, deliveryPerUnit, dutyAmount, otherCost, markupAmount, landedRub, retailRub, deltaRub, verdict, fxUsed]
+  properties:
+    unit:
+      type: string
+    baseRub:
+      type: number
+    deliveryPerUnit:
+      type: number
+    dutyAmount:
+      type: number
+    otherCost:
+      type: number
+    markupAmount:
+      type: number
+    landedRub:
+      type: number
+    retailRub:
+      type: number
+      nullable: true
+    deltaRub:
+      type: number
+      nullable: true
+    verdict:
+      type: string
+      nullable: true
+      enum: ['выгодно', 'не выгодно', null]
+    fxUsed:
+      type: string
+      enum: [dossier, fallback, rub]

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
   },
   "servers": [
@@ -1277,6 +1277,135 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/inquiries/{id}/economics": {
+      "get": {
+        "operationId": "getInquiryEconomics",
+        "tags": [
+          "inquiries"
+        ],
+        "summary": "Слои цен и ручная экономика заявки",
+        "description": "Только админ (статический ADMIN_API_TOKEN или JWT). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Слои и, если менеджер уже ввёл затраты, себестоимость",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/InquiryEconomics"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "saveInquiryEconomics",
+        "tags": [
+          "inquiries"
+        ],
+        "summary": "Записать ручные затраты и посчитать себестоимость",
+        "description": "Только админ. Доставка за единицу, пошлина в процентах, прочие затраты и наценка в процентах. Себестоимость считается от минимальной заводской цены в рублях и сравнивается с розницей РФ той же единицы. client_price не заполняется: клиенту цена не уходит.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveInquiryEconomicsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Затраты записаны, себестоимость посчитана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/InquiryEconomics"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2700,6 +2829,81 @@
           }
         }
       },
+      "SaveInquiryEconomicsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deliveryPerUnit",
+          "dutyPercent",
+          "markupPercent"
+        ],
+        "properties": {
+          "deliveryPerUnit": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Доставка за одну единицу, в рублях."
+          },
+          "dutyPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Пошлина в процентах от цены товара."
+          },
+          "otherCost": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Прочие затраты за единицу, в рублях. Пусто значит 0."
+          },
+          "markupPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Наценка в процентах после доставки, пошлины и прочих."
+          }
+        }
+      },
+      "InquiryEconomics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "inquiryId",
+          "quotes",
+          "fxFallback",
+          "economics",
+          "landed"
+        ],
+        "properties": {
+          "inquiryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LayerQuote"
+            }
+          },
+          "fxFallback": {
+            "type": "boolean",
+            "description": "true, если хотя бы один слой взял запасной курс."
+          },
+          "economics": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SaveInquiryEconomicsRequest"
+              }
+            ]
+          },
+          "landed": {
+            "type": "array",
+            "description": "Пустой, пока менеджер не ввёл затраты или нет заводской цены.",
+            "items": {
+              "$ref": "#/components/schemas/LandedUnit"
+            }
+          }
+        }
+      },
       "ContactChannel": {
         "type": "string",
         "description": "Канал контакта на оптимальной карточке.",
@@ -3185,6 +3389,115 @@
             "items": {
               "$ref": "#/components/schemas/DiscardedItem"
             }
+          }
+        }
+      },
+      "LayerQuote": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "layer",
+          "unit",
+          "count",
+          "minRub",
+          "medianRub",
+          "fxUsed"
+        ],
+        "properties": {
+          "layer": {
+            "type": "string",
+            "enum": [
+              "FACTORY",
+              "CHINA_OPEN",
+              "RUSSIA_RETAIL",
+              "RUSSIA_WHOLESALE"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minRub": {
+            "type": "number"
+          },
+          "medianRub": {
+            "type": "number"
+          },
+          "fxUsed": {
+            "type": "string",
+            "enum": [
+              "dossier",
+              "fallback",
+              "rub"
+            ]
+          }
+        }
+      },
+      "LandedUnit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit",
+          "baseRub",
+          "deliveryPerUnit",
+          "dutyAmount",
+          "otherCost",
+          "markupAmount",
+          "landedRub",
+          "retailRub",
+          "deltaRub",
+          "verdict",
+          "fxUsed"
+        ],
+        "properties": {
+          "unit": {
+            "type": "string"
+          },
+          "baseRub": {
+            "type": "number"
+          },
+          "deliveryPerUnit": {
+            "type": "number"
+          },
+          "dutyAmount": {
+            "type": "number"
+          },
+          "otherCost": {
+            "type": "number"
+          },
+          "markupAmount": {
+            "type": "number"
+          },
+          "landedRub": {
+            "type": "number"
+          },
+          "retailRub": {
+            "type": "number",
+            "nullable": true
+          },
+          "deltaRub": {
+            "type": "number",
+            "nullable": true
+          },
+          "verdict": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "выгодно",
+              "не выгодно",
+              null
+            ]
+          },
+          "fxUsed": {
+            "type": "string",
+            "enum": [
+              "dossier",
+              "fallback",
+              "rub"
+            ]
           }
         }
       },

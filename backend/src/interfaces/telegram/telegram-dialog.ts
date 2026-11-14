@@ -27,9 +27,15 @@ import {
     ManagerHandoffService,
 } from '../../application/services/impls/manager/manager-handoff.service';
 import {
+    INQUIRY_ECONOMICS,
+    InquiryEconomicsService,
+    InquiryEconomicsView,
+} from '../../application/services/impls/market/inquiry-economics.service';
+import {
     RESEARCH_LAUNCH_SERVICE,
     ResearchLaunchService,
 } from '../../application/services/impls/research/research-launch.service';
+import { parseEconomicsLine } from '../../domain/market/parse-economics-line';
 import { parseCallback } from './telegram-callback';
 import { TELEGRAM_OUTBOUND, TelegramButton, TelegramIncoming, TelegramOutbound } from './telegram.types';
 
@@ -68,6 +74,7 @@ type CallbackUpdate = Extract<TelegramIncoming, { kind: 'callback' }>;
 export class TelegramDialog {
     private readonly logger = new Logger(TelegramDialog.name);
     private readonly drafts = new Map<number, CategoryDraft>();
+    private readonly economicsDrafts = new Map<number, string>();
 
     constructor(
         @Inject(INQUIRY_SERVICE)
@@ -84,6 +91,9 @@ export class TelegramDialog {
         @Optional()
         @Inject(RESEARCH_LAUNCH_SERVICE)
         private readonly launch?: ResearchLaunchService,
+        @Optional()
+        @Inject(INQUIRY_ECONOMICS)
+        private readonly economics?: InquiryEconomicsService,
     ) {}
 
     async handle(update: TelegramIncoming): Promise<void> {
@@ -245,6 +255,12 @@ export class TelegramDialog {
             return;
         }
 
+        if (this.economicsDrafts.has(update.telegramUserId)) {
+            await this.applyEconomicsDraft(update);
+
+            return;
+        }
+
         const draft = this.drafts.get(update.telegramUserId);
 
         if (!draft) {
@@ -307,6 +323,52 @@ export class TelegramDialog {
         await this.finishDraft(update, draft, text);
     }
 
+    private async applyEconomicsDraft(update: MessageUpdate): Promise<void> {
+        const inquiryId = this.economicsDrafts.get(update.telegramUserId);
+
+        if (!inquiryId) {
+            return;
+        }
+
+        const text = update.text?.trim() ?? '';
+
+        if (normalizePhrase(text) === 'отмена') {
+            this.economicsDrafts.delete(update.telegramUserId);
+            await this.send(update.chatId, 'Расчёт отменён.');
+
+            return;
+        }
+
+        const parsed = parseEconomicsLine(text);
+
+        if (!parsed.ok) {
+            await this.send(update.chatId, parsed.message);
+
+            return;
+        }
+
+        if (!this.economics) {
+            await this.send(update.chatId, 'Расчёт сейчас недоступен.');
+
+            return;
+        }
+
+        try {
+            const view = await this.economics.save(inquiryId, parsed.value);
+
+            this.economicsDrafts.delete(update.telegramUserId);
+            await this.send(update.chatId, formatLanded(view));
+        } catch (error) {
+            if (error instanceof AppException) {
+                await this.send(update.chatId, error.message);
+
+                return;
+            }
+
+            throw error;
+        }
+    }
+
     private async onCallback(update: CallbackUpdate): Promise<void> {
         const actor = await this.inquiries.resolveTelegramActor(update.telegramUserId);
 
@@ -362,6 +424,16 @@ export class TelegramDialog {
 
         if (parsed.type === 'rerun') {
             await this.rerunResearch(update, parsed.inquiryId);
+
+            return;
+        }
+
+        if (parsed.type === 'economics') {
+            this.economicsDrafts.set(update.telegramUserId, parsed.inquiryId);
+            await this.send(
+                update.chatId,
+                'Одной строкой: доставка=30 пошлина=10 наценка=25. Можно добавить прочее=5. «отмена» прервёт.',
+            );
 
             return;
         }
@@ -754,6 +826,29 @@ function adminButtons(inquiryId: string, candidates: { categoryName: string }[])
 
 function siteRoleButtons(): TelegramButton[][] {
     return SITE_ROLES.map((item) => [{ text: item.label, callbackData: `sr:${item.key}` }]);
+}
+
+function formatLanded(view: InquiryEconomicsView): string {
+    if (view.landed.length === 0) {
+        return 'Экономика записана. Заводской цены в досье нет, себестоимость не посчитана.';
+    }
+
+    return view.landed
+        .map((item) => {
+            const retail =
+                item.retailRub === null
+                    ? 'Розницы РФ по этой единице нет, вердикта нет.'
+                    : `Розница РФ: ${item.retailRub} RUB\nРазница: ${item.deltaRub} RUB\n${item.verdict === 'выгодно' ? 'Выгодно.' : 'Не выгодно.'}`;
+            const rate =
+                item.fxUsed === 'fallback'
+                    ? 'Курс запасной.'
+                    : item.fxUsed === 'dossier'
+                      ? 'Курс из досье.'
+                      : 'Цена уже в RUB.';
+
+            return [`Единица: ${item.unit}`, `Себестоимость: ${item.landedRub} RUB`, retail, rate].join('\n');
+        })
+        .join('\n\n');
 }
 
 function clip(name: string): string {

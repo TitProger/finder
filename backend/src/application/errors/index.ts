@@ -1,6 +1,7 @@
 import { AuthErrors } from './auth.errors';
 import { CategoryErrors } from './category.errors';
 import { CommonErrors } from './common.errors';
+import { EconomicsErrors } from './economics.errors';
 import { InquiryErrors } from './inquiry.errors';
 import { OptimalCardErrors } from './optimal-card.errors';
 import { ResearchErrors } from './research.errors';
@@ -14,6 +15,7 @@ export const AppErrors = {
     category: CategoryErrors,
     auth: AuthErrors,
     inquiry: InquiryErrors,
+    economics: EconomicsErrors,
     optimalCard: OptimalCardErrors,
     research: ResearchErrors,
 } as const;
