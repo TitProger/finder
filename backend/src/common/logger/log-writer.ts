@@ -1,27 +1,25 @@
-import { existsSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
 import winston from 'winston';
-import { baseFormat, levelTransports } from './logger.config';
+
+import { baseFormat, resolveLogsDir, selectLogTransports } from './logger.config';
 import { buildLogStructure, LogMeta, LogStatus } from './logger.context';
 
 export type LogLevel = 'info' | 'error' | 'warn' | 'debug';
 
-// Путь к папке логов
-const logsDir = join(process.cwd(), 'logs');
+const logsDir = resolveLogsDir();
+const transports = selectLogTransports(logsDir);
 
-if (!existsSync(logsDir)) {
-    try {
-        mkdirSync(logsDir, { recursive: true });
-    } catch (_e) {
-        // noop
-    }
+if (transports.length === 1 && process.env.LOGGER_SILENT !== 'true') {
+    process.stderr.write(`Каталог логов недоступен (${logsDir}), пишу только в консоль\n`);
 }
 
-// Создаем winston логгер
 const winstonLogger = winston.createLogger({
     level: process.env.LOG_LEVEL || 'info',
     format: baseFormat,
-    transports: [levelTransports(logsDir).console, levelTransports(logsDir).error, levelTransports(logsDir).info],
+    transports,
+});
+
+winstonLogger.on('error', () => {
+    // Ошибка файла не должна останавливать процесс.
 });
 
 export function writeWithLevel(level: LogLevel, message: unknown, status?: LogStatus, meta?: LogMeta): void {

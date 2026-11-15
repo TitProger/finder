@@ -39,8 +39,11 @@ COPY --from=builder /app/api ./api
 COPY --from=builder /app/seeds ./seeds
 COPY --from=builder /app/scripts/run-seed.mjs ./scripts/run-seed.mjs
 
-# Создаём пользователя для запуска приложения (не root)
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+# Каталог логов принадлежит runtime-пользователю до USER.
+# Пустой том Docker наследует владельца этого каталога из образа.
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 \
+ && mkdir -p /app/logs \
+ && chown nodejs:nodejs /app/logs
 USER nodejs
 
 # Открываем порт приложения
@@ -49,6 +52,7 @@ EXPOSE 8080
 # Переменные окружения по умолчанию (можно переопределить при запуске)
 ENV NODE_ENV=production
 ENV APP_PORT=8080
+ENV LOG_DIR=/app/logs
 
 # Запускаем приложение
 CMD ["node", "dist/src/main.js"]
