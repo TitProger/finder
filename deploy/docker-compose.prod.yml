@@ -5,6 +5,7 @@ services:
     image: postgres:17
     container_name: finder-postgres
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_DB: ${PG_DATABASE:-finder}
       POSTGRES_USER: ${PG_USERNAME:-finder}
@@ -20,13 +21,13 @@ services:
       - finder
 
   app:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
+    image: ghcr.io/titproger/finder:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: finder-app
     restart: unless-stopped
+    mem_limit: 512m
+    pull_policy: always
     env_file:
-      - ../backend/.env
+      - .env
     environment:
       NODE_ENV: production
       APP_HOST: 0.0.0.0
@@ -37,7 +38,7 @@ services:
       PG_MIGRATIONS_RUN: "true"
       PG_LOGGING: "false"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
