@@ -1,12 +1,11 @@
 import { Migration } from '@mikro-orm/migrations';
 
 /**
- * BDM Finder: enums, таблицы, FK из schema.dbml, pgvector(1536).
+ * BDM Finder: enums, таблицы и FK из schema.dbml.
+ * Обычный postgres:17, без расширений.
  */
 export class Migration20261114080000_InitBdm extends Migration {
     override async up(): Promise<void> {
-        this.addSql(`create extension if not exists vector;`);
-
         this.addSql(`create type "user_role" as enum ('ADMIN', 'CLIENT');`);
         this.addSql(`create type "category_status" as enum ('ACTIVE', 'ARCHIVED');`);
         this.addSql(
@@ -58,7 +57,6 @@ create table "category" (
   "name" varchar(255) not null,
   "description" text not null,
   "status" "category_status" not null default 'ACTIVE',
-  "embedding" vector(1536) null,
   constraint "category_pkey" primary key ("id")
 );`);
         this.addSql(`alter table "category" add constraint "category_name_unique" unique ("name");`);
@@ -70,7 +68,6 @@ create table "category_phrase" (
   "updated_at" timestamptz null default now(),
   "category_id" uuid not null,
   "phrase" text not null,
-  "embedding" vector(1536) null,
   constraint "category_phrase_pkey" primary key ("id")
 );`);
         this.addSql(
@@ -156,7 +153,6 @@ create table "canonical_product" (
   "name_ru" varchar(512) not null,
   "name_zh" varchar(512) null,
   "attributes" jsonb null,
-  "embedding" vector(1536) null,
   constraint "canonical_product_pkey" primary key ("id")
 );`);
         this.addSql(
