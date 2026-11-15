@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# Идемпотентная выкладка на VPS. Секреты не печатает.
-# Фазы: sync, up, all (по умолчанию).
+# На VPS только скачиваем готовый образ и запускаем его. Сборки и git здесь нет.
+# Секреты не печатает. Если задан GHCR_USER, пароль реестра читается из stdin и
+# после выкладки docker logout его стирает.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
 ROOT="${FINDER_ROOT:-/opt/finder}"
-REPO_URL="${FINDER_REPO_URL:-https://github.com/TitProger/finder.git}"
-PHASE="${1:-all}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8080/health}"
+IMAGE="${IMAGE:-ghcr.io/titproger/finder}"
+
+if [[ "${1:-up}" != "up" ]]; then
+  printf '%s\n' "На сервере больше нет сборки и git. Запускайте без аргументов." >&2
+  exit 1
+fi
 
 if [[ "$(id -u)" -eq 0 ]]; then
   SUDO=()
@@ -22,25 +27,35 @@ log() {
   printf '%s\n' "$*"
 }
 
+if [[ -z "${IMAGE_TAG:-}" ]]; then
+  log "IMAGE_TAG пустой"
+  exit 1
+fi
+
+if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  log "IMAGE_TAG содержит недопустимые символы"
+  exit 1
+fi
+
+# Пароль реестра забираем сразу: дальше apt и docker не должны съесть stdin.
+registry_password=""
+if [[ -n "${GHCR_USER:-}" ]]; then
+  registry_password="$(cat)"
+fi
+
 compose() {
-  "${DOCKER[@]}" compose --env-file "$ROOT/backend/.env" -f "$ROOT/deploy/docker-compose.prod.yml" "$@"
+  "${DOCKER[@]}" compose --env-file "$ROOT/.env" -f "$ROOT/docker-compose.prod.yml" "$@"
 }
 
 show_logs() {
   compose logs --tail 200 || true
 }
 
-install_packages() {
-  "${SUDO[@]}" apt-get update
-  "${SUDO[@]}" apt-get install -y ca-certificates curl git
+logout_registry() {
+  "${DOCKER[@]}" logout ghcr.io >/dev/null 2>&1 || true
 }
 
 install_docker() {
-  if "${DOCKER[@]}" compose version >/dev/null 2>&1; then
-    return 0
-  fi
-
-  log "→ Устанавливаю Docker"
   "${SUDO[@]}" install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | "${SUDO[@]}" tee /etc/apt/keyrings/docker.asc >/dev/null
   "${SUDO[@]}" chmod a+r /etc/apt/keyrings/docker.asc
@@ -53,117 +68,103 @@ install_docker() {
   "${SUDO[@]}" systemctl enable --now docker
 }
 
-ensure_writable() {
-  if [[ -d "$ROOT" && ! -w "$ROOT" ]]; then
-    "${SUDO[@]}" chown -R "$(id -un):$(id -gn)" "$ROOT"
-  fi
-}
+ensure_runtime() {
+  local need_curl=0
+  local need_docker=0
 
-sync_repo() {
-  local sha="${FINDER_SHA:-}"
+  command -v curl >/dev/null 2>&1 || need_curl=1
+  "${DOCKER[@]}" compose version >/dev/null 2>&1 || need_docker=1
 
-  if [[ -z "$sha" ]]; then
-    log "FINDER_SHA пустой, каталог $ROOT не обновляю"
+  if [[ "$need_curl" -eq 0 && "$need_docker" -eq 0 ]]; then
     return 0
   fi
 
-  if [[ ! "$sha" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
-    log "FINDER_SHA должен быть git SHA"
-    exit 1
+  log "→ Не хватает curl или Docker, ставлю пакеты"
+  "${SUDO[@]}" apt-get update
+  if [[ "$need_curl" -eq 1 ]]; then
+    "${SUDO[@]}" apt-get install -y ca-certificates curl
   fi
-
-  install_packages
-  if [[ ! -d "$ROOT" ]]; then
-    "${SUDO[@]}" install -d -m 755 "$ROOT"
-    if [[ "$(id -u)" -ne 0 ]]; then
-      "${SUDO[@]}" chown "$(id -un):$(id -gn)" "$ROOT"
-    fi
+  if [[ "$need_docker" -eq 1 ]]; then
+    install_docker
   fi
-  ensure_writable
-
-  if [[ ! -d "$ROOT/.git" ]]; then
-    if [[ -d "$ROOT" ]] && [[ -n "$(ls -A "$ROOT" 2>/dev/null || true)" ]]; then
-      log "Каталог $ROOT не пустой и это не git-репозиторий"
-      exit 1
-    fi
-    log "→ Клонирую $REPO_URL"
-    GIT_TERMINAL_PROMPT=0 git clone --depth 1 "$REPO_URL" "$ROOT"
-  fi
-
-  log "→ Обновляю $ROOT до $sha"
-  git -C "$ROOT" remote set-url origin "$REPO_URL"
-  GIT_TERMINAL_PROMPT=0 git -C "$ROOT" fetch --depth 1 origin "$sha"
-  git -C "$ROOT" checkout --force --detach "$sha"
 }
 
 require_env_file() {
-  if [[ ! -f "$ROOT/backend/.env" ]]; then
-    log "Нет $ROOT/backend/.env"
+  if [[ ! -f "$ROOT/.env" ]]; then
+    log "Нет $ROOT/.env"
     exit 1
   fi
 
-  "${SUDO[@]}" chmod 600 "$ROOT/backend/.env"
+  chmod 600 "$ROOT/.env" 2>/dev/null || "${SUDO[@]}" chmod 600 "$ROOT/.env"
 }
 
-deploy_app() {
-  install_packages
-  install_docker
-  require_env_file
-
-  log "→ Собираю и поднимаю контейнеры"
-  if ! compose up -d --build --wait --wait-timeout 180; then
-    show_logs
-    exit 1
-  fi
-
-  log "→ Миграции"
-  if ! compose exec -T -e TELEGRAM_POLLING=false app node dist/src/infrastructure/database/migrate.command.js; then
-    show_logs
-    exit 1
-  fi
-
-  log "→ Справочник категорий"
-  if ! compose exec -T -e TELEGRAM_POLLING=false app npm run seed; then
-    show_logs
-    exit 1
-  fi
-
-  log "→ Удаляю старые образы"
-  "${DOCKER[@]}" image prune -f >/dev/null
-
-  log "→ Проверяю $HEALTH_URL"
-  local ok=0
-  local attempt
-  for attempt in 1 2 3 4 5 6; do
-    if curl -fsS "$HEALTH_URL" >/dev/null; then
-      ok=1
-      break
-    fi
-    sleep 5
-  done
-
-  if [[ "$ok" -ne 1 ]]; then
-    log "Healthcheck не прошёл"
-    show_logs
-    exit 1
-  fi
-
-  log "✓ Finder отвечает на /health"
+prune_old_images() {
+  local ref
+  while read -r ref; do
+    [[ -z "$ref" || "$ref" == *":<none>" ]] && continue
+    case "$ref" in
+      "$IMAGE:$IMAGE_TAG" | "$IMAGE:latest") ;;
+      "$IMAGE:"*) "${DOCKER[@]}" rmi "$ref" >/dev/null 2>&1 || true ;;
+    esac
+  done < <("${DOCKER[@]}" images "$IMAGE" --format '{{.Repository}}:{{.Tag}}')
+  "${DOCKER[@]}" image prune -f >/dev/null || true
 }
 
-case "$PHASE" in
-  sync)
-    sync_repo
-    ;;
-  up)
-    deploy_app
-    ;;
-  all)
-    sync_repo
-    deploy_app
-    ;;
-  *)
-    log "Фаза должна быть sync, up или all"
+ensure_runtime
+require_env_file
+
+if [[ -n "${GHCR_USER:-}" ]]; then
+  if [[ ! "$GHCR_USER" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+    log "GHCR_USER содержит недопустимые символы"
     exit 1
-    ;;
-esac
+  fi
+  log "→ Вход в ghcr.io на время выкладки"
+  printf '%s' "$registry_password" | "${DOCKER[@]}" login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
+  unset registry_password
+  trap logout_registry EXIT
+fi
+
+log "→ Скачиваю $IMAGE:$IMAGE_TAG"
+if ! compose pull; then
+  show_logs
+  exit 1
+fi
+
+"${DOCKER[@]}" pull "$IMAGE:latest" >/dev/null
+prune_old_images
+
+log "→ Запускаю контейнеры без сборки"
+if ! compose up -d --no-build --wait --wait-timeout 180; then
+  show_logs
+  exit 1
+fi
+
+log "→ Миграции"
+if ! compose exec -T -e TELEGRAM_POLLING=false app node dist/src/infrastructure/database/migrate.command.js; then
+  show_logs
+  exit 1
+fi
+
+log "→ Справочник категорий"
+if ! compose exec -T -e TELEGRAM_POLLING=false app npm run seed; then
+  show_logs
+  exit 1
+fi
+
+log "→ Проверяю $HEALTH_URL"
+ok=0
+for _attempt in 1 2 3 4 5 6; do
+  if curl -fsS "$HEALTH_URL" >/dev/null; then
+    ok=1
+    break
+  fi
+  sleep 5
+done
+
+if [[ "$ok" -ne 1 ]]; then
+  log "Healthcheck не прошёл"
+  show_logs
+  exit 1
+fi
+
+log "✓ Finder отвечает на /health"

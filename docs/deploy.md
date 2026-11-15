@@ -1,14 +1,36 @@
 # Выкладка Finder на VPS
 
-Сервер: Ubuntu, `130.17.14.150`. Домена пока нет. Бот ходит в Telegram через long polling и работает без HTTPS. HTTP API слушает порт **8080**. Postgres наружу не публикуется.
+Сервер: Ubuntu, `130.17.14.150`, одно ядро и мало свободной памяти, рядом работают другие приложения. Образ **собирается в GitHub Actions** и публикуется в `ghcr.io/titproger/finder` с тегами SHA коммита и `latest`. На VPS сборки нет: сервер только скачивает образ и запускает контейнеры.
 
-После вливания в `main` зелёный CI сам запускает workflow **Deploy**. Повторно выкладки не наезжают друг на друга.
+Postgres наружу не публикуется. Приложение слушает **127.0.0.1:8080**. Nginx уже проксирует `https://bot.passimx.com` на этот адрес. Бот ходит в Telegram через long polling, отдельный домен для Telegram не нужен.
 
-## 1. Ключ SSH
+После вливания в `main` зелёный CI сам запускает workflow **Deploy**. Две выкладки одновременно не идут.
 
-Рекомендуется ключ, не пароль. Пароль (`DEPLOY_PASSWORD`) оставлен запасным путём и в логе помечается как нежелательный.
+Вход на сервер сейчас: `DEPLOY_USER=root` и `DEPLOY_PASSWORD`. Ключ `DEPLOY_SSH_KEY` тоже поддерживается: если секрет ключа не пустой, workflow входит по ключу, а не по паролю.
 
-Windows, в PowerShell:
+## 1. Файл подкачки 4 ГБ
+
+На маленьком сервере без swap машина замирает, когда памяти не хватает. Сборка на VPS больше не запускается, но два контейнера по 512 МБ и остальные приложения всё равно лучше подстраховать. Один раз от root:
+
+```bash
+ssh root@130.17.14.150
+fallocate -l 4G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+swapon --show
+```
+
+Повторный запуск `mkswap` по живому файлу не нужен. Проверка: в `swapon --show` есть `/swapfile`.
+
+## 2. Вход по паролю или по ключу
+
+Сейчас достаточно пароля root в секрете `DEPLOY_PASSWORD`. Отдельный пользователь не обязателен.
+
+Ключ, если захотите перейти на него позже.
+
+Windows, PowerShell:
 
 ```powershell
 ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\finder_deploy -C finder-deploy
@@ -20,159 +42,98 @@ macOS и Linux:
 ssh-keygen -t ed25519 -f ~/.ssh/finder_deploy -C finder-deploy
 ```
 
-На вопрос passphrase можно нажать Enter. Появятся два файла:
+- `finder_deploy` целиком, со строками `BEGIN` и `END`, кладётся в `DEPLOY_SSH_KEY`.
+- `finder_deploy.pub` одной строкой добавляется в `/root/.ssh/authorized_keys`.
 
-- `finder_deploy` — закрытый ключ. Его целиком, вместе со строками `BEGIN` и `END`, кладут в секрет `DEPLOY_SSH_KEY`. Никуда больше не отправлять.
-- `finder_deploy.pub` — открытый ключ. Его одна строка попадёт на сервер в `authorized_keys`.
+Пока пользуетесь паролем, секрет `DEPLOY_SSH_KEY` не создавайте. Если он уже есть и ключ не тот, удалите секрет, иначе workflow не возьмёт пароль.
 
-## 2. Первый вход на чистый сервер
-
-Провайдер даёт root и пароль. Сначала войти им:
-
-```bash
-ssh root@130.17.14.150
-```
-
-На сервере, уже после того как этот репозиторий есть в `main`:
-
-```bash
-apt-get update
-apt-get install -y git
-git clone https://github.com/TitProger/finder.git /opt/finder
-nano /root/finder_deploy.pub
-```
-
-Вставить в файл одну строку из `finder_deploy.pub`, сохранить и выполнить:
-
-```bash
-bash /opt/finder/deploy/bootstrap.sh /root/finder_deploy.pub
-rm -f /root/finder_deploy.pub
-```
-
-`bootstrap.sh` идемпотентный: создаёт пользователя `deploy` с sudo без пароля, каталог ключей и включает firewall. Открыты только **22** и **8080**.
-
-Проверка с вашего компьютера:
-
-```bash
-ssh -i ~/.ssh/finder_deploy deploy@130.17.14.150
-```
-
-На Windows путь к ключу: `%USERPROFILE%\.ssh\finder_deploy`.
+`deploy/bootstrap.sh` по-прежнему умеет завести пользователя `deploy`, открыть 22, 80 и 443 и не открывать 8080. На уже настроенном сервере с Nginx он не нужен.
 
 ## 3. Секреты GitHub
 
-Репозиторий на GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+Репозиторий → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
-Каждый секрет — отдельная запись. В поле Name имя из таблицы, в поле Secret значение. Не вставлять кавычки.
-
-Случайные токены на своём компьютере:
+Имя секрета без кавычек. Случайный токен:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Каждый токен генерировать заново. Один и тот же hex не класть в два секрета.
+Каждый токен генерировать заново.
 
 | Секрет | Куда вставлять | Обязателен |
 | --- | --- | --- |
 | `DEPLOY_HOST` | `130.17.14.150` | да |
-| `DEPLOY_USER` | `deploy` | да |
-| `DEPLOY_SSH_KEY` | весь файл `finder_deploy`, включая `BEGIN`/`END` | да, если нет пароля |
-| `DEPLOY_PORT` | `22`. Если секрет не создавать, тоже 22 | нет |
-| `DEPLOY_PASSWORD` | пароль SSH пользователя `deploy`. Только если ключа нет | нет |
+| `DEPLOY_USER` | `root` | да |
+| `DEPLOY_PASSWORD` | пароль SSH этого пользователя | да, если нет ключа |
+| `DEPLOY_SSH_KEY` | весь закрытый ключ, включая `BEGIN`/`END` | нет, пока вход по паролю |
+| `DEPLOY_PORT` | `22`. Если секрета нет, тоже 22 | нет |
 | `TELEGRAM_BOT_TOKEN` | токен от @BotFather | да |
-| `POSTGRES_PASSWORD` | `openssl rand -hex 32`. Это пароль базы, в приложении он станет `PG_PASSWORD` | да |
+| `POSTGRES_PASSWORD` | `openssl rand -hex 32`. В приложении это `PG_PASSWORD` | да |
 | `ADMIN_TELEGRAM_IDS` | Telegram id админов через запятую, например `871909427` | да |
 | `ADMIN_API_TOKEN` | `openssl rand -hex 32`. Bearer для админского HTTP | да |
-| `RESEARCH_INGEST_TOKEN` | `openssl rand -hex 32`. Отдельный секрет приёма досье | да |
+| `RESEARCH_INGEST_TOKEN` | `openssl rand -hex 32`. Секрет приёма досье | да |
 | `RESEARCH_TRIGGER_SECRET` | `openssl rand -hex 32`. Заголовок запуска ресерча | да |
-| `RESEARCH_TRIGGER_URL` | URL webhook ресерча. Пусто, если ресерч ещё некуда слать | нет |
+| `RESEARCH_TRIGGER_URL` | URL webhook ресерча. Пусто, если слать некуда | нет |
 | `LLM_API_KEY` | ключ LLM. Пусто — классификатор без модели ставит паузу | нет |
-| `PUBLIC_BASE_URL` | куда рутина вернёт досье. Если секрета нет, берётся `http://130.17.14.150:8080` | нет |
+| `PUBLIC_BASE_URL` | куда рутина вернёт досье. Если секрета нет, берётся `https://bot.passimx.com` | нет |
 
-Workflow пишет их в `/opt/finder/backend/.env` и ставит права `600`. В лог Actions значения не печатаются.
+`GITHUB_TOKEN` создавать не нужно: Actions выдаёт его сам и им публикует образ. На сервер тот же токен передаётся только в stdin `docker login` на время выкладки. После неё скрипт делает `docker logout ghcr.io`, в файлы на диске токен не кладётся.
+
+Workflow пишет приложение в `/opt/finder/.env` и ставит права `600`. Значения в лог не печатаются. Репозиторий на сервер git больше не клонирует, поэтому ошибка `dubious ownership` в `/opt/finder` больше не возникает. На сервер копируются только `docker-compose.prod.yml`, `deploy.sh` и `.env`.
+
+Пакеты через `apt-get update` ставятся только если на сервере ещё нет Docker или `curl`.
 
 ## 4. Первая выкладка
 
-1. Влить этот PR в `main`, либо, если он уже влит, ничего не пушить.
-2. Открыть вкладку **Actions**.
-3. Слева выбрать **Deploy**.
-4. Справа **Run workflow**, ветка `main`, **Run workflow**.
+1. Влить PR в `main`.
+2. Вкладка **Actions**.
+3. Слева **Deploy**.
+4. **Run workflow**, ветка `main`.
 
-Дальше каждый push в `main` ждёт зелёный CI и выкладывается сам. Ручной запуск тоже доступен.
+Дальше каждый push в `main` ждёт зелёный CI. Actions собирает образ, пушит `ghcr.io/titproger/finder:<sha>` и `:latest`, сервер делает `docker pull` и `up --no-build`.
 
-На сервере скрипт `deploy/deploy.sh`:
+На сервере `deploy.sh`:
 
-- ставит Docker и плагин Compose, если их ещё нет;
-- собирает образ и поднимает `deploy/docker-compose.prod.yml`;
-- применяет миграции и `npm run seed` внутри контейнера приложения;
-- удаляет старые образы, том базы не трогает;
-- запрашивает `GET /health` и роняет job, если ответа нет. Тогда в логе job последние логи контейнеров.
+- скачивает готовый образ, локально его не собирает;
+- ограничивает память приложения и Postgres по 512 МБ;
+- применяет миграции и `npm run seed` внутри скачанного образа;
+- удаляет старые теги `ghcr.io/titproger/finder`, текущий SHA и `latest` оставляет, том базы не трогает;
+- проверяет `GET /health` на `http://127.0.0.1:8080/health`. Если ответа нет, job падает и показывает последние логи контейнеров.
+
+Образ в GHCR может остаться приватным: сервер входит в реестр токеном Actions. Сделать пакет публичным на скачивание можно позже в GitHub → Packages → Package settings → Change visibility. Для выкладки это не требуется.
 
 ## 5. Логи на сервере
 
 ```bash
-ssh -i ~/.ssh/finder_deploy deploy@130.17.14.150
+ssh root@130.17.14.150
 cd /opt/finder
-sudo docker compose --env-file backend/.env -f deploy/docker-compose.prod.yml logs -f --tail 200 app
-```
-
-Только база:
-
-```bash
-sudo docker compose --env-file backend/.env -f deploy/docker-compose.prod.yml logs --tail 200 postgres
-```
-
-Проверка с сервера:
-
-```bash
+docker compose --env-file .env -f docker-compose.prod.yml logs -f --tail 200 app
+docker compose --env-file .env -f docker-compose.prod.yml logs --tail 200 postgres
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-Ответ с `"ok"` значит, что процесс жив. Админский API с вашего компьютера:
+Ответ с `"ok"` значит, что процесс жив. Снаружи тот же адрес через Nginx:
 
 ```bash
-curl -H "Authorization: Bearer ВАШ_ADMIN_API_TOKEN" http://130.17.14.150:8080/admin/categories
+curl -fsS https://bot.passimx.com/health
+curl -H "Authorization: Bearer ВАШ_ADMIN_API_TOKEN" https://bot.passimx.com/admin/categories
 ```
 
-Файл с секретами смотреть так, чтобы он не попал в чужой терминал и в скриншот:
+Порт 8080 в интернет не открыт. Если раньше firewall разрешал его, уберите правило:
 
 ```bash
-sudo ls -l /opt/finder/backend/.env
+ufw delete allow 8080/tcp
 ```
 
-Права должны быть `-rw-------`.
+Права файла с секретами: `ls -l /opt/finder/.env` должен показать `-rw-------`.
 
-## 6. Бот без домена
+## 6. Бот
 
-Пока `TELEGRAM_WEBHOOK_URL` пустой, процесс сам снимает webhook у Telegram и слушает обновления long polling. Порт для Telegram открывать не нужно: сервер сам ходит на `api.telegram.org`.
+`TELEGRAM_WEBHOOK_URL` пустой: процесс снимает webhook и слушает обновления long polling. Порт для Telegram открывать не нужно.
 
-Напишите боту в Telegram с id из `ADMIN_TELEGRAM_IDS`. Этот id безлимитный и получает роль ADMIN при первом сообщении.
+Напишите боту с id из `ADMIN_TELEGRAM_IDS`. Этот id безлимитный и получает роль ADMIN при первом сообщении.
 
-## 7. Позже: домен и HTTPS через Caddy
+## 7. Nginx
 
-Когда появится домен, запись A должна указывать на `130.17.14.150`.
-
-На сервере:
-
-```bash
-sudo apt-get install -y caddy
-sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
-example.com {
-  reverse_proxy 127.0.0.1:8080
-}
-EOF
-sudo systemctl reload caddy
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-```
-
-Чтобы 8080 не торчал в интернет, в `deploy/docker-compose.prod.yml` заменить публикацию порта на `127.0.0.1:8080:8080`, затем:
-
-```bash
-sudo ufw delete allow 8080/tcp
-cd /opt/finder
-sudo docker compose --env-file backend/.env -f deploy/docker-compose.prod.yml up -d
-```
-
-В секрете `PUBLIC_BASE_URL` поставить `https://example.com` и перезапустить **Deploy**. `TELEGRAM_WEBHOOK_URL` оставить пустым: бот по-прежнему на long polling. Webhook бота имеет смысл только когда этот URL задан явно, и тогда polling не стартует.
+`https://bot.passimx.com` уже проксируется на `127.0.0.1:8080`. Публикация порта в compose поэтому только на loopback: `127.0.0.1:8080:8080`. Менять Nginx для выкладки не нужно. `PUBLIC_BASE_URL` оставляйте `https://bot.passimx.com`, чтобы приём досье шёл на публичный HTTPS, а не на закрытый порт.

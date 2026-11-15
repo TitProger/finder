@@ -23,9 +23,11 @@ require RESEARCH_INGEST_TOKEN
 require RESEARCH_TRIGGER_SECRET
 require TELEGRAM_BOT_TOKEN
 require FINDER_SHA
+require GHCR_TOKEN
+require GHCR_USER
 
 if [[ -z "${DEPLOY_SSH_KEY:-}" && -z "${DEPLOY_PASSWORD:-}" ]]; then
-  echo "Нужен DEPLOY_SSH_KEY (рекомендуется) или DEPLOY_PASSWORD" >&2
+  echo "Нужен DEPLOY_SSH_KEY или DEPLOY_PASSWORD" >&2
   exit 1
 fi
 
@@ -67,8 +69,13 @@ fi
 
 TARGET="$DEPLOY_USER@$DEPLOY_HOST"
 
+if [[ ! "$GHCR_USER" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+  echo "GHCR_USER содержит недопустимые символы" >&2
+  exit 1
+fi
+
 if [[ -z "$KEY_FILE" ]]; then
-  echo "→ Ключа нет, использую DEPLOY_PASSWORD через sshpass. Рекомендуется DEPLOY_SSH_KEY."
+  echo "→ Вход по паролю через sshpass"
   sudo apt-get update
   sudo apt-get install -y sshpass
 fi
@@ -94,12 +101,15 @@ run_scp() {
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "→ Синхронизирую /opt/finder на $DEPLOY_HOST"
-FINDER_SHA="$FINDER_SHA" run_ssh "FINDER_SHA='$FINDER_SHA' bash -s sync" < "$ROOT_DIR/deploy/deploy.sh"
+echo "→ Копирую compose и deploy.sh на $DEPLOY_HOST"
+run_ssh "mkdir -p /opt/finder"
+run_scp "$ROOT_DIR/deploy/docker-compose.prod.yml" "$TARGET:/opt/finder/docker-compose.prod.yml"
+run_scp "$ROOT_DIR/deploy/deploy.sh" "$TARGET:/opt/finder/deploy.sh"
+run_ssh "chmod 755 /opt/finder/deploy.sh"
 
 ENV_FILE="${RUNNER_TEMP:-/tmp}/finder.env"
 umask 077
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://$DEPLOY_HOST:8080}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://bot.passimx.com}"
 {
   printf '%s\n' "NODE_ENV=production"
   printf '%s\n' "APP_HOST=0.0.0.0"
@@ -137,11 +147,11 @@ PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://$DEPLOY_HOST:8080}"
 } > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
-echo "→ Записываю /opt/finder/backend/.env"
-run_scp "$ENV_FILE" "$TARGET:/opt/finder/backend/.env"
+echo "→ Записываю /opt/finder/.env"
+run_scp "$ENV_FILE" "$TARGET:/opt/finder/.env"
 rm -f "$ENV_FILE"
-run_ssh "chmod 600 /opt/finder/backend/.env"
+run_ssh "chmod 600 /opt/finder/.env"
 
-echo "→ Запускаю deploy.sh"
-run_ssh "bash -s up" < "$ROOT_DIR/deploy/deploy.sh"
+echo "→ Скачиваю образ и запускаю контейнеры"
+printf '%s' "$GHCR_TOKEN" | run_ssh "GHCR_USER='$GHCR_USER' IMAGE_TAG='$FINDER_SHA' bash /opt/finder/deploy.sh"
 echo "✓ Выкладка завершена"

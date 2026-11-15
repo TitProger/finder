@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   deploy:
@@ -23,11 +24,29 @@ jobs:
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ghcr.io/titproger/finder
+      IMAGE_TAG: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Build and push image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u titproger --password-stdin
+          docker build \
+            --label org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
+            -t "$IMAGE_NAME:$IMAGE_TAG" \
+            -t "$IMAGE_NAME:latest" \
+            backend
+          docker push "$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$IMAGE_NAME:latest"
+          docker logout ghcr.io
 
       - name: Deploy to VPS
         env:
@@ -45,5 +64,7 @@ jobs:
           RESEARCH_TRIGGER_SECRET: ${{ secrets.RESEARCH_TRIGGER_SECRET }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
-          FINDER_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: titproger
+          FINDER_SHA: ${{ env.IMAGE_TAG }}
         run: bash deploy/ci-deploy.sh
