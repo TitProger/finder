@@ -37,6 +37,9 @@ services:
       PG_PORT: "5432"
       PG_MIGRATIONS_RUN: "true"
       PG_LOGGING: "false"
+      LOG_DIR: /app/logs
+    volumes:
+      - finder_logs:/app/logs
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -62,3 +65,4 @@ networks:
 
 volumes:
   finder_postgres:
+  finder_logs:
