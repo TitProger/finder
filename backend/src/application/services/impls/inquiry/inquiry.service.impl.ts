@@ -151,7 +151,7 @@ export class InquiryServiceImpl implements InquiryService {
         }
 
         await this.applyAssignment(inquiry, category, admin);
-        await this.inquiries.getEntityManager().flush();
+        await this.commitInquiry(inquiry);
         await this.serveIfReady(inquiry);
 
         return this.viewOf(inquiry);
@@ -180,7 +180,7 @@ export class InquiryServiceImpl implements InquiryService {
         await this.applyAssignment(inquiry, category, admin);
 
         try {
-            await em.flush();
+            await this.commitInquiry(inquiry);
         } catch (error) {
             this.rethrowNameConflict(error);
         }
@@ -337,7 +337,7 @@ export class InquiryServiceImpl implements InquiryService {
         inquiry.status = InquiryStatus.AWAITING_CATEGORY;
         inquiry.isPaused = true;
         inquiry.pauseReason = 'Клиент сказал, что это не та категория.';
-        await em.flush();
+        await this.commitInquiry(inquiry);
 
         return this.viewOf(inquiry);
     }
@@ -506,7 +506,7 @@ export class InquiryServiceImpl implements InquiryService {
                 inquiry.isPaused = true;
                 inquiry.pauseReason = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
                 inquiry.status = InquiryStatus.LIMIT_EXCEEDED;
-                await this.inquiries.getEntityManager().flush();
+                await this.commitInquiry(inquiry);
 
                 return;
             }
@@ -529,8 +529,19 @@ export class InquiryServiceImpl implements InquiryService {
         // Нашли готовую карточку - лимит не расходуется
         inquiry.optimalCard = card;
         inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
-        await this.inquiries.getEntityManager().flush();
+        await this.commitInquiry(inquiry);
         await this.tellHandoff(() => this.handoff?.onCardServed(inquiry));
+    }
+
+    /**
+     * disableIdentityMap отдаёт загруженную заявку detached.
+     * flush пишет только то, что снова положили в persist stack, иначе Postgres остаётся со старым статусом.
+     */
+    private async commitInquiry(inquiry: InquiryEntity): Promise<void> {
+        const em = this.inquiries.getEntityManager();
+
+        em.persist(inquiry);
+        await em.flush();
     }
 
     private async viewOf(inquiry: InquiryEntity): Promise<InquiryView> {

@@ -107,6 +107,7 @@ export class ResearchLaunchService {
             run.failureReason = 'Нет досье дольше отведённого времени';
             run.finishedAt = now;
             stale.push(run);
+            this.runs.getEntityManager().persist(run);
         }
 
         if (stale.length > 0) {
@@ -148,6 +149,7 @@ export class ResearchLaunchService {
 
             Logger.warn(warning, Logger.statuses.WARNING, { data: { inquiryId: inquiry.id, runId: run.runId } });
             run.triggerLastError = warning;
+            em.persist(run);
             await em.flush();
 
             return run;
@@ -170,6 +172,7 @@ export class ResearchLaunchService {
                 run.status = ResearchRunStatus.RUNNING;
                 run.failureReason = null;
                 run.triggerLastError = null;
+                em.persist(run);
                 await em.flush();
 
                 return run;
@@ -178,10 +181,12 @@ export class ResearchLaunchService {
             const retryable = result.status === null || result.status >= 500;
 
             run.failureReason = result.error;
+            em.persist(run);
             await em.flush();
 
             if (!retryable || attempt === maxAttempts) {
                 run.status = ResearchRunStatus.FAILED_TO_START;
+                em.persist(run);
                 await em.flush();
                 await this.reportProblem(run);
 
@@ -192,6 +197,7 @@ export class ResearchLaunchService {
         }
 
         run.status = ResearchRunStatus.FAILED_TO_START;
+        em.persist(run);
         await em.flush();
         await this.reportProblem(run);
 

@@ -61,7 +61,12 @@ function stamp<T>(entity: T, data: object): T {
     return entity;
 }
 
-function buildHarness() {
+/** Как disableIdentityMap: find отдаёт копию, flush переносит только persist(). */
+function detach<T extends Stored>(entity: T): T {
+    return Object.assign(Object.create(Object.getPrototypeOf(entity)), entity);
+}
+
+function buildHarness(options?: { launchResearch?: boolean }) {
     const users: AppUserEntity[] = [];
     const categories: CategoryEntity[] = [];
     const phrases: CategoryPhraseEntity[] = [];
@@ -71,6 +76,7 @@ function buildHarness() {
     const answers: InquiryAnswerEntity[] = [];
     const cards: OptimalCardEntity[] = [];
     const lists = new Map<object, Stored[]>();
+    const pending = new Set<Stored>();
     const em = {
         persist(entity: Stored) {
             const list = lists.get(entity.constructor);
@@ -79,27 +85,43 @@ function buildHarness() {
                 throw new Error(`Нет списка для ${entity.constructor.name}`);
             }
 
-            if (!list.includes(entity)) {
+            const stored = list.find((item) => item === entity || item.id === entity.id);
+
+            if (!stored) {
                 list.push(entity);
             }
+
+            pending.add(entity);
 
             return em;
         },
         remove(entity: Stored) {
             const list = lists.get(entity.constructor);
-            const index = list?.indexOf(entity) ?? -1;
+            const index = list?.findIndex((item) => item === entity || item.id === entity.id) ?? -1;
 
             if (list && index >= 0) {
                 list.splice(index, 1);
             }
 
+            pending.delete(entity);
+
             return em;
         },
         async flush() {
-            return undefined;
+            for (const entity of pending) {
+                const list = lists.get(entity.constructor);
+                const stored = list?.find((item) => item.id === entity.id);
+
+                if (stored && stored !== entity) {
+                    Object.assign(stored, entity);
+                }
+            }
+
+            pending.clear();
         },
         async persistAndFlush(entity: Stored) {
             em.persist(entity);
+            await em.flush();
         },
     };
 
@@ -111,10 +133,12 @@ function buildHarness() {
                 return stamp(new Ctor(), data);
             },
             find(where: Record<string, unknown>) {
-                return Promise.resolve(items.filter((item) => matches(item, where)));
+                return Promise.resolve(items.filter((item) => matches(item, where)).map((item) => detach(item)));
             },
             findOne(where: Record<string, unknown>) {
-                return Promise.resolve(items.find((item) => matches(item, where)) ?? null);
+                const found = items.find((item) => matches(item, where));
+
+                return Promise.resolve(found ? detach(found) : null);
             },
             getEntityManager() {
                 return em;
@@ -132,6 +156,15 @@ function buildHarness() {
         canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
         incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
     };
+    const researchLaunch = options?.launchResearch
+        ? {
+              async startForInquiry(inquiry: InquiryEntity) {
+                  inquiry.status = InquiryStatus.RESEARCHING;
+                  em.persist(inquiry);
+                  await em.flush();
+              },
+          }
+        : undefined;
     const service = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
         repo(AppUserEntity, users) as unknown as AppUserRepository,
@@ -142,6 +175,8 @@ function buildHarness() {
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
         limitChecker as any,
+        undefined,
+        researchLaunch as any,
     );
     const usersRepo = {
         create: (data: object) => {
@@ -218,6 +253,58 @@ function buildHarness() {
         questionsRepo,
         cardsRepo,
     };
+}
+
+const CLOTHING_BASE = [
+    'Что именно за изделие? (например: халат лабораторный, футболка, куртка)',
+    'Количество (штук)',
+    'Материал (например: хлопок, полиэстер, смесовая ткань)',
+    'Размерный ряд и доли размеров (например: S-10%, M-40%, L-40%, XL-10%)',
+    'Цвет',
+    'Нужен ли свой крой или логотип?',
+    'Какая цена в России уже попадалась? (рублей за штуку)',
+    'Город доставки',
+];
+const CLOTHING_PACK = 'Многоразовый или одноразовый?';
+
+function seedClothing(harness: ReturnType<typeof buildHarness>) {
+    const category = harness.categoriesRepo.create({
+        code: 'clothing',
+        name: 'Одежда',
+        description: 'Одежда без цены',
+        status: CategoryStatus.ACTIVE,
+    });
+    const pack = harness.packsRepo.create({
+        category,
+        code: 'workwear',
+        title: 'Спецодежда и лабораторные халаты',
+        description: 'Дополнительные вопросы для медицинской и защитной одежды',
+        sortOrder: 0,
+        isActive: true,
+    });
+
+    CLOTHING_BASE.forEach((prompt, index) => {
+        harness.questionsRepo.create({
+            category,
+            questionPack: null,
+            prompt,
+            answerType: index === 1 ? QuestionAnswerType.NUMBER : QuestionAnswerType.TEXT,
+            choices: null,
+            isRequired: index === 0 || index === 1 || index === 7,
+            sortOrder: index + 1,
+        });
+    });
+    harness.questionsRepo.create({
+        category,
+        questionPack: pack,
+        prompt: CLOTHING_PACK,
+        answerType: QuestionAnswerType.SINGLE_CHOICE,
+        choices: ['Многоразовый', 'Одноразовый'],
+        isRequired: true,
+        sortOrder: 1,
+    });
+
+    return category;
 }
 
 function seedShoes(harness: ReturnType<typeof buildHarness>) {
@@ -331,6 +418,64 @@ describe('InquiryServiceImpl', () => {
 
         expect(again.inquiry.category?.id).toBe(category.id);
         expect(again.inquiry.isPaused).toBe(false);
+    });
+
+    it('назначение «Одежда» переживает повторную загрузку и берёт только базовые вопросы', async () => {
+        const harness = buildHarness();
+        const category = seedClothing(harness);
+        const created = await harness.service.create({ telegramUserId: 100, text: 'нужна куртка' });
+        const assigned = await harness.service.assignCategory({
+            inquiryId: created.inquiry.id,
+            categoryId: category.id,
+            adminUserId: harness.admin.id,
+        });
+        const reloaded = await harness.service.getById(created.inquiry.id);
+
+        expect(assigned.inquiry.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(reloaded.inquiry.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(reloaded.inquiry.isPaused).toBe(false);
+        expect(reloaded.inquiry.category?.id).toBe(category.id);
+        expect(reloaded.inquiry.category?.name).toBe('Одежда');
+        expect(reloaded.inquiry.questionPack ?? null).toBeNull();
+        expect(reloaded.questions.map((question) => question.prompt)).toEqual(CLOTHING_BASE);
+        expect(reloaded.questions.some((question) => question.prompt === CLOTHING_PACK)).toBe(false);
+        expect(reloaded.inquiry.status).not.toBe(InquiryStatus.AWAITING_CATEGORY);
+    });
+
+    it('пакет одежды добавляется только когда текст совпал с пакетом', async () => {
+        const harness = buildHarness();
+        const category = seedClothing(harness);
+        const created = await harness.service.create({ telegramUserId: 100, text: 'workwear' });
+        const assigned = await harness.service.assignCategory({
+            inquiryId: created.inquiry.id,
+            categoryId: category.id,
+            adminUserId: harness.admin.id,
+        });
+
+        expect(assigned.inquiry.questionPack?.code).toBe('workwear');
+        expect(assigned.questions.map((question) => question.prompt)).toEqual([...CLOTHING_BASE, CLOTHING_PACK]);
+    });
+
+    it('категория без вопросов после назначения запускает ресерч', async () => {
+        const harness = buildHarness({ launchResearch: true });
+        const category = harness.categoriesRepo.create({
+            name: 'Пустая',
+            description: 'Без вопросов',
+            status: CategoryStatus.ACTIVE,
+        });
+        const created = await harness.service.create({ telegramUserId: 100, text: 'редкая вещь' });
+        const assigned = await harness.service.assignCategory({
+            inquiryId: created.inquiry.id,
+            categoryId: category.id,
+            adminUserId: harness.admin.id,
+        });
+        const reloaded = await harness.service.getById(created.inquiry.id);
+
+        expect(assigned.questions).toEqual([]);
+        expect(assigned.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(reloaded.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(reloaded.inquiry.category?.id).toBe(category.id);
+        expect(reloaded.inquiry.isPaused).toBe(false);
     });
 
     it('создание категории назначает её и сохраняет фразу без вектора', async () => {
@@ -455,6 +600,12 @@ describe('InquiryServiceImpl', () => {
         expect(paused.inquiry.pauseReason).toContain('не та категория');
         expect(paused.questions).toEqual([]);
         expect(paused.inquiry.status).not.toBe(InquiryStatus.RESEARCHING);
+
+        const reloaded = await harness.service.getById(created.inquiry.id);
+
+        expect(reloaded.inquiry.isPaused).toBe(true);
+        expect(reloaded.inquiry.category ?? null).toBeNull();
+        expect(reloaded.inquiry.status).toBe(InquiryStatus.AWAITING_CATEGORY);
     });
 
     it('узнаёт админа по telegram user id и роли', async () => {
@@ -549,6 +700,11 @@ describe('InquiryServiceImpl', () => {
 
         expect(first.status).toBe(InquiryStatus.SERVED_FROM_DATABASE);
         expect(first.optimalCard?.id).toBe(card.id);
+
+        const storedCard = await harness.service.getById(first.id);
+
+        expect(storedCard.inquiry.status).toBe(InquiryStatus.SERVED_FROM_DATABASE);
+        expect(storedCard.inquiry.optimalCard?.id).toBe(card.id);
         expect(second.status).toBe(InquiryStatus.SERVED_FROM_DATABASE);
         expect(second.optimalCard?.id).toBe(card.id);
         expect(otherVolume.status).toBe(InquiryStatus.COLLECTING_ANSWERS);

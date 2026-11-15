@@ -165,7 +165,11 @@ export class ManagerHandoffService {
             current.reasonNote = 'Обновлено из заводского оффера досье';
             current.isLive = true;
             current.markedLiveAt = new Date();
-            await this.cards.getEntityManager().flush();
+
+            const em = this.cards.getEntityManager();
+
+            em.persist(current);
+            await em.flush();
 
             return current;
         }
@@ -199,7 +203,11 @@ export class ManagerHandoffService {
         inquiry.status = InquiryStatus.CLOSED;
         inquiry.closedAt = inquiry.closedAt ?? new Date();
         inquiry.isPaused = false;
-        await this.inquiries.getEntityManager().flush();
+
+        const em = this.inquiries.getEntityManager();
+
+        em.persist(inquiry);
+        await em.flush();
 
         return inquiry;
     }
@@ -237,7 +245,11 @@ export class ManagerHandoffService {
         }
 
         run.notifyLastError = errors.join('; ').slice(0, 2000);
-        await this.runs.getEntityManager().flush();
+
+        const em = this.runs.getEntityManager();
+
+        em.persist(run);
+        await em.flush();
     }
 
     private async requireAdmin(adminUserId: string) {

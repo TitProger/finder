@@ -22,6 +22,7 @@ import { QuestionAnswerType } from '../../domain/enums/question-answer-type.enum
 import { SiteRole } from '../../domain/enums/site-role.enum';
 import { isCategoryRejection } from '../../domain/text/category-rejection';
 import { normalizePhrase } from '../../domain/text/phrase-text';
+import { formatAskedPrompt } from '../../application/services/impls/inquiry/parse-inquiry-answer';
 import {
     MANAGER_HANDOFF,
     ManagerHandoffService,
@@ -633,11 +634,24 @@ export class TelegramDialog {
             return;
         }
 
-        const dialog = await this.inquiries.findClientDialog(telegramUserId);
         const name = view.inquiry.category?.name ?? '';
+        const dialog = await this.inquiries.findClientDialog(telegramUserId);
 
         if (dialog.kind === 'asking') {
             await this.send(telegramUserId, questionText(name, dialog.prompt, dialog.index, dialog.total));
+
+            return;
+        }
+
+        // Повторное чтение может всё ещё видеть паузу. Вопросы уже есть в view назначения:
+        // спрашиваем их, а не пишем «вопросов нет».
+        const question = view.questions[0];
+
+        if (question) {
+            await this.send(
+                telegramUserId,
+                questionText(name, formatAskedPrompt(question.prompt, question.choices), 0, view.questions.length),
+            );
 
             return;
         }
