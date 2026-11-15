@@ -740,17 +740,48 @@ export class InquiryServiceImpl implements InquiryService {
 
     private async requireOwned(id: string, telegramUserId: number): Promise<InquiryEntity> {
         const inquiry = await this.findInquiry(id);
+        const owner = await this.ownerOf(inquiry);
 
-        if (
-            inquiry.clientUser.telegramUserId !== String(telegramUserId) ||
-            inquiry.clientUser.role !== UserRole.CLIENT
-        ) {
+        if (normalizeTelegramId(owner.telegramUserId) !== normalizeTelegramId(telegramUserId)) {
             throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
                 code: AppErrors.inquiry.notClient.code,
             });
         }
 
+        if (owner.role !== UserRole.CLIENT) {
+            throw new ForbiddenAppException(AppErrors.inquiry.clientRole.message, {
+                code: AppErrors.inquiry.clientRole.code,
+            });
+        }
+
         return inquiry;
+    }
+
+    /** Связь может прийти только с id. Тогда telegram id и роль пустые, хотя строка app_user на месте. */
+    private async ownerOf(inquiry: InquiryEntity): Promise<AppUserEntity> {
+        const linked = inquiry.clientUser;
+
+        if (linked?.id && linked.telegramUserId != null && linked.role != null) {
+            return linked;
+        }
+
+        if (!linked?.id) {
+            throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
+                code: AppErrors.inquiry.notClient.code,
+            });
+        }
+
+        const reloaded = await this.users.findOne({ id: linked.id });
+
+        if (!reloaded) {
+            throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
+                code: AppErrors.inquiry.notClient.code,
+            });
+        }
+
+        inquiry.clientUser = reloaded;
+
+        return reloaded;
     }
 
     private rethrowNameConflict(error: unknown): never {
@@ -833,12 +864,32 @@ function collectPhotoFileIds(ids: readonly string[] | undefined): string[] {
     return unique;
 }
 
-function toTelegramUserId(value: string | null | undefined): number | null {
-    if (!value || !/^[1-9]\d{0,15}$/.test(value)) {
+function normalizeTelegramId(value: string | number | bigint | null | undefined): string | null {
+    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
         return null;
     }
 
-    const parsed = Number(value);
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') {
+        return null;
+    }
+
+    const text = String(value).trim();
+
+    if (!/^[1-9]\d{0,15}$/.test(text)) {
+        return null;
+    }
+
+    return text;
+}
+
+function toTelegramUserId(value: string | number | bigint | null | undefined): number | null {
+    const text = normalizeTelegramId(value);
+
+    if (!text) {
+        return null;
+    }
+
+    const parsed = Number(text);
 
     if (!Number.isSafeInteger(parsed)) {
         return null;

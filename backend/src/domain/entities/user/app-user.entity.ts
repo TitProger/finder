@@ -1,4 +1,4 @@
-import { Entity, Enum, Property, Unique } from '@mikro-orm/core';
+import { BigIntType, Entity, Enum, Property, Unique } from '@mikro-orm/core';
 
 import { UserRole } from '../../enums/user-role.enum';
 import { BaseEntity } from '../common/base.entity';
@@ -8,7 +8,12 @@ export class AppUserEntity extends BaseEntity<'isActive'> {
     @Enum({ items: () => UserRole, nativeEnumName: 'user_role' })
     role!: UserRole;
 
-    @Property({ type: 'bigint', fieldName: 'telegram_user_id', nullable: true })
+    /**
+     * Колонка bigint. `string | null` в reflect-metadata стирается в Object,
+     * и дефолтный BigIntType тогда отдаёт native bigint. `!== String(id)` из апдейта
+     * отклоняет владельца заявки.
+     */
+    @Property({ type: new BigIntType('string'), fieldName: 'telegram_user_id', nullable: true })
     @Unique()
     telegramUserId?: string | null;
 
