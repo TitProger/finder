@@ -307,6 +307,20 @@ function seedClothing(harness: ReturnType<typeof buildHarness>) {
     return category;
 }
 
+async function assignClothing(telegramUserId: number) {
+    const harness = buildHarness();
+    const category = seedClothing(harness);
+    const created = await harness.service.create({ telegramUserId, text: 'нужна куртка' });
+
+    await harness.service.assignCategory({
+        inquiryId: created.inquiry.id,
+        categoryId: category.id,
+        adminUserId: harness.admin.id,
+    });
+
+    return { harness, created };
+}
+
 function seedShoes(harness: ReturnType<typeof buildHarness>) {
     const category = harness.categoriesRepo.create({
         name: 'Обувь',
@@ -418,6 +432,104 @@ describe('InquiryServiceImpl', () => {
 
         expect(again.inquiry.category?.id).toBe(category.id);
         expect(again.inquiry.isPaused).toBe(false);
+    });
+
+    it('клиент 8604571553 отвечает на первый вопрос «Одежда» и получает следующий', async () => {
+        const { harness, created } = await assignClothing(8604571553);
+
+        // Так колонку bigint гидратит дефолтный BigIntType: 8604571553n !== "8604571553".
+        created.inquiry.clientUser.telegramUserId = BigInt(8604571553) as unknown as string;
+
+        const next = await harness.service.answerQuestion({
+            inquiryId: created.inquiry.id,
+            telegramUserId: 8604571553,
+            text: 'лабораторный халат',
+        });
+
+        expect(next.kind).toBe('asking');
+
+        if (next.kind !== 'asking') {
+            return;
+        }
+
+        expect(next.prompt).toBe('Количество (штук)');
+        expect(next.index).toBe(1);
+        expect(next.total).toBe(CLOTHING_BASE.length);
+    });
+
+    it('тот же владелец проходит, если telegram id загружен числом', async () => {
+        const { harness, created } = await assignClothing(8604571553);
+
+        created.inquiry.clientUser.telegramUserId = 8604571553 as unknown as string;
+
+        const next = await harness.service.answerQuestion({
+            inquiryId: created.inquiry.id,
+            telegramUserId: 8604571553,
+            text: 'лабораторный халат',
+        });
+
+        expect(next.kind).toBe('asking');
+
+        if (next.kind !== 'asking') {
+            return;
+        }
+
+        expect(next.prompt).toBe('Количество (штук)');
+        expect(next.total).toBe(CLOTHING_BASE.length);
+    });
+
+    it('подгружает владельца, если clientUser пришёл только с id', async () => {
+        const { harness, created } = await assignClothing(8604571553);
+        const ownerId = created.inquiry.clientUser.id;
+
+        created.inquiry.clientUser = { id: ownerId } as AppUserEntity;
+
+        const next = await harness.service.answerQuestion({
+            inquiryId: created.inquiry.id,
+            telegramUserId: 8604571553,
+            text: 'лабораторный халат',
+        });
+
+        expect(next.kind).toBe('asking');
+
+        if (next.kind !== 'asking') {
+            return;
+        }
+
+        expect(next.prompt).toBe('Количество (штук)');
+        expect(next.total).toBe(CLOTHING_BASE.length);
+    });
+
+    it('владелец не с ролью CLIENT получает отдельную ошибку', async () => {
+        const { harness, created } = await assignClothing(8604571553);
+
+        created.inquiry.clientUser.role = UserRole.ADMIN;
+
+        await expect(
+            harness.service.answerQuestion({
+                inquiryId: created.inquiry.id,
+                telegramUserId: 8604571553,
+                text: 'лабораторный халат',
+            }),
+        ).rejects.toMatchObject({
+            message: 'Telegram user id принадлежит не клиенту',
+            context: { code: 'INQUIRY_CLIENT_ROLE' },
+        });
+    });
+
+    it('чужой telegram user не отвечает на заявку клиента', async () => {
+        const { harness, created } = await assignClothing(8604571553);
+
+        await expect(
+            harness.service.answerQuestion({
+                inquiryId: created.inquiry.id,
+                telegramUserId: 871909427,
+                text: 'лабораторный халат',
+            }),
+        ).rejects.toMatchObject({
+            message: 'Заявка принадлежит другому клиенту',
+            context: { code: 'INQUIRY_NOT_CLIENT' },
+        });
     });
 
     it('назначение «Одежда» переживает повторную загрузку и берёт только базовые вопросы', async () => {
