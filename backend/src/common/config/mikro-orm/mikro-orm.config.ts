@@ -4,6 +4,8 @@ import { Envs } from '../../envs/env';
 import { BaseRepositoryImpl } from '../../../infrastructure/database/postgres/repositories/common/base.repository.impl';
 
 export default defineConfig({
+    // Identity map выключен: find отдаёт detached-сущности.
+    // Правки такой сущности flush не пишет, пока её не вернули через em.persist().
     allowGlobalContext: true,
     disableIdentityMap: true,
     extensions: [Migrator],

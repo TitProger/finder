@@ -34,6 +34,18 @@ const CLIENT = 777;
 const ADMIN = 501;
 const PHOTO = 'AgACAgIAAxkBAAIB';
 const PRICE = /цена|стоимость|\bруб\b|¥|\$/i;
+const STALE_INQUIRY_ID = '11111111-1111-4111-8111-111111111111';
+const CLOTHING_BASE = [
+    'Что именно за изделие? (например: халат лабораторный, футболка, куртка)',
+    'Количество (штук)',
+    'Материал (например: хлопок, полиэстер, смесовая ткань)',
+    'Размерный ряд и доли размеров (например: S-10%, M-40%, L-40%, XL-10%)',
+    'Цвет',
+    'Нужен ли свой крой или логотип?',
+    'Какая цена в России уже попадалась? (рублей за штуку)',
+    'Город доставки',
+];
+const CLOTHING_PACK = 'Многоразовый или одноразовый?';
 
 type Stored = { id: string };
 
@@ -48,6 +60,7 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
     const answers: InquiryAnswerEntity[] = [];
     const cards: OptimalCardEntity[] = [];
     const lists = new Map<object, Stored[]>();
+    const pending = new Set<Stored>();
     const em = {
         persist(entity: Stored) {
             const list = lists.get(entity.constructor);
@@ -56,27 +69,43 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
                 throw new Error(`Нет списка для ${entity.constructor.name}`);
             }
 
-            if (!list.includes(entity)) {
+            const stored = list.find((item) => item === entity || item.id === entity.id);
+
+            if (!stored) {
                 list.push(entity);
             }
+
+            pending.add(entity);
 
             return em;
         },
         remove(entity: Stored) {
             const list = lists.get(entity.constructor);
-            const index = list?.indexOf(entity) ?? -1;
+            const index = list?.findIndex((item) => item === entity || item.id === entity.id) ?? -1;
 
             if (list && index >= 0) {
                 list.splice(index, 1);
             }
 
+            pending.delete(entity);
+
             return em;
         },
         async flush() {
-            return undefined;
+            for (const entity of pending) {
+                const list = lists.get(entity.constructor);
+                const stored = list?.find((item) => item.id === entity.id);
+
+                if (stored && stored !== entity) {
+                    Object.assign(stored, entity);
+                }
+            }
+
+            pending.clear();
         },
         async persistAndFlush(entity: Stored) {
             em.persist(entity);
+            await em.flush();
         },
     };
 
@@ -98,10 +127,12 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
                 return entity;
             },
             find(where: Record<string, unknown>) {
-                return Promise.resolve(items.filter((item) => matches(item, where)));
+                return Promise.resolve(items.filter((item) => matches(item, where)).map((item) => detach(item)));
             },
             findOne(where: Record<string, unknown>) {
-                return Promise.resolve(items.find((item) => matches(item, where)) ?? null);
+                const found = items.find((item) => matches(item, where));
+
+                return Promise.resolve(found ? detach(found) : null);
             },
             getEntityManager() {
                 return em;
@@ -191,7 +222,39 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
         return entity;
     }
 
-    return { dialog, sent, inquiries, sites, category, usages };
+    function pack(category: CategoryEntity, code: string, title: string, prompts: string[]) {
+        const entity = packRepo.create({
+            category,
+            code,
+            title,
+            description: title,
+            sortOrder: 0,
+            isActive: true,
+        });
+
+        em.persist(entity);
+        prompts.forEach((prompt, sortOrder) => {
+            em.persist(
+                questionRepo.create({
+                    category,
+                    questionPack: entity,
+                    prompt,
+                    answerType: QuestionAnswerType.SINGLE_CHOICE,
+                    choices: ['Многоразовый', 'Одноразовый'],
+                    isRequired: true,
+                    sortOrder,
+                }),
+            );
+        });
+
+        return entity;
+    }
+
+    return { dialog, sent, inquiries, sites, category, pack, usages };
+}
+
+function detach<T extends Stored>(entity: T): T {
+    return Object.assign(Object.create(Object.getPrototypeOf(entity)), entity);
 }
 
 function buildLimitChecker(
@@ -352,9 +415,9 @@ describe('TelegramDialog', () => {
 
         expect(messages(bot.sent, CLIENT).join('\n')).toContain('Менеджер уточняет направление.');
         expect(messages(bot.sent, CLIENT).join('\n')).not.toMatch(PRICE);
-        expect(bot.sent.some((item) => item.method === 'sendPhoto' && item.chatId === ADMIN && item.fileId === PHOTO)).toBe(
-            true,
-        );
+        expect(
+            bot.sent.some((item) => item.method === 'sendPhoto' && item.chatId === ADMIN && item.fileId === PHOTO),
+        ).toBe(true);
 
         const adminButtons = buttons(bot.sent, ADMIN);
         const assign = adminButtons.find((button) => button.text === 'Насосы');
@@ -373,9 +436,9 @@ describe('TelegramDialog', () => {
 
         await bot.dialog.handle(press(ADMIN, other?.callbackData ?? ''));
 
-        expect(buttons(bot.sent, ADMIN).some((button) => button.text === 'Насосы' && button.callbackData.startsWith('p:'))).toBe(
-            true,
-        );
+        expect(
+            buttons(bot.sent, ADMIN).some((button) => button.text === 'Насосы' && button.callbackData.startsWith('p:')),
+        ).toBe(true);
 
         await bot.dialog.handle(press(ADMIN, assign?.callbackData ?? ''));
 
@@ -448,5 +511,179 @@ describe('TelegramDialog', () => {
         expect(bot.inquiries[0]?.status).not.toBe(InquiryStatus.AWAITING_CATEGORY);
         expect(bot.usages).toHaveLength(1);
         expect(bot.usages[0]?.researchCount).toBe(3);
+    });
+
+    it('после назначения «Одежда» клиенту задают базовые вопросы, не пакет', async () => {
+        const bot = buildBot();
+        const clothing = bot.category('Одежда', null, CLOTHING_BASE);
+
+        bot.pack(clothing, 'workwear', 'Спецодежда и лабораторные халаты', [CLOTHING_PACK]);
+        await bot.dialog.handle(clientText('нужна куртка'));
+
+        const list = buttons(bot.sent, ADMIN).find((button) => button.text === 'Другая категория');
+
+        await bot.dialog.handle(press(ADMIN, list?.callbackData ?? ''));
+
+        const pick = buttons(bot.sent, ADMIN).find(
+            (button) => button.text === 'Одежда' && button.callbackData.startsWith('p:'),
+        );
+
+        await bot.dialog.handle(press(ADMIN, pick?.callbackData ?? ''));
+
+        const told = messages(bot.sent, CLIENT).at(-1) ?? '';
+
+        expect(messages(bot.sent, ADMIN).at(-1)).toBe('Категория назначена: Одежда');
+        expect(told).toContain('Отнёс к категории «Одежда»');
+        expect(told).toContain('Вопрос 1 из 8');
+        expect(told).toContain(CLOTHING_BASE[0]);
+        expect(told).not.toContain('Вопросов нет');
+        expect(told).not.toContain(CLOTHING_PACK);
+        expect(told).not.toMatch(PRICE);
+        expect(bot.inquiries[0]?.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(bot.inquiries[0]?.isPaused).toBe(false);
+        expect(bot.inquiries[0]?.category?.name).toBe('Одежда');
+        expect(bot.inquiries[0]?.questionPack ?? null).toBeNull();
+
+        await bot.dialog.handle(clientText('халат лабораторный'));
+
+        const second = messages(bot.sent, CLIENT).at(-1) ?? '';
+
+        expect(second).toContain('Вопрос 2 из 8');
+        expect(second).toContain(CLOTHING_BASE[1]);
+        expect(second).not.toContain('Менеджер уточняет направление.');
+        expect(second).not.toContain(CLOTHING_PACK);
+    });
+
+    it('устаревшая пауза в базе не подменяет вопросы, которые уже вернул assignCategory', async () => {
+        const questions = CLOTHING_BASE.map((prompt, sortOrder) =>
+            Object.assign(new CategoryQuestionEntity(), {
+                prompt,
+                choices: null,
+                answerType: QuestionAnswerType.TEXT,
+                sortOrder,
+                isRequired: true,
+            }),
+        );
+        const assigned = Object.assign(new InquiryEntity(), {
+            id: STALE_INQUIRY_ID,
+            status: InquiryStatus.COLLECTING_ANSWERS,
+            isPaused: false,
+            rawText: 'нужна куртка',
+            category: Object.assign(new CategoryEntity(), { name: 'Одежда' }),
+            clientUser: Object.assign(new AppUserEntity(), { telegramUserId: String(CLIENT), role: UserRole.CLIENT }),
+            questionPack: null,
+        });
+        const paused = Object.assign(new InquiryEntity(), {
+            id: STALE_INQUIRY_ID,
+            status: InquiryStatus.AWAITING_CATEGORY,
+            isPaused: true,
+            rawText: 'нужна куртка',
+            category: null,
+            clientUser: assigned.clientUser,
+        });
+        const findClientDialog = jest.fn().mockResolvedValue({
+            kind: 'paused',
+            view: { inquiry: paused, questions: [] },
+        });
+        const sent: TelegramOutgoing[] = [];
+        const dialog = new TelegramDialog(
+            {
+                resolveTelegramActor: async () => ({ kind: 'admin', userId: 'admin', telegramUserId: ADMIN }),
+                getById: async () => ({
+                    inquiry: Object.assign(new InquiryEntity(), {
+                        id: STALE_INQUIRY_ID,
+                        classificationScores: {
+                            outcome: 'no_match',
+                            stub: false,
+                            candidates: [
+                                {
+                                    categoryId: '22222222-2222-4222-8222-222222222222',
+                                    categoryName: 'Одежда',
+                                    score: 0,
+                                    matchedBy: 'keyword',
+                                },
+                            ],
+                        },
+                    }),
+                    questions: [],
+                }),
+                assignCategory: async () => ({ inquiry: assigned, questions }),
+                findClientDialog,
+            } as any,
+            {} as any,
+            {} as any,
+            {
+                deliver(message) {
+                    sent.push(message);
+
+                    return Promise.resolve();
+                },
+            },
+        );
+
+        await dialog.handle(press(ADMIN, `a:${STALE_INQUIRY_ID}:0`));
+
+        const told = messages(sent, CLIENT).at(-1) ?? '';
+
+        expect(findClientDialog).toHaveBeenCalledWith(CLIENT);
+        expect(told).toContain('Отнёс к категории «Одежда»');
+        expect(told).toContain('Вопрос 1 из 8');
+        expect(told).toContain(CLOTHING_BASE[0]);
+        expect(told).not.toContain('Вопросов нет');
+        expect(told).not.toContain(CLOTHING_PACK);
+    });
+
+    it('если вопросов нет и заявка уже в ресерче, клиенту пишут что заявка принята', async () => {
+        const assigned = Object.assign(new InquiryEntity(), {
+            id: STALE_INQUIRY_ID,
+            status: InquiryStatus.RESEARCHING,
+            isPaused: false,
+            rawText: 'редкая вещь',
+            category: Object.assign(new CategoryEntity(), { name: 'Пустая' }),
+            clientUser: Object.assign(new AppUserEntity(), { telegramUserId: String(CLIENT), role: UserRole.CLIENT }),
+        });
+        const sent: TelegramOutgoing[] = [];
+        const dialog = new TelegramDialog(
+            {
+                resolveTelegramActor: async () => ({ kind: 'admin', userId: 'admin', telegramUserId: ADMIN }),
+                getById: async () => ({
+                    inquiry: Object.assign(new InquiryEntity(), {
+                        id: STALE_INQUIRY_ID,
+                        classificationScores: {
+                            outcome: 'no_match',
+                            stub: false,
+                            candidates: [
+                                {
+                                    categoryId: '22222222-2222-4222-8222-222222222222',
+                                    categoryName: 'Пустая',
+                                    score: 0,
+                                    matchedBy: 'keyword',
+                                },
+                            ],
+                        },
+                    }),
+                    questions: [],
+                }),
+                assignCategory: async () => ({ inquiry: assigned, questions: [] }),
+                findClientDialog: async () => ({
+                    kind: 'paused',
+                    view: { inquiry: assigned, questions: [] },
+                }),
+            } as any,
+            {} as any,
+            {} as any,
+            {
+                deliver(message) {
+                    sent.push(message);
+
+                    return Promise.resolve();
+                },
+            },
+        );
+
+        await dialog.handle(press(ADMIN, `a:${STALE_INQUIRY_ID}:0`));
+
+        expect(messages(sent, CLIENT).at(-1)).toBe('Заявка принята, менеджер скоро ответит');
+        expect(messages(sent, CLIENT).join('\n')).not.toContain('Вопросов нет');
     });
 });
