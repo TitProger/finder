@@ -26,7 +26,7 @@ categories:
     
     base_questions:
       - code: item_type
-        prompt: Что именно за изделие? (например: халат лабораторный, футболка, куртка)
+        prompt: "Что именно за изделие? (например: халат лабораторный, футболка, куртка)"
         answer_type: TEXT
         is_required: true
         sort_order: 1
@@ -38,13 +38,13 @@ categories:
         sort_order: 2
       
       - code: material
-        prompt: Материал (например: хлопок, полиэстер, смесовая ткань)
+        prompt: "Материал (например: хлопок, полиэстер, смесовая ткань)"
         answer_type: TEXT
         is_required: false
         sort_order: 3
       
       - code: size_range
-        prompt: Размерный ряд и доли размеров (например: S-10%, M-40%, L-40%, XL-10%)
+        prompt: "Размерный ряд и доли размеров (например: S-10%, M-40%, L-40%, XL-10%)"
         answer_type: TEXT
         is_required: false
         sort_order: 4
@@ -189,7 +189,7 @@ categories:
           - С пробегом
       
       - code: brand_model
-        prompt: Марка и модель (например: Chery Tiggo 7 Pro)
+        prompt: "Марка и модель (например: Chery Tiggo 7 Pro)"
         answer_type: TEXT
         is_required: true
         sort_order: 2
