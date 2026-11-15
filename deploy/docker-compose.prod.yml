@@ -1,0 +1,63 @@
+name: finder
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: finder-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DATABASE:-finder}
+      POSTGRES_USER: ${PG_USERNAME:-finder}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD is required}
+    volumes:
+      - finder_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USERNAME:-finder} -d ${PG_DATABASE:-finder}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - finder
+
+  app:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: finder-app
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    environment:
+      NODE_ENV: production
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8080"
+      PG_ENABLED: "true"
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_MIGRATIONS_RUN: "true"
+      PG_LOGGING: "false"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - finder
+
+networks:
+  finder:
+
+volumes:
+  finder_postgres:

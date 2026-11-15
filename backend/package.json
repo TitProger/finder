@@ -18,7 +18,7 @@
         "migration:list": "mikro-orm migration:list",
         "migration:up": "mikro-orm migration:up",
         "migration:down": "mikro-orm migration:down",
-        "seed": "ts-node -r tsconfig-paths/register src/infrastructure/database/seeders/seed.command.ts",
+        "seed": "node scripts/run-seed.mjs",
         "contract:sync": "bash scripts/contract-sync.sh",
         "test": "jest",
         "test:watch": "jest --watch",
@@ -42,7 +42,8 @@
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.2",
         "winston": "^3.11.0",
-        "winston-daily-rotate-file": "^5.0.0"
+        "winston-daily-rotate-file": "^5.0.0",
+        "yaml": "^1.10.3"
     },
     "devDependencies": {
         "@mikro-orm/cli": "^6.5.9",

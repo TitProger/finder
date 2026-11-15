@@ -9,6 +9,10 @@ import { TgUpdate } from './telegram-update';
  */
 @Injectable()
 export class TelegramBotApi implements TelegramOutbound {
+    async deleteWebhook(): Promise<void> {
+        await this.call('deleteWebhook', { drop_pending_updates: false });
+    }
+
     async getUpdates(offset: number, signal: AbortSignal): Promise<TgUpdate[]> {
         const result = await this.call(
             'getUpdates',

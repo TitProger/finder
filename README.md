@@ -137,6 +137,8 @@ GitHub Actions CI автоматически запускается на push и
 - Сборка
 - Запуск тестов
 
+После зелёного CI на `main` workflow Deploy выкладывает приложение на VPS. Шаги для владельца: [docs/deploy.md](docs/deploy.md).
+
 ## Аутентификация и авторизация
 
 ### HTTP API
