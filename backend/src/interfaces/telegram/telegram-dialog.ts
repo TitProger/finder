@@ -47,6 +47,7 @@ const DONE_TEXT = 'Ответы записаны. Дальше считает м
 const RESEARCH_ACCEPTED_TEXT = 'Заявка принята, менеджер скоро ответит';
 const CARD_SERVED_TEXT = 'Менеджер скоро ответит';
 const LIMIT_TEXT = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
+const UNEXPECTED_TEXT = 'Не удалось обработать сообщение. Напишите ещё раз.';
 
 const SITE_ROLES: { key: string; role: SiteRole; label: string }[] = [
     { key: 'f', role: SiteRole.FACTORY_CONTACT, label: 'Контакт завода' },
@@ -107,13 +108,11 @@ export class TelegramDialog {
 
             await this.onMessage(update);
         } catch (error) {
-            if (error instanceof AppException) {
-                await this.send(update.chatId, error.message);
-
-                return;
+            if (!(error instanceof AppException)) {
+                this.logger.error(error instanceof Error ? error.message : 'ошибка диалога');
             }
 
-            throw error;
+            await this.send(update.chatId, error instanceof AppException ? error.message : UNEXPECTED_TEXT);
         } finally {
             if (update.kind === 'callback') {
                 await this.outbound.deliver({
@@ -147,6 +146,12 @@ export class TelegramDialog {
 
         if (dialog.kind === 'asking') {
             await this.answerOrReject(update, dialog);
+
+            return;
+        }
+
+        if (dialog.kind === 'complete') {
+            await this.replyFinished(update.chatId, dialog.view);
 
             return;
         }
@@ -188,25 +193,27 @@ export class TelegramDialog {
             return;
         }
 
-        if (next.kind === 'complete') {
-            const refused = limitRefusalText(next.view);
+        await this.replyFinished(update.chatId, next.kind === 'complete' ? next.view : dialog.view);
+    }
 
-            if (refused) {
-                await this.send(update.chatId, refused);
+    private async replyFinished(chatId: number, view: InquiryView): Promise<void> {
+        const refused = limitRefusalText(view);
 
-                return;
-            }
+        if (refused) {
+            await this.send(chatId, refused);
 
-            const handoff = clientStatusText(next.view);
-
-            if (handoff) {
-                await this.send(update.chatId, handoff);
-
-                return;
-            }
+            return;
         }
 
-        await this.send(update.chatId, DONE_TEXT);
+        const handoff = clientStatusText(view);
+
+        if (handoff) {
+            await this.send(chatId, handoff);
+
+            return;
+        }
+
+        await this.send(chatId, DONE_TEXT);
     }
 
     private async startInquiry(update: MessageUpdate): Promise<void> {

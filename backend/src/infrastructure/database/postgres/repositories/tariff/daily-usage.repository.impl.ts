@@ -1,11 +1,19 @@
+import { InjectRepository } from '@mikro-orm/nestjs';
 import { Injectable } from '@nestjs/common';
 
-import { BaseRepositoryImpl } from '../common/base.repository.impl';
 import { DailyUsageEntity } from '../../../../../domain/entities/tariff/daily-usage.entity';
 import { DailyUsageRepository } from '../../../../../domain/repositories/tariff/daily-usage.repository';
+import { BaseRepositoryImpl } from '../common/base.repository.impl';
 
 @Injectable()
 export class DailyUsageRepositoryImpl extends BaseRepositoryImpl<DailyUsageEntity> implements DailyUsageRepository {
+    constructor(
+        @InjectRepository(DailyUsageEntity)
+        repository: BaseRepositoryImpl<DailyUsageEntity>,
+    ) {
+        super(repository.getEntityManager(), DailyUsageEntity);
+    }
+
     async findOrCreate(userId: string, usageDate: string): Promise<DailyUsageEntity> {
         const existing = await this.em.findOne(DailyUsageEntity, {
             user: userId,

@@ -23,6 +23,7 @@ import {
 import { BadRequestAppException } from '../../../../common/exceptions/bad-request.exception';
 import { ConflictAppException } from '../../../../common/exceptions/conflict.exception';
 import { ForbiddenAppException } from '../../../../common/exceptions/forbidden.exception';
+import { InternalServerAppException } from '../../../../common/exceptions/internal-server.exception';
 import { NotFoundAppException } from '../../../../common/exceptions/not-found.exception';
 import { UnauthorizedAppException } from '../../../../common/exceptions/unauthorized.exception';
 import { Envs } from '../../../../common/envs/env';
@@ -30,6 +31,7 @@ import { Logger } from '../../../../common/logger/logger';
 import { CategoryQuestionEntity } from '../../../../domain/entities/category/category-question.entity';
 import { CategoryEntity } from '../../../../domain/entities/category/category.entity';
 import { QuestionPackEntity } from '../../../../domain/entities/category/question-pack.entity';
+import { InquiryAnswerEntity } from '../../../../domain/entities/inquiry/inquiry-answer.entity';
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { AppUserEntity } from '../../../../domain/entities/user/app-user.entity';
 import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
@@ -50,6 +52,8 @@ import { AppUserRepository } from '../../../../domain/repositories/user/app-user
 import { compareAskedQuestions, isQuestionAsked, selectQuestionPack } from './inquiry-questions';
 import { classifyInquiry, ClassificationDecision } from './classify-inquiry';
 import { formatAskedPrompt, parseInquiryAnswer } from './parse-inquiry-answer';
+
+const LAUNCH_FAILED_TEXT = 'Не удалось запустить поиск. Напишите ещё раз, попробуем снова.';
 
 const ASSIGNABLE_STATUSES = new Set<InquiryStatus>([
     InquiryStatus.DRAFT,
@@ -300,9 +304,11 @@ export class InquiryServiceImpl implements InquiryService {
         const remaining = pending.slice(1);
 
         if (remaining.length === 0) {
-            await this.serveIfReady(inquiry);
+            await this.serveIfReady(inquiry, question.id);
 
-            return { kind: 'complete', view };
+            const fresh = await this.findInquiry(inquiry.id);
+
+            return { kind: 'complete', view: await this.viewOf(fresh) };
         }
 
         const next = remaining[0];
@@ -441,20 +447,33 @@ export class InquiryServiceImpl implements InquiryService {
      * Совпадение с живой карточкой лимит не тратит.
      * Промах списывает лимит один раз и создаёт research_run.
      */
-    private async serveIfReady(inquiry: InquiryEntity): Promise<void> {
+    private async serveIfReady(inquiry: InquiryEntity, justAnsweredId?: string): Promise<void> {
         if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
             return;
         }
 
         const view = await this.viewOf(inquiry);
-        const pending = await this.pendingQuestions(inquiry.id, view.questions);
+        const pending = await this.pendingQuestions(
+            inquiry.id,
+            view.questions,
+            justAnsweredId ? new Set([justAnsweredId]) : undefined,
+        );
 
         if (pending.length > 0) {
             return;
         }
 
-        const stored = await this.answers.find({ inquiry: inquiry.id });
-        const byQuestion = new Map(stored.map((answer) => [answer.categoryQuestion.id, answer]));
+        const stored = await this.answers.find({ inquiry: inquiry.id }, { populate: ['categoryQuestion'] });
+        const byQuestion = new Map<string, InquiryAnswerEntity>();
+
+        for (const answer of stored) {
+            const questionId = safeRelationId(answer, 'categoryQuestion');
+
+            if (questionId) {
+                byQuestion.set(questionId, answer);
+            }
+        }
+
         const snapshots: LiveCardAnswer[] = view.questions.map((question) => {
             const answer = byQuestion.get(question.id);
 
@@ -484,7 +503,7 @@ export class InquiryServiceImpl implements InquiryService {
             snapshots,
             live.map((card) => ({
                 id: card.id,
-                quantityQuestionId: card.quantityQuestion.id,
+                quantityQuestionId: safeRelationId(card, 'quantityQuestion') ?? '',
                 qtyMin: card.qtyMin,
                 qtyMax: card.qtyMax,
                 productAttributes: card.productAttributes ?? null,
@@ -498,7 +517,7 @@ export class InquiryServiceImpl implements InquiryService {
         if (!chosen) {
             // Нет готовой карточки - нужен ресерч
             // Проверяем дневной лимит
-            const telegramId = inquiry.clientUser.telegramUserId ?? '';
+            const telegramId = normalizeTelegramId(inquiry.clientUser.telegramUserId) ?? '';
             const limitCheck = await this.limitChecker.canStartResearch(inquiry.clientUser.id, telegramId);
 
             if (!limitCheck.allowed) {
@@ -511,11 +530,7 @@ export class InquiryServiceImpl implements InquiryService {
                 return;
             }
 
-            await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
-
-            if (this.researchLaunch) {
-                await this.researchLaunch.startForInquiry(inquiry);
-            }
+            await this.launchResearch(inquiry);
 
             return;
         }
@@ -531,6 +546,44 @@ export class InquiryServiceImpl implements InquiryService {
         inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
         await this.commitInquiry(inquiry);
         await this.tellHandoff(() => this.handoff?.onCardServed(inquiry));
+    }
+
+    /**
+     * Лимит списывается только после успешного старта.
+     * Ошибка до записи прогона не должна глотаться: клиент получает текст и может повторить.
+     * Если прогон уже в базе, статус RESEARCHING оставляем и не прячем его за исключением.
+     */
+    private async launchResearch(inquiry: InquiryEntity): Promise<void> {
+        if (!this.researchLaunch) {
+            return;
+        }
+
+        try {
+            await this.researchLaunch.startForInquiry(inquiry);
+        } catch (error) {
+            const fresh = await this.findInquiry(inquiry.id);
+
+            inquiry.status = fresh.status;
+            Logger.error('Ресерч не запустился', Logger.statuses.FAIL, {
+                data: { message: error instanceof Error ? error.message : String(error), inquiryId: inquiry.id },
+            });
+
+            if (fresh.status !== InquiryStatus.RESEARCHING) {
+                throw new InternalServerAppException(LAUNCH_FAILED_TEXT);
+            }
+        }
+
+        if (inquiry.status !== InquiryStatus.RESEARCHING) {
+            return;
+        }
+
+        try {
+            await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
+        } catch (error) {
+            Logger.error('Счётчик ресерча не увеличился', Logger.statuses.FAIL, {
+                data: { message: error instanceof Error ? error.message : String(error), inquiryId: inquiry.id },
+            });
+        }
     }
 
     /**
@@ -676,6 +729,11 @@ export class InquiryServiceImpl implements InquiryService {
         return user;
     }
 
+    /**
+     * Повтор клиента после последнего ответа не должен открывать новую заявку.
+     * Более новый черновик на паузе (его как раз создаёт такой повтор на старом коде)
+     * не прячет уже собранную заявку.
+     */
     private async latestOpenInquiry(telegramUserId: number): Promise<InquiryEntity | null> {
         const user = await this.users.findOne({ telegramUserId: String(telegramUserId) });
 
@@ -683,7 +741,10 @@ export class InquiryServiceImpl implements InquiryService {
             return null;
         }
 
-        const rows = await this.inquiries.find({ clientUser: user.id });
+        const rows = await this.inquiries.find(
+            { clientUser: user.id },
+            { populate: ['category', 'questionPack', 'clientUser'] },
+        );
         const open = rows
             .map((inquiry, index) => ({ inquiry, index }))
             .filter(
@@ -692,31 +753,82 @@ export class InquiryServiceImpl implements InquiryService {
                     inquiry.status === InquiryStatus.COLLECTING_ANSWERS,
             )
             .sort((left, right) => {
-                const delta = right.inquiry.createdAt.getTime() - left.inquiry.createdAt.getTime();
+                const delta = timeOf(right.inquiry) - timeOf(left.inquiry);
 
                 if (delta !== 0) {
                     return delta;
                 }
 
                 return right.index - left.index;
-            });
+            })
+            .map(({ inquiry }) => inquiry);
 
-        return open[0]?.inquiry ?? null;
+        if (open.length === 0) {
+            return null;
+        }
+
+        const ready: InquiryEntity[] = [];
+
+        for (const inquiry of open) {
+            if (await this.isReadyToServe(inquiry)) {
+                ready.push(inquiry);
+            }
+        }
+
+        const newest = open[0];
+        const newestReady = ready[0];
+
+        if (!newestReady || newest.id === newestReady.id) {
+            return newest;
+        }
+
+        if (!this.isAccidentalPause(newest)) {
+            return newest;
+        }
+
+        await this.dismissNewerPausedDrafts(newestReady, open);
+
+        return newestReady;
     }
 
     private async dialogFrom(inquiry: InquiryEntity): Promise<ClientDialog> {
+        if (inquiry.status === InquiryStatus.COLLECTING_ANSWERS && !inquiry.isPaused && inquiry.category) {
+            const view = await this.viewOf(inquiry);
+            const pending = await this.pendingQuestions(inquiry.id, view.questions);
+
+            if (pending.length > 0) {
+                return this.asking(view, pending);
+            }
+
+            await this.serveIfReady(inquiry);
+
+            const fresh = await this.findInquiry(inquiry.id);
+
+            return this.settledDialog(fresh);
+        }
+
+        return this.settledDialog(inquiry);
+    }
+
+    private async settledDialog(inquiry: InquiryEntity): Promise<ClientDialog> {
         const view = await this.viewOf(inquiry);
 
         if (inquiry.isPaused || inquiry.status === InquiryStatus.AWAITING_CATEGORY || !inquiry.category) {
             return { kind: 'paused', view };
         }
 
-        const pending = await this.pendingQuestions(inquiry.id, view.questions);
+        if (inquiry.status === InquiryStatus.COLLECTING_ANSWERS) {
+            const pending = await this.pendingQuestions(inquiry.id, view.questions);
 
-        if (pending.length === 0) {
-            return { kind: 'idle' };
+            if (pending.length > 0) {
+                return this.asking(view, pending);
+            }
         }
 
+        return { kind: 'complete', view };
+    }
+
+    private asking(view: InquiryView, pending: CategoryQuestionEntity[]): ClientDialog {
         const question = pending[0];
 
         return {
@@ -728,12 +840,69 @@ export class InquiryServiceImpl implements InquiryService {
         };
     }
 
+    private async isReadyToServe(inquiry: InquiryEntity): Promise<boolean> {
+        if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
+            return false;
+        }
+
+        const view = await this.viewOf(inquiry);
+        const pending = await this.pendingQuestions(inquiry.id, view.questions);
+
+        return pending.length === 0;
+    }
+
+    private isAccidentalPause(inquiry: InquiryEntity): boolean {
+        return inquiry.isPaused && inquiry.status === InquiryStatus.AWAITING_CATEGORY;
+    }
+
+    /** Черновик без ответов, который новее уже собранной заявки, больше не перехватывает диалог. */
+    private async dismissNewerPausedDrafts(ready: InquiryEntity, open: InquiryEntity[]): Promise<void> {
+        const readyAt = timeOf(ready);
+
+        for (const inquiry of open) {
+            if (inquiry.id === ready.id || timeOf(inquiry) <= readyAt || !this.isAccidentalPause(inquiry)) {
+                continue;
+            }
+
+            const existing = await this.answers.find({ inquiry: inquiry.id });
+
+            if (existing.length > 0) {
+                continue;
+            }
+
+            inquiry.status = InquiryStatus.CLOSED;
+            inquiry.isPaused = false;
+            inquiry.pauseReason = null;
+            inquiry.closedAt = new Date();
+            await this.commitInquiry(inquiry);
+        }
+    }
+
     private async pendingQuestions(
         inquiryId: string,
         questions: CategoryQuestionEntity[],
+        alsoAnswered?: ReadonlySet<string>,
     ): Promise<CategoryQuestionEntity[]> {
-        const answers = await this.answers.find({ inquiry: inquiryId });
-        const answered = new Set(answers.map((answer) => answer.categoryQuestion.id));
+        const answers = await this.answers.find({ inquiry: inquiryId }, { populate: ['categoryQuestion'] });
+        const answered = new Set<string>(alsoAnswered ?? []);
+        let readable = 0;
+
+        for (const answer of answers) {
+            const questionId = safeRelationId(answer, 'categoryQuestion');
+
+            if (!questionId) {
+                continue;
+            }
+
+            readable += 1;
+            answered.add(questionId);
+        }
+
+        // Строк столько же, сколько заданных вопросов, но FK вопроса не читается
+        // (disableIdentityMap, связь не инициализирована). Повторно их не задаём.
+        if (readable < answers.length && questions.length > 0 && answers.length >= questions.length) {
+            return [];
+        }
 
         return questions.filter((question) => !answered.has(question.id));
     }
@@ -862,6 +1031,33 @@ function collectPhotoFileIds(ids: readonly string[] | undefined): string[] {
     }
 
     return unique;
+}
+
+function timeOf(inquiry: InquiryEntity): number {
+    return inquiry.createdAt instanceof Date ? inquiry.createdAt.getTime() : 0;
+}
+
+/** id связи. Неинициализированная ссылка MikroORM не должна ронять весь ответ. */
+function safeRelationId(owner: object, key: string): string | null {
+    try {
+        return relationId((owner as Record<string, unknown>)[key]);
+    } catch {
+        return null;
+    }
+}
+
+function relationId(value: unknown): string | null {
+    if (typeof value === 'string' && value.length > 0) {
+        return value;
+    }
+
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const id = (value as { id?: unknown }).id;
+
+    return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
 function normalizeTelegramId(value: string | number | bigint | null | undefined): string | null {

@@ -49,7 +49,7 @@ const CLOTHING_PACK = 'Многоразовый или одноразовый?';
 
 type Stored = { id: string };
 
-function buildBot(options?: { dailyResearchLimit?: number; researchCount?: number }) {
+function buildBot(options?: { dailyResearchLimit?: number; researchCount?: number; launch?: 'ok' | 'fail-once' }) {
     const users: AppUserEntity[] = [];
     const categories: CategoryEntity[] = [];
     const phrases: CategoryPhraseEntity[] = [];
@@ -153,6 +153,22 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
     const userRepo = repo(AppUserEntity, users);
     const usages: DailyUsageEntity[] = [];
     const limitChecker = buildLimitChecker(users, usages, options);
+    const launchState = { count: 0 };
+    const researchLaunch = options?.launch
+        ? {
+              async startForInquiry(inquiry: InquiryEntity) {
+                  launchState.count += 1;
+
+                  if (options.launch === 'fail-once' && launchState.count === 1) {
+                      throw new Error('webhook down');
+                  }
+
+                  inquiry.status = InquiryStatus.RESEARCHING;
+                  em.persist(inquiry);
+                  await em.flush();
+              },
+          }
+        : undefined;
     const inquiriesService = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
         userRepo as unknown as AppUserRepository,
@@ -163,6 +179,8 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
         repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
         limitChecker as any,
+        undefined,
+        researchLaunch as any,
     );
     const categoryService = new CategoryAdminServiceImpl(
         categoryRepo as unknown as CategoryRepository,
@@ -250,7 +268,7 @@ function buildBot(options?: { dailyResearchLimit?: number; researchCount?: numbe
         return entity;
     }
 
-    return { dialog, sent, inquiries, sites, category, pack, usages };
+    return { dialog, sent, inquiries, sites, category, pack, usages, launchCount: () => launchState.count };
 }
 
 function detach<T extends Stored>(entity: T): T {
@@ -685,5 +703,71 @@ describe('TelegramDialog', () => {
 
         expect(messages(sent, CLIENT).at(-1)).toBe('Заявка принята, менеджер скоро ответит');
         expect(messages(sent, CLIENT).join('\n')).not.toContain('Вопросов нет');
+    });
+
+    it('последний базовый ответ одежды без пакета пишет, что заявка принята, и запускает ресерч', async () => {
+        const bot = buildBot({ launch: 'ok' });
+        const clothing = bot.category('Одежда', 'куртка', CLOTHING_BASE);
+
+        bot.pack(clothing, 'workwear', 'Спецодежда и лабораторные халаты', [CLOTHING_PACK]);
+        await bot.dialog.handle(clientText('нужна куртка'));
+
+        const replies = ['халат', '10', 'хлопок', 'M-100%', 'белый', 'нет', '500', 'Москва'];
+
+        for (const reply of replies) {
+            await bot.dialog.handle(clientText(reply));
+        }
+
+        const told = messages(bot.sent, CLIENT).join('\n');
+
+        expect(messages(bot.sent, CLIENT).at(-1)).toBe('Заявка принята, менеджер скоро ответит');
+        expect(told).toContain('Вопрос 8 из 8');
+        expect(told).toContain(CLOTHING_BASE[7]);
+        expect(told).not.toContain(CLOTHING_PACK);
+        expect(told).not.toContain('Вопрос 1 из 12');
+        expect(messages(bot.sent, CLIENT).at(-1)).not.toMatch(PRICE);
+        expect(messages(bot.sent, ADMIN)).toEqual([]);
+        expect(bot.inquiries).toHaveLength(1);
+        expect(bot.inquiries[0]?.status).toBe(InquiryStatus.RESEARCHING);
+        expect(bot.inquiries[0]?.questionPack ?? null).toBeNull();
+        expect(bot.launchCount()).toBe(1);
+    });
+
+    it('сбой запуска отвечает клиенту, а следующее сообщение продолжает ту же заявку и не цепляется за новую паузу', async () => {
+        const bot = buildBot({ launch: 'fail-once' });
+
+        bot.category('Халаты', 'халат', ['Сколько штук?']);
+        await bot.dialog.handle(clientText('халат'));
+        await bot.dialog.handle(clientText('10'));
+
+        expect(messages(bot.sent, CLIENT).at(-1)).toBe('Не удалось запустить поиск. Напишите ещё раз, попробуем снова.');
+        expect(bot.inquiries).toHaveLength(1);
+        expect(bot.inquiries[0]?.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(bot.launchCount()).toBe(1);
+
+        const paused = Object.assign(new InquiryEntity(), {
+            status: InquiryStatus.AWAITING_CATEGORY,
+            isPaused: true,
+            pauseReason: 'Сомнение классификатора: категория не выбрана.',
+            rawText: 'повтор',
+            clientUser: bot.inquiries[0]?.clientUser,
+            category: null,
+            questionPack: null,
+            photoUrls: [],
+            createdAt: new Date(Date.now() + 60_000),
+            updatedAt: null,
+        });
+
+        bot.inquiries.push(paused);
+        await bot.dialog.handle(clientText('ещё раз'));
+
+        expect(messages(bot.sent, CLIENT).at(-1)).toBe('Заявка принята, менеджер скоро ответит');
+        expect(messages(bot.sent, CLIENT).join('\n')).not.toContain('Менеджер уточняет направление.');
+        expect(messages(bot.sent, CLIENT).join('\n')).not.toMatch(PRICE);
+        expect(bot.inquiries).toHaveLength(2);
+        expect(bot.inquiries[0]?.status).toBe(InquiryStatus.RESEARCHING);
+        expect(paused.status).toBe(InquiryStatus.CLOSED);
+        expect(paused.isPaused).toBe(false);
+        expect(bot.launchCount()).toBe(2);
     });
 });
