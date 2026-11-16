@@ -294,7 +294,30 @@ function buildHarness() {
     em.persist(question);
     em.persist(site);
 
-    return { service, launch, inquiries, runs, usages, runner, category };
+    return {
+        service,
+        launch,
+        inquiries,
+        runs,
+        usages,
+        runner,
+        category,
+        questions,
+        addQuestion(data: object) {
+            const question = stamp(new CategoryQuestionEntity(), data);
+
+            em.persist(question);
+
+            return question;
+        },
+        addPack(data: object) {
+            const pack = stamp(new QuestionPackEntity(), data);
+
+            em.persist(pack);
+
+            return pack;
+        },
+    };
 }
 
 function moscowToday(): string {
@@ -348,6 +371,80 @@ describe('запуск ресерча', () => {
 
     afterEach(() => {
         global.fetch = originalFetch;
+    });
+
+    it('последний базовый ответ одежды без пакета создаёт research_run и зовёт webhook', async () => {
+        const harness = buildHarness();
+        const pack = harness.addPack({
+            category: harness.category,
+            code: 'workwear',
+            title: 'Спецодежда и лабораторные халаты',
+            description: 'Дополнительные вопросы',
+            sortOrder: 0,
+            isActive: true,
+        });
+        const prompts = [
+            'Что именно за изделие?',
+            'Материал',
+            'Размерный ряд',
+            'Цвет',
+            'Нужен ли свой крой или логотип?',
+            'Какая цена в России уже попадалась?',
+            'Город доставки',
+        ];
+
+        harness.questions[0].sortOrder = 2;
+        prompts.forEach((prompt, index) => {
+            harness.addQuestion({
+                category: harness.category,
+                questionPack: null,
+                code: index === prompts.length - 1 ? 'delivery_city' : `q${index}`,
+                prompt,
+                answerType: QuestionAnswerType.TEXT,
+                choices: null,
+                isRequired: index === prompts.length - 1,
+                sortOrder: index < 1 ? index + 1 : index + 3,
+            });
+        });
+        harness.addQuestion({
+            category: harness.category,
+            questionPack: pack,
+            code: 'disposable',
+            prompt: 'Многоразовый или одноразовый?',
+            answerType: QuestionAnswerType.SINGLE_CHOICE,
+            choices: ['Многоразовый', 'Одноразовый'],
+            isRequired: true,
+            sortOrder: 1,
+        });
+
+        const created = await harness.service.create({ telegramUserId: CLIENT, text: TEXT });
+        const replies = ['халат', 'хлопок', '1000', 'M', 'белый', 'нет', '500', 'Москва'];
+        let last = created.inquiry;
+
+        for (const reply of replies) {
+            const step = await harness.service.answerQuestion({
+                inquiryId: created.inquiry.id,
+                telegramUserId: CLIENT,
+                text: reply,
+            });
+
+            expect(step.kind === 'complete' || step.kind === 'asking').toBe(true);
+            last = step.kind === 'idle' || step.kind === 'paused' ? last : step.view.inquiry;
+        }
+
+        const run = harness.runs[0];
+
+        expect(last.status).toBe(InquiryStatus.RESEARCHING);
+        expect(created.inquiry.questionPack ?? null).toBeNull();
+        expect(harness.runs).toHaveLength(1);
+        expect(run.status).toBe(ResearchRunStatus.RUNNING);
+        expect(calls).toHaveLength(1);
+        expect(calls[0].body.pack_code ?? null).toBeNull();
+        expect(calls[0].body.answers).toHaveLength(8);
+        expect(JSON.stringify(calls[0].body.answers)).toContain('Город доставки');
+        expect(JSON.stringify(calls[0].body.answers)).not.toContain('Многоразовый или одноразовый');
+        expect(JSON.stringify(calls[0].body)).not.toContain(String(CLIENT));
+        expect(harness.usages[0].researchCount).toBe(1);
     });
 
     it('после ответа шлёт webhook с секретом и досье переводит заявку к админу', async () => {

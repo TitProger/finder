@@ -220,7 +220,7 @@ export class ResearchLaunchService {
 
     private async payload(inquiry: InquiryEntity, runId: string, now: Date): Promise<ResearchTriggerBody> {
         const category = inquiry.category;
-        const storedAnswers = await this.answers.find({ inquiry: inquiry.id });
+        const storedAnswers = await this.answers.find({ inquiry: inquiry.id }, { populate: ['categoryQuestion'] });
         const siteRows = category ? await this.sites.find({ category: category.id, isActive: true }) : [];
 
         return {
@@ -233,8 +233,8 @@ export class ResearchLaunchService {
             pack_code: inquiry.questionPack?.code ?? null,
             raw_text: inquiry.rawText,
             answers: storedAnswers.map((answer) => ({
-                code: answer.categoryQuestion?.code ?? null,
-                prompt: answer.categoryQuestion?.prompt ?? '',
+                code: answerField(answer, 'code'),
+                prompt: answerField(answer, 'prompt') ?? '',
                 value: answer.valueText ?? (answer.valueJson === undefined ? '' : JSON.stringify(answer.valueJson)),
             })),
             sites: siteRows
@@ -243,6 +243,20 @@ export class ResearchLaunchService {
                 .map((site) => toSite(site)),
             ingest_url: ingestUrl(),
         };
+    }
+}
+
+function answerField(
+    answer: { categoryQuestion?: { code?: string | null; prompt?: string | null } | null },
+    field: 'code' | 'prompt',
+): string | null {
+    try {
+        const question = answer.categoryQuestion;
+        const value = question?.[field];
+
+        return typeof value === 'string' ? value : null;
+    } catch {
+        return null;
     }
 }
 

@@ -8,6 +8,8 @@ import { CanonicalProductEntity } from '../../../../domain/entities/catalog/cano
 import { InquiryAnswerEntity } from '../../../../domain/entities/inquiry/inquiry-answer.entity';
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { OptimalCardEntity } from '../../../../domain/entities/market/optimal-card.entity';
+import { DailyUsageEntity } from '../../../../domain/entities/tariff/daily-usage.entity';
+import { PlanEntity } from '../../../../domain/entities/tariff/plan.entity';
 import { AppUserEntity } from '../../../../domain/entities/user/app-user.entity';
 import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
 import { InquiryStatus } from '../../../../domain/enums/inquiry-status.enum';
@@ -22,6 +24,10 @@ import { InquiryAnswerRepository } from '../../../../domain/repositories/inquiry
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { OptimalCardRepository } from '../../../../domain/repositories/market/optimal-card.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
+import { DailyUsageRepositoryImpl } from '../../../../infrastructure/database/postgres/repositories/tariff/daily-usage.repository.impl';
+import { PlanRepositoryImpl } from '../../../../infrastructure/database/postgres/repositories/tariff/plan.repository.impl';
+import { ClientDialog } from '../../contracts/inquiry/inquiry.service';
+import { LimitCheckerServiceImpl } from '../tariff/limit-checker.service.impl';
 import { InquiryServiceImpl } from './inquiry.service.impl';
 
 type Stored = { id: string };
@@ -66,7 +72,11 @@ function detach<T extends Stored>(entity: T): T {
     return Object.assign(Object.create(Object.getPrototypeOf(entity)), entity);
 }
 
-function buildHarness(options?: { launchResearch?: boolean }) {
+function buildHarness(options?: {
+    launchResearch?: boolean;
+    launch?: 'ok' | 'fail-once';
+    tariff?: 'repository';
+}) {
     const users: AppUserEntity[] = [];
     const categories: CategoryEntity[] = [];
     const phrases: CategoryPhraseEntity[] = [];
@@ -146,28 +156,98 @@ function buildHarness(options?: { launchResearch?: boolean }) {
         };
     }
 
+    const userRepo = repo(AppUserEntity, users);
     const phraseRepo = {
         ...repo(CategoryPhraseEntity, phrases),
         findByCategoryStatus(status: CategoryStatus) {
             return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
         },
     };
-    const limitChecker = {
-        canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
-        incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
+    const planFindOne = jest.fn(async (_entity: unknown, where: { code?: string }) => {
+        if (where.code !== 'free') {
+            return null;
+        }
+
+        return stamp(new PlanEntity(), {
+            code: 'free',
+            title: 'Бесплатный',
+            dailyResearchLimit: 3,
+        });
+    });
+    const usageRows: { userId: string; usageDate: string; researchCount: number }[] = [];
+    const usageEm = {
+        async findOne(_entity: unknown, where: { user?: string; usageDate?: string }) {
+            const row = usageRows.find((item) => item.userId === where.user && item.usageDate === where.usageDate);
+
+            if (!row) {
+                return null;
+            }
+
+            return stamp(new DailyUsageEntity(), { usageDate: row.usageDate, researchCount: row.researchCount });
+        },
+        create(_entity: unknown, data: { user: string; usageDate: string; researchCount: number }) {
+            const row = { userId: data.user, usageDate: data.usageDate, researchCount: data.researchCount };
+            const created = stamp(new DailyUsageEntity(), {
+                usageDate: data.usageDate,
+                researchCount: data.researchCount,
+            });
+
+            return Object.assign(created, { row });
+        },
+        async persistAndFlush(entity: DailyUsageEntity & { row?: (typeof usageRows)[number] }) {
+            if (entity.row) {
+                usageRows.push(entity.row);
+            }
+        },
+        getKnex() {
+            return {
+                async raw(_sql: string, params: [string, string]) {
+                    const [userId, usageDate] = params;
+                    const row = usageRows.find((item) => item.userId === userId && item.usageDate === usageDate);
+
+                    if (row) {
+                        row.researchCount += 1;
+
+                        return;
+                    }
+
+                    usageRows.push({ userId, usageDate, researchCount: 1 });
+                },
+            };
+        },
     };
-    const researchLaunch = options?.launchResearch
-        ? {
-              async startForInquiry(inquiry: InquiryEntity) {
-                  inquiry.status = InquiryStatus.RESEARCHING;
-                  em.persist(inquiry);
-                  await em.flush();
-              },
-          }
-        : undefined;
+    const limitChecker =
+        options?.tariff === 'repository'
+            ? new LimitCheckerServiceImpl(
+                  userRepo as unknown as AppUserRepository,
+                  new PlanRepositoryImpl({ getEntityManager: () => ({ findOne: planFindOne }) } as never),
+                  new DailyUsageRepositoryImpl({ getEntityManager: () => usageEm } as never),
+              )
+            : {
+                  canStartResearch: jest.fn().mockResolvedValue({ allowed: true }),
+                  incrementResearchUsage: jest.fn().mockResolvedValue(undefined),
+              };
+    const launchState = { count: 0 };
+    const launchMode = options?.launch ?? (options?.launchResearch ? 'ok' : 'off');
+    const researchLaunch =
+        launchMode === 'off'
+            ? undefined
+            : {
+                  async startForInquiry(inquiry: InquiryEntity) {
+                      launchState.count += 1;
+
+                      if (launchMode === 'fail-once' && launchState.count === 1) {
+                          throw new Error('webhook down');
+                      }
+
+                      inquiry.status = InquiryStatus.RESEARCHING;
+                      em.persist(inquiry);
+                      await em.flush();
+                  },
+              };
     const service = new InquiryServiceImpl(
         repo(InquiryEntity, inquiries) as unknown as InquiryRepository,
-        repo(AppUserEntity, users) as unknown as AppUserRepository,
+        userRepo as unknown as AppUserRepository,
         repo(CategoryEntity, categories) as unknown as CategoryRepository,
         phraseRepo as unknown as CategoryPhraseRepository,
         repo(QuestionPackEntity, packs) as unknown as QuestionPackRepository,
@@ -252,6 +332,10 @@ function buildHarness(options?: { launchResearch?: boolean }) {
         packsRepo,
         questionsRepo,
         cardsRepo,
+        inquiries,
+        answers,
+        planFindOne,
+        launchCount: () => launchState.count,
     };
 }
 
@@ -826,7 +910,206 @@ describe('InquiryServiceImpl', () => {
         expect(otherVolume.status).not.toBe(InquiryStatus.RESEARCHING);
         expect(color.isRequired).toBe(false);
     });
+
+    it('последний базовый ответ одежды без пакета запускает ресерч', async () => {
+        const harness = buildHarness({ launchResearch: true });
+        const category = seedClothing(harness);
+        const created = await harness.service.create({ telegramUserId: 8604571553, text: 'нужна куртка' });
+
+        await harness.service.assignCategory({
+            inquiryId: created.inquiry.id,
+            categoryId: category.id,
+            adminUserId: harness.admin.id,
+        });
+        const done = await answerClothing(harness.service, 8604571553, created.inquiry.id);
+
+        expect(done?.kind).toBe('complete');
+
+        if (done?.kind !== 'complete') {
+            return;
+        }
+
+        expect(done.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(done.view.inquiry.id).toBe(created.inquiry.id);
+        expect(done.view.inquiry.questionPack ?? null).toBeNull();
+        expect(harness.launchCount()).toBe(1);
+        expect(harness.answers).toHaveLength(8);
+        expect(harness.answers.some((answer) => answer.categoryQuestion?.prompt === CLOTHING_PACK)).toBe(false);
+
+        const reloaded = await harness.service.getById(created.inquiry.id);
+
+        expect(reloaded.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(reloaded.questions.some((question) => question.prompt === CLOTHING_PACK)).toBe(false);
+    });
+
+    it('собранная заявка одежды проходит findOne тарифа и запускает ресерч', async () => {
+        const harness = buildHarness({ launchResearch: true, tariff: 'repository' });
+        const category = seedClothing(harness);
+        const created = await harness.service.create({ telegramUserId: 8604571553, text: 'нужна куртка' });
+
+        await harness.service.assignCategory({
+            inquiryId: created.inquiry.id,
+            categoryId: category.id,
+            adminUserId: harness.admin.id,
+        });
+        const done = await answerClothing(harness.service, 8604571553, created.inquiry.id);
+
+        expect(done?.kind).toBe('complete');
+
+        if (done?.kind !== 'complete') {
+            return;
+        }
+
+        expect(done.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(harness.planFindOne).toHaveBeenCalledWith(PlanEntity, { code: 'free' });
+        expect(harness.launchCount()).toBe(1);
+        expect(harness.answers).toHaveLength(8);
+        expect(harness.inquiries).toHaveLength(1);
+    });
+
+    it('сбой запуска не оставляет собранную заявку без повторной попытки', async () => {
+        const harness = buildHarness({ launch: 'fail-once' });
+        const { inquiryId } = await finishClothing(harness);
+
+        await expect(answerClothing(harness.service, 8604571553, inquiryId)).rejects.toThrow(
+            'Не удалось запустить поиск',
+        );
+
+        const stuck = await harness.service.getById(inquiryId);
+
+        expect(stuck.inquiry.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(harness.answers).toHaveLength(8);
+        expect(harness.inquiries).toHaveLength(1);
+        expect(harness.launchCount()).toBe(1);
+
+        const resumed = await harness.service.findClientDialog(8604571553);
+
+        expect(resumed.kind).toBe('complete');
+
+        if (resumed.kind !== 'complete') {
+            return;
+        }
+
+        expect(resumed.view.inquiry.id).toBe(inquiryId);
+        expect(resumed.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(harness.inquiries).toHaveLength(1);
+        expect(harness.launchCount()).toBe(2);
+    });
+
+    it('новая пауза не прячет собранную заявку и не требует ответить заново', async () => {
+        const harness = buildHarness({ launch: 'fail-once' });
+        const { inquiryId } = await finishClothing(harness);
+
+        await expect(answerClothing(harness.service, 8604571553, inquiryId)).rejects.toThrow(
+            'Не удалось запустить поиск',
+        );
+
+        const paused = await harness.service.create({ telegramUserId: 8604571553, text: 'ещё раз напишите' });
+
+        expect(paused.inquiry.status).toBe(InquiryStatus.AWAITING_CATEGORY);
+        expect(paused.inquiry.isPaused).toBe(true);
+
+        const resumed = await harness.service.findClientDialog(8604571553);
+
+        expect(resumed.kind).toBe('complete');
+
+        if (resumed.kind !== 'complete') {
+            return;
+        }
+
+        expect(resumed.view.inquiry.id).toBe(inquiryId);
+        expect(resumed.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(harness.inquiries).toHaveLength(2);
+
+        const hidden = await harness.service.getById(paused.inquiry.id);
+
+        expect(hidden.inquiry.status).toBe(InquiryStatus.CLOSED);
+        expect(hidden.inquiry.isPaused).toBe(false);
+    });
+
+    it('новый незаконченный опрос не вытесняется старой готовой заявкой', async () => {
+        const harness = buildHarness({ launch: 'fail-once' });
+
+        seedShoes(harness);
+        const first = await harness.service.create({ telegramUserId: 100, text: 'кроссовки' });
+
+        await expect(
+            harness.service.answerQuestion({
+                inquiryId: first.inquiry.id,
+                telegramUserId: 100,
+                text: '42',
+            }),
+        ).rejects.toThrow('Не удалось запустить поиск');
+
+        const second = await harness.service.create({ telegramUserId: 100, text: 'кроссовки' });
+        const dialog = await harness.service.findClientDialog(100);
+
+        expect(dialog.kind).toBe('asking');
+
+        if (dialog.kind !== 'asking') {
+            return;
+        }
+
+        expect(dialog.view.inquiry.id).toBe(second.inquiry.id);
+        expect(dialog.prompt).toBe('Размер?');
+        expect((await harness.service.getById(first.inquiry.id)).inquiry.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(harness.launchCount()).toBe(1);
+    });
+
+    it('собранная заявка запускается, если id вопроса в ответе не читается', async () => {
+        const harness = buildHarness({ launch: 'fail-once' });
+        const { inquiryId } = await finishClothing(harness);
+
+        await expect(answerClothing(harness.service, 8604571553, inquiryId)).rejects.toThrow(
+            'Не удалось запустить поиск',
+        );
+
+        for (const answer of harness.answers) {
+            answer.categoryQuestion = {} as CategoryQuestionEntity;
+        }
+
+        const resumed = await harness.service.findClientDialog(8604571553);
+
+        expect(resumed.kind).toBe('complete');
+
+        if (resumed.kind !== 'complete') {
+            return;
+        }
+
+        expect(resumed.view.inquiry.id).toBe(inquiryId);
+        expect(resumed.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(harness.launchCount()).toBe(2);
+    });
 });
+
+const CLOTHING_REPLIES = ['лабораторный халат', '10', 'хлопок', 'M-100%', 'белый', 'нет', '500', 'Москва'];
+
+async function finishClothing(harness: ReturnType<typeof buildHarness>): Promise<{ inquiryId: string }> {
+    const category = seedClothing(harness);
+    const created = await harness.service.create({ telegramUserId: 8604571553, text: 'нужна куртка' });
+
+    await harness.service.assignCategory({
+        inquiryId: created.inquiry.id,
+        categoryId: category.id,
+        adminUserId: harness.admin.id,
+    });
+
+    return { inquiryId: created.inquiry.id };
+}
+
+async function answerClothing(
+    service: InquiryServiceImpl,
+    telegramUserId: number,
+    inquiryId: string,
+): Promise<ClientDialog | undefined> {
+    let last: ClientDialog | undefined;
+
+    for (const text of CLOTHING_REPLIES) {
+        last = await service.answerQuestion({ inquiryId, telegramUserId, text });
+    }
+
+    return last;
+}
 
 async function answerGown(
     service: InquiryServiceImpl,
