@@ -1027,6 +1027,82 @@ describe('InquiryServiceImpl', () => {
         expect(hidden.inquiry.isPaused).toBe(false);
     });
 
+    it('собранная одежда запускается, даже если новее уже заполненная заявка «общее»', async () => {
+        const harness = buildHarness({ launch: 'fail-once' });
+        const { inquiryId } = await finishClothing(harness);
+
+        await expect(answerClothing(harness.service, 8604571553, inquiryId)).rejects.toThrow(
+            'Не удалось запустить поиск',
+        );
+
+        const clothing = await harness.service.getById(inquiryId);
+        const general = harness.categoriesRepo.create({
+            code: 'general',
+            name: 'Общее',
+            description: 'Назначено вместо паузы',
+            status: CategoryStatus.ACTIVE,
+        });
+        const prompts = [
+            'Что это?',
+            'Количество',
+            'Фото или ссылка (если есть)',
+            'Характеристики своими словами',
+            'Известная цена',
+            'Город доставки',
+        ];
+        const questions = prompts.map((prompt, index) =>
+            harness.questionsRepo.create({
+                category: general,
+                questionPack: null,
+                prompt,
+                answerType: index === 1 ? QuestionAnswerType.NUMBER : QuestionAnswerType.TEXT,
+                choices: null,
+                isRequired: index === 0 || index === 1 || index === 5,
+                sortOrder: index + 1,
+            }),
+        );
+        const stray = Object.assign(new InquiryEntity(), {
+            status: InquiryStatus.COLLECTING_ANSWERS,
+            isPaused: false,
+            pauseReason: null,
+            rawText: 'ещё раз напишите',
+            clientUser: clothing.inquiry.clientUser,
+            category: general,
+            questionPack: null,
+            photoUrls: [],
+            createdAt: new Date(Date.now() + 60_000),
+            updatedAt: null,
+        });
+
+        harness.inquiries.push(stray);
+
+        for (const question of questions) {
+            harness.answers.push(
+                Object.assign(new InquiryAnswerEntity(), {
+                    inquiry: stray,
+                    categoryQuestion: question,
+                    valueText: 'ответ',
+                    valueJson: null,
+                    answeredAt: new Date(),
+                }),
+            );
+        }
+
+        const resumed = await harness.service.findClientDialog(8604571553);
+
+        expect(resumed.kind).toBe('complete');
+
+        if (resumed.kind !== 'complete') {
+            return;
+        }
+
+        expect(resumed.view.inquiry.id).toBe(inquiryId);
+        expect(resumed.view.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        expect(stray.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
+        expect(harness.launchCount()).toBe(2);
+        expect(harness.inquiries).toHaveLength(2);
+    });
+
     it('новый незаконченный опрос не вытесняется старой готовой заявкой', async () => {
         const harness = buildHarness({ launch: 'fail-once' });
 
