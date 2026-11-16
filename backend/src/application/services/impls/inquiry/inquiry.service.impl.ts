@@ -731,8 +731,9 @@ export class InquiryServiceImpl implements InquiryService {
 
     /**
      * Повтор клиента после последнего ответа не должен открывать новую заявку.
-     * Более новый черновик на паузе (его как раз создаёт такой повтор на старом коде)
-     * не прячет уже собранную заявку.
+     * Более новая заявка (пауза, назначенное «общее» или уже заполненный черновик)
+     * не прячет более раннюю собранную, по которой ресерч ещё не запускали.
+     * Незаконченный опрос, который клиент сейчас проходит, не перехватываем.
      */
     private async latestOpenInquiry(telegramUserId: number): Promise<InquiryEntity | null> {
         const user = await this.users.findOne({ telegramUserId: String(telegramUserId) });
@@ -776,19 +777,20 @@ export class InquiryServiceImpl implements InquiryService {
         }
 
         const newest = open[0];
-        const newestReady = ready[0];
 
-        if (!newestReady || newest.id === newestReady.id) {
+        if (await this.isActiveQuestionnaire(newest)) {
             return newest;
         }
 
-        if (!this.isAccidentalPause(newest)) {
+        const chosen = ready[ready.length - 1];
+
+        if (!chosen) {
             return newest;
         }
 
-        await this.dismissNewerPausedDrafts(newestReady, open);
+        await this.dismissNewerPausedDrafts(chosen, open);
 
-        return newestReady;
+        return chosen;
     }
 
     private async dialogFrom(inquiry: InquiryEntity): Promise<ClientDialog> {
@@ -838,6 +840,18 @@ export class InquiryServiceImpl implements InquiryService {
             index: view.questions.length - pending.length,
             total: view.questions.length,
         };
+    }
+
+    /** Клиент сейчас отвечает на вопросы. Более старую собранную заявку в этот момент не подменяем. */
+    private async isActiveQuestionnaire(inquiry: InquiryEntity): Promise<boolean> {
+        if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
+            return false;
+        }
+
+        const view = await this.viewOf(inquiry);
+        const pending = await this.pendingQuestions(inquiry.id, view.questions);
+
+        return pending.length > 0;
     }
 
     private async isReadyToServe(inquiry: InquiryEntity): Promise<boolean> {

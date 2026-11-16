@@ -459,6 +459,7 @@ describe('запуск ресерча', () => {
         expect(calls).toHaveLength(1);
         expect(calls[0].url).toBe(TRIGGER_URL);
         expect(calls[0].headers[RESEARCH_TRIGGER_HEADER]).toBe(TRIGGER_SECRET);
+        expect(calls[0].headers.authorization).toBe(`Bearer ${TRIGGER_SECRET}`);
         expect(calls[0].body).toMatchObject({
             type: 'finder.research.requested',
             inquiry_id: inquiry.id,
@@ -608,6 +609,7 @@ describe('запуск ресерча', () => {
         expect(harness.runs.map((run) => run.runId)).toEqual([firstRunId, body.data.runId]);
         expect(calls[1].body.run_id).toBe(body.data.runId);
         expect(calls[1].headers[RESEARCH_TRIGGER_HEADER]).toBe(TRIGGER_SECRET);
+        expect(calls[1].headers.authorization).toBe(`Bearer ${TRIGGER_SECRET}`);
         expect(harness.usages[0].researchCount).toBe(1);
         expect(JSON.stringify(body)).not.toContain('price');
     });

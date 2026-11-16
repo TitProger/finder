@@ -18,9 +18,11 @@ export class GrokWebhookTrigger implements ResearchTriggerPort {
             const headers: Record<string, string> = {
                 'content-type': 'application/json',
             };
+            const auth = authorizationFor(secret);
 
-            if (secret) {
-                headers[RESEARCH_TRIGGER_HEADER] = secret;
+            if (auth) {
+                headers[RESEARCH_TRIGGER_HEADER] = auth.secret;
+                headers.authorization = auth.bearer;
             }
 
             const response = await fetch(url, {
@@ -40,4 +42,24 @@ export class GrokWebhookTrigger implements ResearchTriggerPort {
             return { ok: false, status: null, error: message };
         }
     }
+}
+
+/**
+ * Рутина Grok ждёт `Authorization: Bearer <key>`.
+ * Секрет из GitHub может прийти с пробелом или уже с префиксом Bearer.
+ */
+function authorizationFor(secret: string): { secret: string; bearer: string } | null {
+    const trimmed = secret.trim();
+
+    if (!trimmed) {
+        return null;
+    }
+
+    const token = trimmed.replace(/^bearer\s+/i, '').trim();
+
+    if (!token) {
+        return null;
+    }
+
+    return { secret: trimmed, bearer: `Bearer ${token}` };
 }
