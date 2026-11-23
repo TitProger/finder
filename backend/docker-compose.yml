@@ -39,11 +39,15 @@ services:
       PG_PASSWORD: ${PG_PASSWORD:-finder}
       PG_MIGRATIONS_RUN: "true"
       PG_LOGGING: "false"
+      PG_SEEDERS_RUN: ${PG_SEEDERS_RUN:-true}
+      STORAGE_PATH: /app/storage
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       FREE_PLAN_DAILY_LIMIT: ${FREE_PLAN_DAILY_LIMIT:-3}
+    volumes:
+      - finder_storage:/app/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +65,4 @@ services:
 
 volumes:
   postgres_data:
+  finder_storage:

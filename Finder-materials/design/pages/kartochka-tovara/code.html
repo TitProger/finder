@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finder — Карточка товара и аналитика цен</title>
+<!-- Tailwind CSS v3 CDN with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              lime: '#D4F932',
+              'lime-hover': '#C6F432',
+              dark: '#111827',
+              gray: '#F8F9FA',
+              border: '#E5E7EB',
+              muted: '#6B7280'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Styles for Patterns and Visual Details -->
+<style data-purpose="background-patterns">
+    body {
+      background-color: #F8F9FA;
+      background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+  </style>
+<style data-purpose="component-tweaks">
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #CBD5E1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="text-slate-900 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-brand-lime selection:text-black">
+<!-- BEGIN: MainHeader -->
+<header class="sticky top-4 z-50 px-4 md:px-8 max-w-7xl mx-auto w-full">
+<nav class="bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-2xl px-5 py-3 flex items-center justify-between transition-all">
+<!-- Logo & Main Brand -->
+<div class="flex items-center space-x-6">
+<a class="flex items-center space-x-2 text-slate-900 font-extrabold text-xl tracking-tight" href="#">
+<span class="w-8 h-8 rounded-xl bg-slate-950 text-brand-lime flex items-center justify-center text-lg font-black shadow-inner">
+            ✦
+          </span>
+<span>Finder</span>
+</a>
+<!-- Desktop Navigation Items -->
+<div class="hidden md:flex items-center space-x-2 text-sm font-medium text-slate-600">
+<a class="px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center gap-1.5" href="#">
+<span class="text-xs text-slate-400 font-bold">+</span> Выполнить поиск
+          </a>
+<a class="px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors" href="#">
+            История поиска
+          </a>
+<a class="px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center gap-1.5" href="#">
+<span class="text-xs text-slate-400 font-bold">+</span> Создать проект
+          </a>
+</div>
+</div>
+<!-- Right Side Widgets & User Profile -->
+<div class="flex items-center space-x-3">
+<!-- Sparks Balance Badge -->
+<div class="flex items-center space-x-1.5 bg-slate-100 border border-slate-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700">
+<span class="text-amber-500">✦</span>
+<span>2 искры</span>
+</div>
+<!-- User Avatar Circle -->
+<div class="relative flex items-center">
+<div class="w-8 h-8 rounded-full bg-sky-500 text-white font-semibold flex items-center justify-center text-xs shadow-sm ring-2 ring-white">
+            Т
+          </div>
+<!-- Status dot -->
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+</div>
+</div>
+</nav>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: BreadcrumbAndToolbar -->
+<section class="max-w-7xl mx-auto w-full px-4 md:px-8 pt-6 pb-2">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center space-x-2 text-sm text-slate-500">
+<a class="hover:text-slate-900 font-medium inline-flex items-center gap-1 transition-colors" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+          Назад к поиску
+        </a>
+<span class="text-slate-300">/</span>
+<span>Результаты</span>
+<span class="text-slate-300">/</span>
+<span class="text-slate-900 font-semibold truncate max-w-[260px] md:max-w-md">Кофемолка Kitfort KT-741</span>
+</div>
+<div class="flex items-center space-x-2">
+<span class="badge-pill bg-emerald-50 text-emerald-700 border border-emerald-200 gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Проверено Finder AI
+        </span>
+<span class="badge-pill bg-slate-100 text-slate-600 border border-slate-200">
+          Обновлено сегодня
+        </span>
+</div>
+</div>
+</section>
+<!-- END: BreadcrumbAndToolbar -->
+<!-- BEGIN: MainContentGrid -->
+<main class="max-w-7xl mx-auto w-full px-4 md:px-8 py-4 flex-1">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN: Product Overview & Specifications -->
+<section class="lg:col-span-5 space-y-6" data-purpose="product-overview-column">
+<!-- Product Media & Title Card -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+<!-- Main Product Photo Container -->
+<div class="relative w-full aspect-square bg-slate-50 rounded-xl overflow-hidden border border-slate-100 flex items-center justify-center group mb-4">
+<img alt="Кофемолка электрическая Kitfort KT-741" class="w-full h-full object-contain p-6 mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8w9vtcCP9FDWYVTx1zydp8b-xhIzxMM9eSDRdyLatccyzJUqdXxb-TZx-vUgpD3DVF0YQoPGHizknjK9vqYDBPSQw9Oy8JM_9behXMpB91cFO04eT86LadxI-Ne1eEVB7LIJRQFdNpPUbKE4KErzMlc09-komiXNnxNqpbhD7JyAEMZ9D5zDv7BvdI3yKg29IgCsr3m9VRdRbmuMyKfzGRzwHrGiBoiEc6KtnVnPb"/>
+<!-- Badges Overlay -->
+<div class="absolute top-3 left-3 flex flex-col gap-1.5">
+<span class="badge-pill bg-white/95 text-slate-800 border border-slate-200 shadow-sm text-xs font-semibold backdrop-blur-sm">
+                В наличии у фабрики
+              </span>
+<span class="badge-pill bg-brand-lime text-slate-950 font-bold border border-lime-300 text-xs shadow-sm">
+                Хит спроса на маркетплейсах
+              </span>
+</div>
+</div>
+<!-- Gallery Thumbnails -->
+<div class="grid grid-cols-4 gap-2 mb-6">
+<div class="aspect-square rounded-lg border-2 border-brand-lime bg-slate-50 p-1 flex items-center justify-center overflow-hidden cursor-pointer shadow-xs">
+<img alt="Вид спереди" class="object-contain h-full w-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeJvzThdfC6Z43vsCBn1AhI2dQdqyD0woqKAIdsTMdU4qCLFAnfXTqmpxF3JxJfJCsKMmwiw0_-tUQBv0hfEUr4K4M7IwvznxbHwMfKaIV-v6aDHlrwW41pw5zT2KkveRYtWmf1gxrc2kRtxWYFUM3CEyqKNW4HEaxeWLN6-2VzSOqkoj-RHRRI0hsCBUJ36ZVT4S443OQcmBoHoYNeFCD5w8XGR15dGF1do7vjxkn"/>
+</div>
+<div class="aspect-square rounded-lg border border-slate-200 bg-slate-50 p-1 flex items-center justify-center overflow-hidden cursor-pointer hover:border-slate-400 transition-colors">
+<img alt="Жернова" class="object-cover h-full w-full rounded" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIsVswpytzqH4RDH0Fbb6ZK4o0IsLfMjHQCkKZcRs0Y0HNOl4GGk9OqlEsG4v3rXFG4D5n8N_FXUT3E17OAl3IgFuzG3ajtW6JMNexSa52MkcwQfRurKTjUNq8K8vOjj6jSUfepLWtAcahdQVc7NgkK3WAn2pbK6RPzagep4K7I3JIbRJNYPVtnRvMuCA6yqNIBt2bEaK_i9eJqj1Xz9JZqrfFX8IZ5lFSZEww6b_n"/>
+</div>
+<div class="aspect-square rounded-lg border border-slate-200 bg-slate-50 p-1 flex items-center justify-center overflow-hidden cursor-pointer hover:border-slate-400 transition-colors">
+<img alt="Контейнер" class="object-cover h-full w-full rounded" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcvoPvyZO9hPjk9kvwDnJkFBJBIX8AmFJVh5Yfw0jSpm8HzjVWGTnC9-pf7Kx7ftrQ4KLrR_xRcGlPyaqUCcmCnoFjTW4UP2dz337t0o4OQ_92vwW6tzUTqURSLr57qbOArSpoOZcvAFhHaPIVvV8TXj9015IG0cSrOi_qjcRqYDeosAyW11MD1fT_XmC-JhbT7TxqjUsl76g1kqZRKGkZh9U6GZYgcD2Ov6ikfYYo"/>
+</div>
+<div class="aspect-square rounded-lg border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400 text-xs font-medium cursor-pointer hover:bg-slate-100 transition-colors">
+<span>+3 фото</span>
+</div>
+</div>
+<!-- Product Details Header -->
+<div class="space-y-2 border-b border-slate-100 pb-5">
+<div class="flex items-center gap-2">
+<span class="badge-pill bg-slate-100 text-slate-700 text-[11px] font-medium">Электроника и бытовая техника</span>
+<span class="text-xs text-slate-400 font-mono">Арт: KT-741-BLK</span>
+</div>
+<h1 class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+              Кофемолка электрическая Kitfort KT-741
+            </h1>
+<p class="text-xs text-slate-500 flex items-center gap-1.5 pt-1">
+<span class="text-slate-400">Производитель:</span>
+<span class="font-medium text-slate-700 hover:underline cursor-pointer">Guangdong Electrical Appliances Ltd.</span>
+<span class="inline-block w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+<span class="text-emerald-600 font-medium">OEM / ODM доступен</span>
+</p>
+</div>
+<!-- AI Evaluation Summary -->
+<div class="mt-4 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs text-amber-900 leading-relaxed flex items-start gap-2.5">
+<span class="text-base leading-none">💡</span>
+<div>
+<strong class="font-semibold block text-amber-950 mb-0.5">Резюме Finder AI:</strong>
+              Оптимальная модель для маркетплейсов с низким процентом брака (0.4%) и высокой маржинальностью. Отличная посадка под бренд-нейминг в РФ.
+            </div>
+</div>
+</div>
+<!-- Detailed Technical Specifications -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-4">
+<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+<h2 class="text-sm font-bold uppercase tracking-wider text-slate-900">Характеристики и спецификация</h2>
+<span class="text-xs text-slate-400 font-medium">Паспорт изделия</span>
+</div>
+<dl class="divide-y divide-slate-100 text-xs md:text-sm">
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Тип привода и помола</dt>
+<dd class="font-medium text-slate-800 text-right">Жерновая электрическая (конические)</dd>
+</div>
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Номинальная мощность</dt>
+<dd class="font-medium text-slate-800 text-right">150 Вт (медная обмотка мотора)</dd>
+</div>
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Вместимость резервуара</dt>
+<dd class="font-medium text-slate-800 text-right">250 г зернового кофе</dd>
+</div>
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Материал жерновов</dt>
+<dd class="font-medium text-slate-800 text-right">Нержавеющая сталь SUS420</dd>
+</div>
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Степеней помола</dt>
+<dd class="font-medium text-slate-800 text-right">31 точный режим (от эспрессо до френч-пресс)</dd>
+</div>
+<div class="py-2.5 flex justify-between items-center">
+<dt class="text-slate-500">Габариты и вес</dt>
+<dd class="font-medium text-slate-800 text-right">220 × 140 × 310 мм, 1.85 кг</dd>
+</div>
+<div class="py-2.5 flex justify-between items-start">
+<dt class="text-slate-500 pt-0.5">Комплектация фабрики</dt>
+<dd class="font-medium text-slate-800 text-right max-w-[200px]">Щёточка для чистки, мерный дозатор, инструкция</dd>
+</div>
+</dl>
+</div>
+</section>
+<!-- RIGHT COLUMN: Financial, Logistics & Unit-Economics Analysis -->
+<section class="lg:col-span-7 space-y-6" data-purpose="financial-logistics-column">
+<!-- 1. Factory / China Sourcing Price Card -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+<div class="flex items-center space-x-2">
+<span class="w-6 h-6 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs">
+                🇨🇳
+              </span>
+<h2 class="text-base font-bold text-slate-900">1. Закупка в Китае (Фабрика / 1688)</h2>
+</div>
+<span class="badge-pill bg-slate-100 text-slate-600 text-xs">Мин. заказ: 100 шт</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Best Bulk Price (Highlighted) -->
+<div class="bg-lime-50/60 border-2 border-brand-lime rounded-xl p-4 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute -top-1 -right-7 bg-brand-lime text-slate-950 text-[10px] font-extrabold uppercase px-8 py-0.5 rotate-45">
+                Выгодно
+              </div>
+<span class="text-xs text-slate-500 font-medium">От партии 500 шт</span>
+<div class="my-2">
+<div class="text-2xl font-black text-slate-900 tracking-tight">¥68.00</div>
+<div class="text-xs font-semibold text-slate-700">~920 ₽ <span class="text-slate-400 font-normal">/ $10.20</span></div>
+</div>
+<span class="text-[11px] text-emerald-700 font-semibold bg-emerald-100/60 px-2 py-0.5 rounded w-max">
+                Фабричная цена FOB
+              </span>
+</div>
+<!-- Standard Medium Batch -->
+<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
+<span class="text-xs text-slate-500 font-medium">Партия 100–300 шт</span>
+<div class="my-2">
+<div class="text-2xl font-bold text-slate-800 tracking-tight">¥82.00</div>
+<div class="text-xs text-slate-600 font-medium">~1 110 ₽ <span class="text-slate-400">/ $12.30</span></div>
+</div>
+<span class="text-[11px] text-slate-500">Базовый опт</span>
+</div>
+<!-- Recommended Batch Strategy -->
+<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between">
+<span class="text-xs text-slate-500 font-medium">Рекомендуемый заказ</span>
+<div class="my-2">
+<div class="text-2xl font-bold text-slate-900 tracking-tight">300–500 <span class="text-sm font-normal text-slate-500">шт</span></div>
+<div class="text-xs text-slate-600 font-medium">Бюджет: от ~380 000 ₽</div>
+</div>
+<span class="text-[11px] text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded w-max">
+                Оптимум логистики
+              </span>
+</div>
+</div>
+</div>
+<!-- 2. Logistics & Delivery Card -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+<div class="flex items-center space-x-2">
+<span class="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                🚚
+              </span>
+<h2 class="text-base font-bold text-slate-900">2. Доставка Гуанчжоу → Москва</h2>
+</div>
+<!-- Cargo vs White Delivery Switcher Simulated -->
+<div class="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-semibold text-slate-600">
+<button class="bg-white text-slate-900 shadow-xs px-2.5 py-1 rounded-lg">Карго быстрая</button>
+<button class="px-2.5 py-1 rounded-lg hover:text-slate-900 transition-colors">Белая (ГТД)</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+<div class="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+<span class="text-xs text-slate-500 block">Логистика за 1 шт (при весе 1.85 кг)</span>
+<div class="text-xl font-bold text-slate-900 mt-1">340 ₽ <span class="text-xs font-normal text-slate-500">/ ед. товара</span></div>
+<span class="text-[11px] text-slate-500">Тариф: $1.85 / кг (авто-карго 14–18 дней)</span>
+</div>
+<div class="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+<span class="text-xs text-slate-500 block">Доставка всей партии (500 шт)</span>
+<div class="text-xl font-bold text-slate-900 mt-1">170 000 ₽ <span class="text-xs font-normal text-slate-500">общий вес 925 кг</span></div>
+<span class="text-[11px] text-emerald-600 font-medium">Включено: страховка груза 100%</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-600">
+<span class="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-md">
+              ✓ Жесткая обрешетка и паллеты
+            </span>
+<span class="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-md">
+              ✓ Страховка от утери и боя
+            </span>
+<span class="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-md">
+              ✓ Южные Ворота / ТЯК Люблино
+            </span>
+</div>
+</div>
+<!-- 3. Russian Marketplace Benchmark (Ozon, WB, Yandex) -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+<div class="flex items-center space-x-2">
+<span class="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">
+                📊
+              </span>
+<h2 class="text-base font-bold text-slate-900">3. Цены конкурентов в РФ (WB / Ozon / Я.Маркет)</h2>
+</div>
+<span class="badge-pill bg-purple-50 text-purple-700 text-xs font-medium border border-purple-200">
+              64 продавца
+            </span>
+</div>
+<div class="grid grid-cols-3 gap-3 text-center">
+<div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+<span class="text-[11px] text-slate-500 block">Мин. розница (демпинг)</span>
+<span class="text-lg font-bold text-rose-600 mt-1 block">2 490 ₽</span>
+<span class="text-[10px] text-slate-400">Wildberries</span>
+</div>
+<div class="p-3 bg-lime-50/50 border border-brand-lime rounded-xl">
+<span class="text-[11px] text-slate-600 font-semibold block">Средняя рыночная</span>
+<span class="text-lg font-black text-slate-900 mt-1 block">3 850 – 4 200 ₽</span>
+<span class="text-[10px] text-emerald-700 font-medium">Основной объем продаж</span>
+</div>
+<div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+<span class="text-[11px] text-slate-500 block">Макс. на полке</span>
+<span class="text-lg font-bold text-slate-800 mt-1 block">5 490 ₽</span>
+<span class="text-[10px] text-slate-400">Ozon Premium / DNS</span>
+</div>
+</div>
+</div>
+<!-- 4. Unit Economics & AI Profitability Calculator -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+<div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+<div class="flex items-center space-x-2">
+<span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+                ⚡
+              </span>
+<h2 class="text-base font-bold text-slate-900">4. Юнит-экономика и чистая прибыль</h2>
+</div>
+<div class="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              Высокая рентабельность ★★★★★
+            </div>
+</div>
+<!-- Unit Metrics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+<!-- Cost per unit -->
+<div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+<div class="text-xs text-slate-500 font-medium">Себестоимость с доставкой в РФ</div>
+<div class="text-2xl font-black text-slate-900 mt-1">1 260 ₽ <span class="text-xs font-normal text-slate-400">/ шт</span></div>
+<p class="text-[11px] text-slate-500 mt-1">Товар (920 ₽) + Логистика до склада (340 ₽)</p>
+</div>
+<!-- Net Profit per unit -->
+<div class="bg-brand-lime/20 p-4 rounded-xl border border-brand-lime">
+<div class="text-xs text-slate-700 font-semibold">Чистая прибыль на единицу</div>
+<div class="text-2xl font-black text-slate-900 mt-1">+1 450 ₽ <span class="text-xs font-bold text-emerald-700">(ROI ~115%)</span></div>
+<p class="text-[11px] text-slate-600 mt-1">При розничной цене 3 900 ₽ (с комиссией маркетплейса 18%)</p>
+</div>
+</div>
+<!-- Visual Progress / Margin Bar -->
+<div class="space-y-1.5 mb-2">
+<div class="flex justify-between text-xs font-medium">
+<span class="text-slate-500">Структура цены продажи: 3 900 ₽</span>
+<span class="text-slate-900 font-semibold">Маржа 37.2%</span>
+</div>
+<div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+<div class="bg-slate-400 h-full" style="width: 24%" title="Себестоимость товара (24%)"></div>
+<div class="bg-sky-400 h-full" style="width: 9%" title="Логистика (9%)"></div>
+<div class="bg-amber-400 h-full" style="width: 18%" title="Комиссия маркетплейса и эквайринг (18%)"></div>
+<div class="bg-rose-400 h-full" style="width: 12%" title="Хранение, фулфилмент и реклама (12%)"></div>
+<div class="bg-brand-lime h-full" style="width: 37%" title="Чистая прибыль (37%)"></div>
+</div>
+<div class="flex flex-wrap gap-x-4 gap-y-1 pt-2 text-[11px] text-slate-500">
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Товар</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Логистика</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Комиссия MP</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Фулфилмент</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-brand-lime"></span> Чистая прибыль</span>
+</div>
+</div>
+</div>
+<!-- 5. Primary Action Buttons -->
+<div class="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+<button class="w-full sm:flex-1 py-3.5 px-6 rounded-xl bg-brand-lime hover:bg-brand-lime-hover text-slate-950 font-bold text-sm tracking-wide transition-all shadow-sm flex items-center justify-center gap-2 group">
+<span>Связаться с поставщиком</span>
+<span class="group-hover:translate-x-1 transition-transform">→</span>
+</button>
+<button class="w-full sm:w-auto py-3.5 px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors border border-slate-200">
+            Заказать образец (Sample)
+          </button>
+<button class="w-full sm:w-auto py-3.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors border border-slate-200 flex items-center justify-center gap-1.5" title="Скачать таблицу расчетов">
+<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>.XLSX</span>
+</button>
+</div>
+</section>
+</div>
+</main>
+<!-- END: MainContentGrid -->
+<!-- BEGIN: Footer -->
+<footer class="mt-8 border-t border-slate-200/80 bg-white py-6 text-xs text-slate-400">
+<div class="max-w-7xl mx-auto px-4 md:px-8 flex flex-col sm:flex-row justify-between items-center gap-3">
+<div class="flex items-center space-x-2">
+<span class="font-bold text-slate-700">Finder App</span>
+<span>© 2025 Интеллектуальный поиск и аудит товаров</span>
+</div>
+<div class="flex items-center space-x-6 text-slate-500">
+<a class="hover:text-slate-900 transition-colors" href="#">База поставщиков</a>
+<a class="hover:text-slate-900 transition-colors" href="#">Тарифы логистики</a>
+<a class="hover:text-slate-900 transition-colors" href="#">Помощь и поддержка</a>
+</div>
+</div>
+</footer>
+<!-- END: Footer -->
+</body></html>

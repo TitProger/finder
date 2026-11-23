@@ -27,3 +27,6 @@ junit.xml
 
 # ENV
 .env
+
+# Копии файлов сида. Источник — seed-media.
+/storage

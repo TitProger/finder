@@ -22,6 +22,8 @@ export const Envs = {
         password: process.env.PG_PASSWORD || 'finder',
         migrationsRun: BooleanUtils.strToBoolWithDefault(process.env.PG_MIGRATIONS_RUN, true),
         logging: BooleanUtils.strToBoolWithDefault(process.env.PG_LOGGING, true),
+        /** true только в локальном .env и на dev. В проде false. */
+        seedersRun: BooleanUtils.strToBoolWithDefault(process.env.PG_SEEDERS_RUN, false),
     },
 
     swagger: {

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finder — История поиска</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#F4F7FB',
+              500: '#0066FF',
+              600: '#0052CC',
+              900: '#111827',
+            },
+            surface: {
+              main: '#F6F7F9',
+              card: '#FFFFFF',
+              border: '#E5E7EB',
+              hover: '#F9FAFB',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- Google Fonts for Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<style data-purpose="custom-layout">
+    body {
+      background-color: #F6F7F9;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Subtle dot grid pattern on background */
+    .bg-grid-dots {
+      background-image: radial-gradient(rgba(180, 185, 195, 0.4) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    /* Hide scrollbars for clean UI */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-grid-dots text-neutral-800 flex flex-col justify-between antialiased">
+<!-- BEGIN: MainHeader -->
+<header class="w-full pt-5 px-4 sm:px-6 lg:px-8">
+<div class="max-w-7xl mx-auto bg-white rounded-2xl sm:rounded-full px-5 py-3 shadow-sm border border-neutral-100 flex items-center justify-between gap-4">
+<!-- Brand Logo -->
+<div class="flex items-center gap-8">
+<a class="text-xl sm:text-2xl font-extrabold tracking-tight text-neutral-900 flex items-center gap-1.5 focus:outline-none" href="#">
+<span class="tracking-tight italic font-black">Finder</span>
+<span class="text-xs font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 not-italic hidden sm:inline-block">AI Search</span>
+</a>
+<!-- Secondary Nav Links (Visual Match with Reference) -->
+<nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-neutral-600">
+<a class="flex items-center gap-1.5 hover:text-neutral-900 transition-colors" href="#">
+<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+</svg>
+<span>Воронка карточек</span>
+</a>
+<a class="flex items-center gap-1.5 hover:text-neutral-900 transition-colors" href="#">
+<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M21 2v6h-6"></path>
+<path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+<path d="M3 22v-6h6"></path>
+<path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+</svg>
+<span>Замена товара</span>
+</a>
+</nav>
+</div>
+<!-- Action Items & User Profile -->
+<div class="flex items-center gap-2.5 sm:gap-3">
+<!-- New Search Action Button -->
+<button class="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 px-3.5 py-2 rounded-full transition-all" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Создать проект</span>
+</button>
+<!-- Active View / History Badge -->
+<button class="inline-flex items-center gap-2 bg-neutral-900 text-white text-sm font-medium px-4 py-2 rounded-full shadow-sm hover:bg-neutral-800 transition-all" type="button">
+<svg class="w-4 h-4 text-neutral-300" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M21 8H3"></path>
+<path d="M21 12H3"></path>
+<path d="M21 16H3"></path>
+<rect height="16" rx="2" width="18" x="3" y="4"></rect>
+</svg>
+<span>Все проекты</span>
+</button>
+<!-- Sparks / Token Counter -->
+<div class="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200/80 rounded-full px-3 py-1.5 text-sm font-bold text-neutral-800">
+<svg class="w-3.5 h-3.5 text-amber-500 fill-amber-400" viewbox="0 0 24 24">
+<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"></path>
+</svg>
+<span>2</span>
+</div>
+<!-- User Avatar Circle -->
+<div class="w-8 h-8 rounded-full bg-sky-500 text-white font-semibold flex items-center justify-center text-sm shadow-sm ring-2 ring-white cursor-pointer select-none">
+          Т
+        </div>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="w-full flex-grow px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-neutral-100/90 relative min-h-[580px]">
+<!-- Top Control Bar: Title & Filter Controls -->
+<div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-neutral-100 gap-4">
+<!-- Left: Page Heading & Counter -->
+<div class="flex items-baseline gap-2.5">
+<h1 class="text-2xl font-bold text-neutral-900 tracking-tight">История поиска</h1>
+<span class="text-xl font-normal text-neutral-400">4</span>
+</div>
+<!-- Right: Actions & View Switchers -->
+<div class="flex flex-wrap items-center gap-2 sm:gap-2.5 relative">
+<!-- Dropdown 1: Category Filter -->
+<div class="relative" data-purpose="dropdown-category-container">
+<button class="inline-flex items-center gap-1.5 bg-neutral-100/80 hover:bg-neutral-100 text-neutral-700 text-sm font-medium px-3.5 py-2 rounded-xl transition-all border border-transparent focus:outline-none focus:ring-2 focus:ring-neutral-200" id="categoryDropdownBtn" type="button">
+<span id="selectedCategoryLabel">Категория</span>
+<svg class="w-4 h-4 text-neutral-500 transition-transform duration-200" fill="none" id="categoryArrow" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Category Menu Dropdown -->
+<div class="hidden absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-neutral-100 py-1.5 z-40 text-sm animate-in fade-in zoom-in-95 duration-100" id="categoryDropdownMenu">
+<a class="category-item flex items-center justify-between px-3.5 py-2 text-neutral-900 bg-neutral-100/80 font-medium mx-1 rounded-xl" href="#">
+<span>Все категории</span>
+<span class="w-1.5 h-1.5 rounded-full bg-neutral-900"></span>
+</a>
+<a class="category-item flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl transition-colors" href="#">
+                Электроника и техника
+              </a>
+<a class="category-item flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl transition-colors" href="#">
+                Одежда
+              </a>
+<a class="category-item flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl transition-colors" href="#">
+                Дом и интерьер
+              </a>
+<a class="category-item flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl transition-colors" href="#">
+                Красота и здоровье
+              </a>
+<a class="category-item flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl transition-colors" href="#">
+                Продукты и напитки
+              </a>
+</div>
+</div>
+<!-- Dropdown 2: Sorting Filter -->
+<div class="relative" data-purpose="dropdown-sort-container">
+<button class="inline-flex items-center gap-1.5 bg-neutral-100/80 hover:bg-neutral-100 text-neutral-700 text-sm font-medium px-3.5 py-2 rounded-xl transition-all border border-transparent focus:outline-none focus:ring-2 focus:ring-neutral-200" id="sortDropdownBtn" type="button">
+<svg class="w-3.5 h-3.5 text-neutral-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span id="selectedSortLabel">По дате</span>
+<svg class="w-4 h-4 text-neutral-500 transition-transform duration-200" fill="none" id="sortArrow" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Sorting Menu Dropdown -->
+<div class="hidden absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-neutral-100 py-1.5 z-40 text-sm animate-in fade-in zoom-in-95 duration-100" id="sortDropdownMenu">
+<button class="sort-item w-full flex items-center justify-between px-3.5 py-2 text-neutral-900 bg-neutral-100/80 font-medium mx-1 rounded-xl text-left" type="button">
+<span>Дата создания</span>
+<span class="text-xs text-neutral-400">↓</span>
+</button>
+<button class="sort-item w-full flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl text-left transition-colors" type="button">
+                Дата обновления
+              </button>
+<button class="sort-item w-full flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl text-left transition-colors" type="button">
+                Название
+              </button>
+<button class="sort-item w-full flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl text-left transition-colors" type="button">
+                Артикул
+              </button>
+<button class="sort-item w-full flex items-center px-3.5 py-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 mx-1 rounded-xl text-left transition-colors" type="button">
+                Количество фото
+              </button>
+</div>
+</div>
+<!-- View Switcher Segmented Control (List vs Grid) -->
+<div class="flex items-center bg-neutral-100/80 rounded-xl p-0.5 border border-neutral-200/50" data-purpose="view-switcher">
+<button aria-label="Табличный вид" class="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 transition-colors" id="btnListView" title="Табличный вид" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<line x1="8" x2="21" y1="6" y2="6"></line>
+<line x1="8" x2="21" y1="12" y2="12"></line>
+<line x1="8" x2="21" y1="18" y2="18"></line>
+<rect fill="currentColor" height="2" rx="0.5" width="2" x="3" y="5"></rect>
+<rect fill="currentColor" height="2" rx="0.5" width="2" x="3" y="11"></rect>
+<rect fill="currentColor" height="2" rx="0.5" width="2" x="3" y="17"></rect>
+</svg>
+</button>
+<button aria-label="Вид сетки" class="p-1.5 rounded-lg bg-neutral-900 text-white shadow-sm transition-colors" id="btnGridView" title="Вид сетки" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<rect height="7" rx="1.5" width="7" x="3" y="3"></rect>
+<rect height="7" rx="1.5" width="7" x="14" y="3"></rect>
+<rect height="7" rx="1.5" width="7" x="14" y="14"></rect>
+<rect height="7" rx="1.5" width="7" x="3" y="14"></rect>
+</svg>
+</button>
+</div>
+<!-- Add to Folder Action Icon -->
+<button class="p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-all focus:outline-none" title="Создать папку" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M12 10v6m3-3H9m12-3a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Content Views Section -->
+<div class="mt-6">
+<!-- VIEW 1: GRID VIEW (Default active view) -->
+<section class="block" id="gridViewSection">
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<!-- Item Card 1: Лабораторный халат -->
+<article class="group flex flex-col cursor-pointer" data-purpose="product-card">
+<div class="relative w-full aspect-[3/4] bg-neutral-100 rounded-2xl overflow-hidden shadow-sm transition-transform duration-300 group-hover:-translate-y-1">
+<img alt="Лабораторный халат" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDA2jIqMbiCaCE_rdkfZ3eaMLN5QelFKbTZfVv-JbleQRTTV7HSk7i5TIncaLtDPDq-RAi4wBdk1tNgJtCEzrtsm5mqQMsKVJRj290-0yMxDRIiG1t5vkulEL7I1PACRujURs2rt2hKg0RNQklKovSkqAptzTjGzdKu24KfQ20U0ll4kOFV_-3U02OA6WNTFpzm-B-0-F_Ppr5uwmselKxqA-LfjXZe-DnUX2RB39PEJiv247TpIpZ-9A"/>
+<!-- Subtle Gradient Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-neutral-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
+                  Лабораторный халат
+                </h3>
+<div class="flex items-center gap-2 mt-1 text-xs text-neutral-400 font-medium">
+<span>21 нояб.</span>
+<span class="inline-flex items-center gap-0.5 text-neutral-500">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                    1
+                  </span>
+</div>
+</div>
+</article>
+<!-- Item Card 2: Кофемолка Kitfort KT-741 -->
+<article class="group flex flex-col cursor-pointer" data-purpose="product-card">
+<div class="relative w-full aspect-[3/4] bg-neutral-50 rounded-2xl overflow-hidden shadow-sm border border-neutral-100 transition-transform duration-300 group-hover:-translate-y-1">
+<!-- Fallback clean generated image -->
+<img alt="Кофемолка Kitfort KT-741" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBptSzK1_NbTTWDqAF2L82ptDv-5MD3J13VjJv5wvKm_uQNj16D_YSkdGK-l8qQW7wVuP9CDmjIetFm1uHlZjeB7TY--WDAh3KtAJGPEC7IQVcr5bZQXhhZKpjO6zLiYZiRJE6CChkq59mFJ8LEfwbcmjb8KdQgiuZHKLgRbylcPHO9UQCmxttsT1bfg1xzmIP3PkIv6Inz7VoQLZBtCeM9XbjKBdGmiLL1QRIdIyf_"/>
+<div class="absolute top-3 right-3 bg-black/50 backdrop-blur-md text-white text-[11px] px-2 py-0.5 rounded-full font-medium">
+                  Электроника
+                </div>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-neutral-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
+                  Кофемолка Kitfort KT-741
+                </h3>
+<div class="flex items-center gap-2 mt-1 text-xs text-neutral-400 font-medium">
+<span>20 нояб.</span>
+<span class="inline-flex items-center gap-0.5 text-neutral-500">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                    4
+                  </span>
+</div>
+</div>
+</article>
+<!-- Item Card 3: Умная колонка Яндекс Станция -->
+<article class="group flex flex-col cursor-pointer" data-purpose="product-card">
+<div class="relative w-full aspect-[3/4] bg-neutral-50 rounded-2xl overflow-hidden shadow-sm border border-neutral-100 transition-transform duration-300 group-hover:-translate-y-1">
+<img alt="Умная колонка Яндекс Станция" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCekzUM_6rt-VF_du2fQ4xmTP6P3OxD4-LRFunIvIp08sPArmvCslu30hA8b8sAVDzf2Ma3lTwvPrUs-k96HLzFuhJu3DGy3508LAthSJ-K0TX-2-cPx2wo4KqO-t0vZtbOcpOICiWXsSsKOnPqHbs8obrvzgFobh201kvL7v2ttbR_37LS0vs9NXGSBG_2iNrPBPPLeXJx6Z32dFxPwUoxD8j5RSNzL7EgPS-adWlL"/>
+<div class="absolute top-3 right-3 bg-black/50 backdrop-blur-md text-white text-[11px] px-2 py-0.5 rounded-full font-medium">
+                  Техника
+                </div>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-neutral-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
+                  Умная колонка Яндекс Станция
+                </h3>
+<div class="flex items-center gap-2 mt-1 text-xs text-neutral-400 font-medium">
+<span>18 нояб.</span>
+<span class="inline-flex items-center gap-0.5 text-neutral-500">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                    8
+                  </span>
+</div>
+</div>
+</article>
+<!-- Item Card 4: Керамический заварочный чайник -->
+<article class="group flex flex-col cursor-pointer" data-purpose="product-card">
+<div class="relative w-full aspect-[3/4] bg-neutral-50 rounded-2xl overflow-hidden shadow-sm border border-neutral-100 transition-transform duration-300 group-hover:-translate-y-1">
+<img alt="Керамический заварочный чайник" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuACmNtAWj80LazC94weMeBwcCHDadUppL22YI_lerTFiDLVnfI780fj011yDXMRtDrI4iO0jJw83FI5palrrXw73gmBRMi_PIszY6m5TtkQxT6PR3zFxQjzyrssLY7keLvyXsdoPyvNZrAQJsb1qux8lOtiL7AatFHQK_cpY7vwf91rcqj918I6NIlByCAfIK19NALm56SWKOb8XJAMdpBzI0k35NvAfFnDyrG3na1x"/>
+<div class="absolute top-3 right-3 bg-black/50 backdrop-blur-md text-white text-[11px] px-2 py-0.5 rounded-full font-medium">
+                  Дом
+                </div>
+</div>
+<div class="mt-3">
+<h3 class="font-bold text-neutral-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
+                  Керамический заварочный чайник
+                </h3>
+<div class="flex items-center gap-2 mt-1 text-xs text-neutral-400 font-medium">
+<span>15 нояб.</span>
+<span class="inline-flex items-center gap-0.5 text-neutral-500">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                    2
+                  </span>
+</div>
+</div>
+</article>
+</div>
+</section>
+<!-- VIEW 2: LIST VIEW (Table style based on Reference 1) -->
+<section class="hidden overflow-x-auto" id="listViewSection">
+<table class="w-full text-left border-collapse text-sm">
+<thead>
+<tr class="text-xs font-semibold text-neutral-400 border-b border-neutral-100">
+<th class="py-3 px-4 w-12 text-center">
+<input class="w-4 h-4 rounded text-neutral-900 border-neutral-300 focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+</th>
+<th class="py-3 px-4 font-medium text-neutral-500">Название</th>
+<th class="py-3 px-4 font-medium text-neutral-500">Контент</th>
+<th class="py-3 px-4 font-medium text-neutral-500">Обновлён</th>
+<th class="py-3 px-4 font-medium text-neutral-900 inline-flex items-center gap-1 cursor-pointer">
+<span>Создан</span>
+<span>↓</span>
+</th>
+<th class="py-3 px-4 w-12 text-right"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-neutral-100">
+<!-- Row 1 -->
+<tr class="hover:bg-neutral-50/80 transition-colors group cursor-pointer">
+<td class="py-3.5 px-4 text-center">
+<input class="w-4 h-4 rounded text-neutral-900 border-neutral-300 focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3.5">
+<div class="w-12 h-14 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0 border border-neutral-200/60">
+<img alt="Лабораторный халат" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYVPmk-fo88iUW6M0yK52qODSe5UZqq7bFrjuamowISCmT2KbmK9rh3FoG4h0TyZsK5gUfWUgkmb5olTo-5LisrbOns7clYWutbJ09HoRm7-Iq5oIS1QLTiANIo9LFbHPyBOBjoQKFttTuGBNLDZ0HMGM2w8p41Xp7uOAzmYARI_Ep1lnqwKKaRGYBtBT5TYI7n3Ym9VThW6FSI9SuMJaMxtHC01uh_TfGkSXhrHVMJdtVtETjnelWPA"/>
+</div>
+<div>
+<div class="font-bold text-neutral-900 text-sm group-hover:text-blue-600 transition-colors">Лабораторный халат</div>
+<div class="text-xs text-neutral-400 mt-0.5">Одежда</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-neutral-600 font-normal">1 карточка</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">21 нояб., 08:28</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">21 нояб., 08:28</td>
+<td class="py-3.5 px-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100" type="button">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20">
+<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+</svg>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-neutral-50/80 transition-colors group cursor-pointer">
+<td class="py-3.5 px-4 text-center">
+<input class="w-4 h-4 rounded text-neutral-900 border-neutral-300 focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3.5">
+<div class="w-12 h-14 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0 border border-neutral-200/60">
+<img alt="Кофемолка Kitfort KT-741" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB50ttI5XMTOrqfxEaESvEJCuqf3iVThrt4OMMKmv8-P7-JvU4XI3wVESaN55fJCtwhqyXktqE0EHkcTN8KAyOk18rNWpnI9QsIzOr_wAxP5iS-8R0ImNm8RAB1tc5zgCQo7CvLRObLpa1f-a6kD9a4ak6KMg80ma628DdJd0feN4H76m1jy4ifruyTqgEIkE30aJn2xwbdYVSPnbqYcZ5KhLHLyNNM5Fkfav_sdM0e"/>
+</div>
+<div>
+<div class="font-bold text-neutral-900 text-sm group-hover:text-blue-600 transition-colors">Кофемолка Kitfort KT-741</div>
+<div class="text-xs text-neutral-400 mt-0.5">Электроника и техника</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-neutral-600 font-normal">4 карточки</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">20 нояб., 14:15</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">20 нояб., 14:15</td>
+<td class="py-3.5 px-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100" type="button">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20">
+<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+</svg>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-neutral-50/80 transition-colors group cursor-pointer">
+<td class="py-3.5 px-4 text-center">
+<input class="w-4 h-4 rounded text-neutral-900 border-neutral-300 focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3.5">
+<div class="w-12 h-14 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0 border border-neutral-200/60">
+<img alt="Умная колонка Яндекс Станция" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbno3YZ5pr5p_FUtp6zlCvj0eiqzOMiMQX_htYsSmhE6glE5dBD-T91t5RYAZKGoGjyH64pa7eeQW6ptOiJ7HQNHArMlCWqHtm7nLBpDFZeZSkl7PnipokKLM3q6z53yAqRQYo1XWtmfUuigHQKYpoHYo7aSFr_-uOCBKmYNUfh5-Nut7cxB7xsdjJ-IjbxQ5zv4rvqBFg39oMlK4KBLHKR_H11fNxggRvk-o7hNnf"/>
+</div>
+<div>
+<div class="font-bold text-neutral-900 text-sm group-hover:text-blue-600 transition-colors">Умная колонка Яндекс Станция</div>
+<div class="text-xs text-neutral-400 mt-0.5">Электроника и техника</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-neutral-600 font-normal">8 карточек</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">18 нояб., 19:40</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">18 нояб., 19:40</td>
+<td class="py-3.5 px-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100" type="button">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20">
+<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+</svg>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-neutral-50/80 transition-colors group cursor-pointer">
+<td class="py-3.5 px-4 text-center">
+<input class="w-4 h-4 rounded text-neutral-900 border-neutral-300 focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-3.5">
+<div class="w-12 h-14 rounded-lg bg-neutral-100 overflow-hidden flex-shrink-0 border border-neutral-200/60">
+<img alt="Керамический заварочный чайник" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEkpLAkmsiOd6pl4r4TwPIWnjZ4Td87nnVY7ifNnxobZu8mEYjQ5YkBfhA_nTTo_kMZ1f5-kYT7hS9iFTskgpntcj6TgAOUVhDu7RTB0xKbI8-8oArWaQXkyMgw6pqwW1_Pc1hRaGSYnqXt1Rd8ilm4jI0qB3N6vTDb3ihU1mA3tbkyM82LekdX9fhqRthsJV0GmhQ7fSSvRu4B3B8Cr3UR5ypmefzMYgI2m1tTHpf"/>
+</div>
+<div>
+<div class="font-bold text-neutral-900 text-sm group-hover:text-blue-600 transition-colors">Керамический заварочный чайник</div>
+<div class="text-xs text-neutral-400 mt-0.5">Дом и интерьер</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-neutral-600 font-normal">2 карточки</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">15 нояб., 11:02</td>
+<td class="py-3.5 px-4 text-neutral-500 text-xs">15 нояб., 11:02</td>
+<td class="py-3.5 px-4 text-right">
+<button class="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg hover:bg-neutral-100" type="button">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20">
+<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"></path>
+</svg>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+</div>
+<!-- BEGIN: Pagination Footer -->
+<footer class="mt-12 pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-center gap-6 text-xs text-neutral-500 font-medium">
+<!-- Range Indicator -->
+<span class="text-neutral-400">1–4 из 4</span>
+<!-- Arrows & Current Page -->
+<div class="flex items-center gap-2">
+<button class="p-1.5 text-neutral-300 cursor-not-allowed" disabled="" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<span class="px-2 py-0.5 text-neutral-800 font-semibold">1/1</span>
+<button class="p-1.5 text-neutral-300 cursor-not-allowed" disabled="" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+<!-- Page Limit Selector -->
+<div class="flex items-center gap-1 cursor-pointer hover:text-neutral-900 transition-colors">
+<span>по 20</span>
+<svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</footer>
+<!-- END: Pagination Footer -->
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- Bottom Visual Accent Bar -->
+<div class="w-24 h-1.5 bg-neutral-300 rounded-full mx-auto my-4 opacity-75"></div>
+<!-- Interactive Logic for View Switcher and Dropdowns -->
+<script data-purpose="interaction-handlers">
+    document.addEventListener('DOMContentLoaded', () => {
+      // Elements: View Switcher
+      const btnList = document.getElementById('btnListView');
+      const btnGrid = document.getElementById('btnGridView');
+      const listView = document.getElementById('listViewSection');
+      const gridView = document.getElementById('gridViewSection');
+
+      // Elements: Dropdowns
+      const categoryBtn = document.getElementById('categoryDropdownBtn');
+      const categoryMenu = document.getElementById('categoryDropdownMenu');
+      const categoryArrow = document.getElementById('categoryArrow');
+
+      const sortBtn = document.getElementById('sortDropdownBtn');
+      const sortMenu = document.getElementById('sortDropdownMenu');
+      const sortArrow = document.getElementById('sortArrow');
+
+      // View Switching Logic
+      function setGridView() {
+        gridView.classList.remove('hidden');
+        listView.classList.add('hidden');
+
+        btnGrid.className = 'p-1.5 rounded-lg bg-neutral-900 text-white shadow-sm transition-colors';
+        btnList.className = 'p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 transition-colors';
+      }
+
+      function setListView() {
+        listView.classList.remove('hidden');
+        gridView.classList.add('hidden');
+
+        btnList.className = 'p-1.5 rounded-lg bg-neutral-900 text-white shadow-sm transition-colors';
+        btnGrid.className = 'p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 transition-colors';
+      }
+
+      btnGrid.addEventListener('click', setGridView);
+      btnList.addEventListener('click', setListView);
+
+      // Dropdown Toggle Logic
+      function toggleDropdown(menu, arrow) {
+        const isHidden = menu.classList.contains('hidden');
+        closeAllDropdowns();
+        if (isHidden) {
+          menu.classList.remove('hidden');
+          arrow.classList.add('rotate-180');
+        }
+      }
+
+      function closeAllDropdowns() {
+        if (categoryMenu) categoryMenu.classList.add('hidden');
+        if (categoryArrow) categoryArrow.classList.remove('rotate-180');
+        if (sortMenu) sortMenu.classList.add('hidden');
+        if (sortArrow) sortArrow.classList.remove('rotate-180');
+      }
+
+      categoryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleDropdown(categoryMenu, categoryArrow);
+      });
+
+      sortBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleDropdown(sortMenu, sortArrow);
+      });
+
+      // Close dropdowns on outside click
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-purpose="dropdown-category-container"]') && 
+            !e.target.closest('[data-purpose="dropdown-sort-container"]')) {
+          closeAllDropdowns();
+        }
+      });
+
+      // Dropdown selection updates (Category)
+      const categoryItems = document.querySelectorAll('.category-item');
+      categoryItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          const text = item.querySelector('span')?.innerText || item.innerText;
+          document.getElementById('selectedCategoryLabel').innerText = text.trim();
+          closeAllDropdowns();
+        });
+      });
+
+      // Dropdown selection updates (Sort)
+      const sortItems = document.querySelectorAll('.sort-item');
+      sortItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          const text = item.querySelector('span')?.innerText || item.innerText;
+          document.getElementById('selectedSortLabel').innerText = text.trim();
+          closeAllDropdowns();
+        });
+      });
+    });
+  </script>
+</body></html>

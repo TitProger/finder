@@ -26,6 +26,9 @@ import { INQUIRY_ECONOMICS, InquiryEconomicsService } from './services/impls/mar
 import { JsonResearchRunner } from './services/impls/research/json-research-runner';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from './services/impls/research/research-launch.service';
 import { ResearchStaleScheduler } from './services/impls/research/research-stale.scheduler';
+import { SearchedProductService } from './services/impls/product/searched-product.service';
+import { SearchPackService } from './services/impls/search/search-pack.service';
+import { StoredFileService } from './services/impls/file/stored-file.service';
 
 /**
  * Слой сценариев.
@@ -48,6 +51,9 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         { provide: MANAGER_HANDOFF, useClass: ManagerHandoffService },
         { provide: INQUIRY_ECONOMICS, useClass: InquiryEconomicsService },
         ResearchStaleScheduler,
+        SearchedProductService,
+        SearchPackService,
+        StoredFileService,
     ],
     exports: [
         DomainModule,
@@ -61,6 +67,9 @@ import { ResearchStaleScheduler } from './services/impls/research/research-stale
         RESEARCH_LAUNCH_SERVICE,
         MANAGER_HANDOFF,
         INQUIRY_ECONOMICS,
+        SearchedProductService,
+        SearchPackService,
+        StoredFileService,
     ],
 })
 export class ApplicationModule {}

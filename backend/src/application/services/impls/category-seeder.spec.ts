@@ -72,7 +72,15 @@ describe('CategorySeeder (idempotency)', () => {
             },
             async findOne(Entity: any, where: any) {
                 if (Entity === CategoryEntity) {
-                    return categories.find((c) => c.code === where.code) || null;
+                    if (where.code) {
+                        return categories.find((c) => c.code === where.code) || null;
+                    }
+
+                    if (where.name) {
+                        return categories.find((c) => c.name === where.name) || null;
+                    }
+
+                    return null;
                 } else if (Entity === QuestionPackEntity) {
                     return (
                         packs.find((p) => p.code === where.code && p.category.id === where.category) || null

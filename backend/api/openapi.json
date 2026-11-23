@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.8.0",
-    "description": "Контракт API Finder. Источник правды — каталог api-contract в этом репозитории.\n"
+    "version": "0.10.0",
+    "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
   },
   "servers": [
     {
@@ -31,6 +31,18 @@
     {
       "name": "research",
       "description": "Запуск ресерча и приём досье"
+    },
+    {
+      "name": "products",
+      "description": "История поиска и карточка товара для клиента"
+    },
+    {
+      "name": "search",
+      "description": "Пачка вопросов первой страницы"
+    },
+    {
+      "name": "files",
+      "description": "Файлы, на которые ссылается карточка"
     }
   ],
   "paths": {
@@ -1589,6 +1601,204 @@
           }
         }
       }
+    },
+    "/search/pack": {
+      "get": {
+        "operationId": "getSearchPack",
+        "tags": [
+          "search"
+        ],
+        "summary": "Пачка вопросов и категории экрана поиска",
+        "description": "Публичная пачка для первой страницы. На экране виден один вопрос. Иконки категорий — имена, не картинки.\n",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Пачка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SearchPack"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "operationId": "listProducts",
+        "security": [],
+        "tags": [
+          "products"
+        ],
+        "summary": "История поиска",
+        "description": "Публичный список товаров, которые уже искали. Сортировка — JSON, например {\"searchedAt\":\"desc\"}. Фильтр category сравнивается с categoryLabel.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          },
+          {
+            "$ref": "#/components/parameters/SortQuery"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Подпись категории. Пусто — все категории.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница истории",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ProductListItem"
+                          }
+                        },
+                        "page": {
+                          "$ref": "#/components/schemas/PageInfo"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "getProductById",
+        "security": [],
+        "tags": [
+          "products"
+        ],
+        "summary": "Карточка товара",
+        "description": "Описание, характеристики и четыре блока отчёта. Числа приходят в полях ответа. Доставка с available=false — статус «недоступно».\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Карточка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ProductCard"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/files/{id}/content": {
+      "get": {
+        "operationId": "getStoredFileContent",
+        "security": [],
+        "tags": [
+          "files"
+        ],
+        "summary": "Байты файла карточки",
+        "description": "Обложка и галерея. Повтор того же пути в сиде не создаёт второй файл.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Содержимое файла",
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1602,6 +1812,47 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Секрет RESEARCH_INGEST_TOKEN. Не путать с токеном админки."
+      }
+    },
+    "parameters": {
+      "PageQuery": {
+        "name": "page",
+        "in": "query",
+        "description": "Номер страницы",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "LimitQuery": {
+        "name": "limit",
+        "in": "query",
+        "description": "Размер страницы",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "SortQuery": {
+        "name": "sort",
+        "in": "query",
+        "description": "Сортировка в виде JSON-строки, например `{\"title\":\"asc\"}` или `{\"createdAt\":\"desc\"}`.\n",
+        "schema": {
+          "type": "string",
+          "example": "{\"title\":\"asc\"}"
+        }
+      },
+      "IdPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       }
     },
     "schemas": {
@@ -1689,7 +1940,6 @@
             "example": "OK"
           },
           "data": {
-            "nullable": true,
             "description": "Полезная нагрузка или null при ошибке"
           },
           "page": {
@@ -1758,9 +2008,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -1831,9 +2083,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -1864,8 +2118,10 @@
             "type": "string"
           },
           "description": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sortOrder": {
             "type": "integer"
@@ -1878,9 +2134,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -1905,9 +2163,11 @@
             "format": "uuid"
           },
           "questionPackId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "null = базовый вопрос категории"
           },
           "prompt": {
@@ -1941,9 +2201,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -1975,8 +2237,10 @@
             "type": "string"
           },
           "baseUrl": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "priority": {
             "type": "integer"
@@ -1985,12 +2249,16 @@
             "type": "boolean"
           },
           "queryTemplate": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "excludeNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -2000,9 +2268,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2090,8 +2360,10 @@
             "maxLength": 255
           },
           "description": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sortOrder": {
             "type": "integer"
@@ -2117,8 +2389,10 @@
             "maxLength": 255
           },
           "description": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sortOrder": {
             "type": "integer"
@@ -2137,9 +2411,11 @@
         "additionalProperties": false,
         "properties": {
           "questionPackId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "null или отсутствие = базовый вопрос"
           },
           "prompt": {
@@ -2177,9 +2453,11 @@
         "minProperties": 1,
         "properties": {
           "questionPackId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "prompt": {
             "type": "string",
@@ -2227,8 +2505,10 @@
             "maxLength": 255
           },
           "baseUrl": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 2048
           },
           "priority": {
@@ -2238,12 +2518,16 @@
             "type": "boolean"
           },
           "queryTemplate": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "excludeNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -2264,8 +2548,10 @@
             "maxLength": 255
           },
           "baseUrl": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 2048
           },
           "priority": {
@@ -2275,12 +2561,16 @@
             "type": "boolean"
           },
           "queryTemplate": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "excludeNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "isActive": {
             "type": "boolean"
@@ -2393,9 +2683,11 @@
             "format": "uuid"
           },
           "questionPackId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "null — базовый вопрос категории"
           },
           "prompt": {
@@ -2429,9 +2721,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2485,15 +2779,19 @@
             "description": "Telegram file_id фото, которое клиент приложил к тексту. Пустой массив, если фото нет. POST /inquiries фото не принимает. Бот пишет file_id сюда и пересылает фото админу. Это не публичная ссылка.\n"
           },
           "categoryId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "null, пока классификатор сомневается или фраза неоднозначна."
           },
           "questionPackId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Один подходящий пакет. null — только базовые вопросы категории. Пакет выбирается точным совпадением текста с code или title. Сомнение между пакетами паузу не ставит.\n"
           },
           "isPaused": {
@@ -2501,18 +2799,24 @@
             "description": "true — ресерч не стартует. research_run не создаётся."
           },
           "pauseReason": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "assignedByUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Админ, который назначил категорию вручную. null, если категорию выбрала точная фраза."
           },
           "classificationScores": {
-            "nullable": true,
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/ClassificationScores"
               }
@@ -2526,15 +2830,19 @@
             "description": "Пусто на паузе. Иначе базовые вопросы категории и вопросы выбранного пакета. Вопросы других пакетов не отдаются.\n"
           },
           "optimalCardId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Живая карточка, которую отдали из базы. null, пока ответов не хватает или подходящей живой карточки нет. research_run при этом не создаётся.\n"
           },
           "optimalCard": {
-            "nullable": true,
             "description": "Та же карточка целиком. Пусто, если заявка ещё не в статусе «ответ из базы».\n",
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/OptimalCard"
               }
@@ -2545,9 +2853,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2700,8 +3010,10 @@
             "description": "true, если хотя бы один слой взял запасной курс."
           },
           "economics": {
-            "nullable": true,
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/SaveInquiryEconomicsRequest"
               }
@@ -2795,8 +3107,10 @@
             "type": "string"
           },
           "nameZh": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "qtyMin": {
             "type": "number",
@@ -2818,46 +3132,62 @@
             "description": "Живая карточка. На один товар и один диапазон живая только одна. Снятая строка остаётся."
           },
           "offerId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Оффер, из которого собрали карточку. Пусто, если админ вписал её вручную."
           },
           "companyId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "storefrontId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "price": {
-            "type": "number",
-            "minimum": 0,
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
           },
           "currency": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Трёхбуквенный код валюты, если цена есть."
           },
           "contactValue": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "contactChannel": {
-            "nullable": true,
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/ContactChannel"
               }
             ]
           },
           "contactUrl": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Страница контакта. Пусто, если контакт вписан админом."
           },
           "contactAdminEntered": {
@@ -2865,9 +3195,11 @@
             "description": "true — контакт вписан админом, без url."
           },
           "contactEnteredAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "productAttributes": {
             "type": "object",
@@ -2877,23 +3209,31 @@
             }
           },
           "reasonNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "markedLiveByUserId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "markedLiveAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "expiresAt": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
-            "nullable": true,
             "description": "Пока эта дата в будущем, карточку можно отдать из базы. Если срок не задан при создании — 30 дней."
           },
           "createdAt": {
@@ -2901,9 +3241,11 @@
             "format": "date-time"
           },
           "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2923,15 +3265,19 @@
             "format": "uuid"
           },
           "offerId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Если задан, карточка собирается из оффера: цена, валюта, компания, витрина и url страницы. Явно переданные поля заменяют снятые с оффера. Парсер не вызывается.\n"
           },
           "canonicalProductId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "nullable": true,
             "description": "Уже существующий товар этой категории. Иначе товар создаётся из nameRu."
           },
           "nameRu": {
@@ -2941,9 +3287,11 @@
             "description": "Имя товара. Обязательно, когда своего товара ещё нет ни в запросе, ни в оффере."
           },
           "nameZh": {
-            "type": "string",
-            "maxLength": 512,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
           },
           "qtyMin": {
             "type": "number",
@@ -2969,46 +3317,60 @@
             "description": "true снимает флаг с другой живой строки того же товара и того же диапазона. Строка остаётся."
           },
           "price": {
-            "type": "number",
-            "minimum": 0,
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
           },
           "currency": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 3,
-            "maxLength": 3,
-            "nullable": true
+            "maxLength": 3
           },
           "contactValue": {
-            "type": "string",
-            "maxLength": 512,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
           },
           "contactChannel": {
-            "nullable": true,
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/ContactChannel"
               }
             ]
           },
           "contactUrl": {
-            "type": "string",
-            "maxLength": 2048,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
           },
           "contactAdminEntered": {
             "type": "boolean",
             "description": "true очищает url. Если url пустой, а контакт есть, флаг всё равно становится true."
           },
           "reasonNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "expiresAt": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
-            "nullable": true,
             "description": "Пусто или null при создании — срок 30 дней от текущего момента."
           }
         }
@@ -3019,9 +3381,11 @@
         "description": "Пустые поля не меняют карточку. null в сроке снова ставит 30 дней.",
         "properties": {
           "canonicalProductId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "nameRu": {
             "type": "string",
@@ -3029,9 +3393,11 @@
             "maxLength": 512
           },
           "nameZh": {
-            "type": "string",
-            "maxLength": 512,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
           },
           "qtyMin": {
             "type": "number",
@@ -3055,45 +3421,59 @@
             "type": "boolean"
           },
           "price": {
-            "type": "number",
-            "minimum": 0,
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
           },
           "currency": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 3,
-            "maxLength": 3,
-            "nullable": true
+            "maxLength": 3
           },
           "contactValue": {
-            "type": "string",
-            "maxLength": 512,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
           },
           "contactChannel": {
-            "nullable": true,
-            "allOf": [
+            "anyOf": [
+              {
+                "type": "null"
+              },
               {
                 "$ref": "#/components/schemas/ContactChannel"
               }
             ]
           },
           "contactUrl": {
-            "type": "string",
-            "maxLength": 2048,
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
           },
           "contactAdminEntered": {
             "type": "boolean"
           },
           "reasonNote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3126,18 +3506,24 @@
             "description": "code категории заявки"
           },
           "pack": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "started_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "finished_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           },
           "sites": {
             "type": "array",
@@ -3161,8 +3547,10 @@
             "$ref": "#/components/schemas/DossierFx"
           },
           "summary_ru": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Текст для админа, клиенту не отправляется"
           }
         }
@@ -3201,6 +3589,609 @@
             "items": {
               "$ref": "#/components/schemas/DiscardedItem"
             }
+          }
+        }
+      },
+      "ProductListItem": {
+        "type": "object",
+        "description": "Строка истории поиска.",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "categoryLabel",
+          "materialCount",
+          "searchedAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Стабильный код демо-записи, повторный сид его не дублирует."
+          },
+          "name": {
+            "type": "string"
+          },
+          "categoryLabel": {
+            "type": "string",
+            "description": "Подпись категории в таблице и в фильтре."
+          },
+          "chipLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Короткий чип на карточке сетки. Пусто — чипа нет."
+          },
+          "photoUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Относительный путь байтов обложки."
+          },
+          "materialCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Число материалов в колонке «контент»."
+          },
+          "searchedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ProductCard": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ProductListItem"
+          },
+          {
+            "type": "object",
+            "required": [
+              "photos",
+              "specs"
+            ],
+            "properties": {
+              "headline": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Заголовок на карточке, если он длиннее имени в истории."
+              },
+              "cardCategoryLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Бейдж категории на карточке."
+              },
+              "article": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "manufacturer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "oemLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "summaryTitle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "summary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "availabilityLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "demandLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "galleryMoreLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verifiedLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updatedLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "specsTitle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "passportLabel": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "photos": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProductPhoto"
+                }
+              },
+              "specs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProductSpec"
+                }
+              },
+              "procurement": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProductProcurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "delivery": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProductDelivery"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "market": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProductMarket"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "breakdown": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ProductBreakdown"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ProductPhoto": {
+        "type": "object",
+        "required": [
+          "url",
+          "alt"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
+      "ProductSpec": {
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "ProductPriceTier": {
+        "type": "object",
+        "required": [
+          "title",
+          "price",
+          "note",
+          "highlighted"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "priceUnit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "converted": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "badge": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "highlighted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProductProcurement": {
+        "type": "object",
+        "required": [
+          "title",
+          "moqLabel",
+          "tiers"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "moqLabel": {
+            "type": "string"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPriceTier"
+            }
+          }
+        }
+      },
+      "ProductDeliveryRate": {
+        "type": "object",
+        "required": [
+          "caption",
+          "price"
+        ],
+        "properties": {
+          "caption": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "priceSuffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ProductDelivery": {
+        "type": "object",
+        "required": [
+          "available",
+          "demo",
+          "title"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "false — на экране «недоступно», чисел нет."
+          },
+          "demo": {
+            "type": "boolean",
+            "description": "Фикстура стенда, не книга ставок."
+          },
+          "title": {
+            "type": "string"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "perUnit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductDeliveryRate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "perBatch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductDeliveryRate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "included": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ProductMarketQuote": {
+        "type": "object",
+        "required": [
+          "title",
+          "price",
+          "note",
+          "highlighted"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "price": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "highlighted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProductMarket": {
+        "type": "object",
+        "required": [
+          "title",
+          "sellersLabel",
+          "quotes"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "sellersLabel": {
+            "type": "string"
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductMarketQuote"
+            }
+          }
+        }
+      },
+      "ProductPriceSegment": {
+        "type": "object",
+        "required": [
+          "label",
+          "sharePercent",
+          "tone"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "sharePercent": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tone": {
+            "type": "string",
+            "description": "product, logistics, fee, fulfillment или profit."
+          }
+        }
+      },
+      "ProductBreakdown": {
+        "type": "object",
+        "required": [
+          "title",
+          "verdict",
+          "stars",
+          "costPrice",
+          "costNote",
+          "profitPrice",
+          "profitNote",
+          "saleLabel",
+          "marginLabel",
+          "segments"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "verdict": {
+            "type": "string"
+          },
+          "stars": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "costPrice": {
+            "type": "string"
+          },
+          "costSuffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "costNote": {
+            "type": "string"
+          },
+          "profitPrice": {
+            "type": "string"
+          },
+          "profitExtra": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profitNote": {
+            "type": "string"
+          },
+          "saleLabel": {
+            "type": "string"
+          },
+          "marginLabel": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPriceSegment"
+            }
+          }
+        }
+      },
+      "SearchPack": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "questions",
+          "categories"
+        ],
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchQuestion"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchCategory"
+            }
+          }
+        }
+      },
+      "SearchQuestion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchOption"
+            }
+          }
+        }
+      },
+      "SearchOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "label"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "hint",
+          "icon"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Имя иконки на клиенте. Клиент рисует её сам."
           }
         }
       },
@@ -3287,16 +4278,22 @@
             "type": "number"
           },
           "retailRub": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "deltaRub": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "verdict": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "enum": [
               "выгодно",
               "не выгодно",
@@ -3347,12 +4344,16 @@
             "$ref": "#/components/schemas/SiteStatus"
           },
           "url": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "note": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3398,8 +4399,10 @@
             "type": "string"
           },
           "source_url": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3408,28 +4411,38 @@
         "additionalProperties": true,
         "properties": {
           "name_cn": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "uscc": {
-            "type": "string",
-            "nullable": true,
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "18 символов единого социального кода или null"
           },
           "registry_status": {
             "$ref": "#/components/schemas/RegistryStatus"
           },
           "scope": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "insured_count": {
-            "type": "integer",
-            "nullable": true,
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 0
           },
           "role": {
@@ -3483,29 +4496,41 @@
         "description": "Оффер без source_url или без quote не отклоняет всё досье: он попадает в discarded.\n",
         "properties": {
           "company_ref": {
-            "type": "integer",
-            "nullable": true,
+            "type": [
+              "integer",
+              "null"
+            ],
             "description": "Индекс в companies[] или null"
           },
           "site": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source_url": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "quote": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "title": {
-            "type": "string",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "price": {
-            "type": "number",
-            "nullable": true,
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Хранится у оффера для админа. Клиенту не отдаётся."
           },
           "currency": {
@@ -3515,20 +4540,26 @@
             "$ref": "#/components/schemas/OfferUnit"
           },
           "qty_from": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "moq": {
-            "type": "number",
-            "nullable": true
+            "type": [
+              "number",
+              "null"
+            ]
           },
           "layer": {
             "$ref": "#/components/schemas/OfferLayer"
           },
           "captured_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
           }
         }
       },

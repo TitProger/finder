@@ -86,12 +86,17 @@ export class CategorySeederService {
         let category = await this.em.findOne(CategoryEntity, { code: data.code });
 
         if (!category) {
+            category = await this.em.findOne(CategoryEntity, { name: data.name });
+        }
+
+        if (!category) {
             category = new CategoryEntity();
-            category.code = data.code;
             this.logger.log(`  Creating new category: ${data.code}`);
         } else {
             this.logger.log(`  Updating existing category: ${data.code}`);
         }
+
+        category.code = data.code;
 
         category.name = data.name;
         category.description = data.description;

@@ -383,6 +383,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Пачка вопросов и категории экрана поиска
+         * @description Публичная пачка для первой страницы. На экране виден один вопрос. Иконки категорий — имена, не картинки.
+         */
+        get: operations["getSearchPack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * История поиска
+         * @description Публичный список товаров, которые уже искали. Сортировка — JSON, например {"searchedAt":"desc"}. Фильтр category сравнивается с categoryLabel.
+         */
+        get: operations["listProducts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Карточка товара
+         * @description Описание, характеристики и четыре блока отчёта. Числа приходят в полях ответа. Доставка с available=false — статус «недоступно».
+         */
+        get: operations["getProductById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Байты файла карточки
+         * @description Обложка и галерея. Повтор того же пути в сиде не создаёт второй файл.
+         */
+        get: operations["getStoredFileContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -656,7 +736,7 @@ export interface components {
              * @description Админ, который назначил категорию вручную. null, если категорию выбрала точная фраза.
              */
             assignedByUserId: string | null;
-            classificationScores: components["schemas"]["ClassificationScores"] | null;
+            classificationScores: null | components["schemas"]["ClassificationScores"];
             /** @description Пусто на паузе. Иначе базовые вопросы категории и вопросы выбранного пакета. Вопросы других пакетов не отдаются. */
             questions: components["schemas"]["InquiryQuestion"][];
             /**
@@ -665,7 +745,7 @@ export interface components {
              */
             optimalCardId: string | null;
             /** @description Та же карточка целиком. Пусто, если заявка ещё не в статусе «ответ из базы». */
-            optimalCard: components["schemas"]["OptimalCard"] | null;
+            optimalCard: null | components["schemas"]["OptimalCard"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -714,7 +794,7 @@ export interface components {
             quotes: components["schemas"]["LayerQuote"][];
             /** @description true, если хотя бы один слой взял запасной курс. */
             fxFallback: boolean;
-            economics: components["schemas"]["SaveInquiryEconomicsRequest"] | null;
+            economics: null | components["schemas"]["SaveInquiryEconomicsRequest"];
             /** @description Пустой, пока менеджер не ввёл затраты или нет заводской цены. */
             landed: components["schemas"]["LandedUnit"][];
         };
@@ -761,7 +841,7 @@ export interface components {
             /** @description Трёхбуквенный код валюты, если цена есть. */
             currency: string | null;
             contactValue: string | null;
-            contactChannel: components["schemas"]["ContactChannel"] | null;
+            contactChannel: null | components["schemas"]["ContactChannel"];
             /** @description Страница контакта. Пусто, если контакт вписан админом. */
             contactUrl: string | null;
             /** @description true — контакт вписан админом, без url. */
@@ -818,7 +898,7 @@ export interface components {
             price?: number | null;
             currency?: string | null;
             contactValue?: string | null;
-            contactChannel?: components["schemas"]["ContactChannel"] | null;
+            contactChannel?: null | components["schemas"]["ContactChannel"];
             contactUrl?: string | null;
             /** @description true очищает url. Если url пустой, а контакт есть, флаг всё равно становится true. */
             contactAdminEntered?: boolean;
@@ -846,7 +926,7 @@ export interface components {
             price?: number | null;
             currency?: string | null;
             contactValue?: string | null;
-            contactChannel?: components["schemas"]["ContactChannel"] | null;
+            contactChannel?: null | components["schemas"]["ContactChannel"];
             contactUrl?: string | null;
             contactAdminEntered?: boolean;
             reasonNote?: string | null;
@@ -885,6 +965,141 @@ export interface components {
             duplicate: boolean;
             counts: components["schemas"]["ResearchIngestCounts"];
             discarded: components["schemas"]["DiscardedItem"][];
+        };
+        /** @description Строка истории поиска. */
+        ProductListItem: {
+            /** Format: uuid */
+            id: string;
+            /** @description Стабильный код демо-записи, повторный сид его не дублирует. */
+            slug: string;
+            name: string;
+            /** @description Подпись категории в таблице и в фильтре. */
+            categoryLabel: string;
+            /** @description Короткий чип на карточке сетки. Пусто — чипа нет. */
+            chipLabel?: string | null;
+            /** @description Относительный путь байтов обложки. */
+            photoUrl?: string | null;
+            /** @description Число материалов в колонке «контент». */
+            materialCount: number;
+            /** Format: date-time */
+            searchedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        ProductCard: components["schemas"]["ProductListItem"] & {
+            /** @description Заголовок на карточке, если он длиннее имени в истории. */
+            headline?: string | null;
+            /** @description Бейдж категории на карточке. */
+            cardCategoryLabel?: string | null;
+            article?: string | null;
+            manufacturer?: string | null;
+            oemLabel?: string | null;
+            summaryTitle?: string | null;
+            summary?: string | null;
+            availabilityLabel?: string | null;
+            demandLabel?: string | null;
+            galleryMoreLabel?: string | null;
+            verifiedLabel?: string | null;
+            updatedLabel?: string | null;
+            specsTitle?: string | null;
+            passportLabel?: string | null;
+            photos: components["schemas"]["ProductPhoto"][];
+            specs: components["schemas"]["ProductSpec"][];
+            procurement?: components["schemas"]["ProductProcurement"] | null;
+            delivery?: components["schemas"]["ProductDelivery"] | null;
+            market?: components["schemas"]["ProductMarket"] | null;
+            breakdown?: components["schemas"]["ProductBreakdown"] | null;
+        };
+        ProductPhoto: {
+            url: string;
+            alt: string;
+        };
+        ProductSpec: {
+            label: string;
+            value: string;
+        };
+        ProductPriceTier: {
+            title: string;
+            price: string;
+            priceUnit?: string | null;
+            converted?: string | null;
+            note: string;
+            badge?: string | null;
+            highlighted: boolean;
+        };
+        ProductProcurement: {
+            title: string;
+            moqLabel: string;
+            tiers: components["schemas"]["ProductPriceTier"][];
+        };
+        ProductDeliveryRate: {
+            caption: string;
+            price: string;
+            priceSuffix?: string | null;
+            detail?: string | null;
+        };
+        ProductDelivery: {
+            /** @description false — на экране «недоступно», чисел нет. */
+            available: boolean;
+            /** @description Фикстура стенда, не книга ставок. */
+            demo: boolean;
+            title: string;
+            modes?: string[];
+            perUnit?: components["schemas"]["ProductDeliveryRate"] | null;
+            perBatch?: components["schemas"]["ProductDeliveryRate"] | null;
+            included?: string[];
+        };
+        ProductMarketQuote: {
+            title: string;
+            price: string;
+            note: string;
+            highlighted: boolean;
+        };
+        ProductMarket: {
+            title: string;
+            sellersLabel: string;
+            quotes: components["schemas"]["ProductMarketQuote"][];
+        };
+        ProductPriceSegment: {
+            label: string;
+            sharePercent: number;
+            /** @description product, logistics, fee, fulfillment или profit. */
+            tone: string;
+        };
+        ProductBreakdown: {
+            title: string;
+            verdict: string;
+            stars: number;
+            costPrice: string;
+            costSuffix?: string | null;
+            costNote: string;
+            profitPrice: string;
+            profitExtra?: string | null;
+            profitNote: string;
+            saleLabel: string;
+            marginLabel: string;
+            segments: components["schemas"]["ProductPriceSegment"][];
+        };
+        SearchPack: {
+            questions: components["schemas"]["SearchQuestion"][];
+            categories: components["schemas"]["SearchCategory"][];
+        };
+        SearchQuestion: {
+            id: string;
+            title: string;
+            options: components["schemas"]["SearchOption"][];
+        };
+        SearchOption: {
+            value: string;
+            label: string;
+        };
+        SearchCategory: {
+            name: string;
+            hint: string;
+            /** @description Имя иконки на клиенте. Клиент рисует её сам. */
+            icon: string;
         };
         LayerQuote: {
             /** @enum {string} */
@@ -1059,7 +1274,15 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Номер страницы */
+        PageQuery: number;
+        /** @description Размер страницы */
+        LimitQuery: number;
+        /** @description Сортировка в виде JSON-строки, например `{"title":"asc"}` или `{"createdAt":"desc"}`. */
+        SortQuery: string;
+        IdPath: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -1769,6 +1992,115 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getSearchPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Пачка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["SearchPack"];
+                    };
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProducts: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы */
+                page?: components["parameters"]["PageQuery"];
+                /** @description Размер страницы */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Сортировка в виде JSON-строки, например `{"title":"asc"}` или `{"createdAt":"desc"}`. */
+                sort?: components["parameters"]["SortQuery"];
+                /** @description Подпись категории. Пусто — все категории. */
+                category?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница истории */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ProductListItem"][];
+                        page?: components["schemas"]["PageInfo"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProductById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ProductCard"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getStoredFileContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Содержимое файла */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": string;
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };

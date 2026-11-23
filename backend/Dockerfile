@@ -37,13 +37,14 @@ COPY --from=builder /app/dist ./dist
 # Копируем необходимые файлы для работы приложения
 COPY --from=builder /app/api ./api
 COPY --from=builder /app/seeds ./seeds
+COPY --from=builder /app/seed-media ./seed-media
 COPY --from=builder /app/scripts/run-seed.mjs ./scripts/run-seed.mjs
 
 # Каталог логов принадлежит runtime-пользователю до USER.
 # Пустой том Docker наследует владельца этого каталога из образа.
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 \
- && mkdir -p /app/logs \
- && chown nodejs:nodejs /app/logs
+ && mkdir -p /app/logs /app/storage \
+ && chown nodejs:nodejs /app/logs /app/storage
 USER nodejs
 
 # Открываем порт приложения

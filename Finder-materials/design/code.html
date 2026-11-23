@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finder — Поиск и генерация</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f7f7f8;
+      background-image: radial-gradient(#d5d7dc 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+      color: #111827;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Radio button custom look */
+    .custom-radio {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 50%;
+      outline: none;
+      cursor: pointer;
+      display: inline-grid;
+      place-content: center;
+      transition: all 0.15s ease;
+      background-color: #fff;
+    }
+    .custom-radio:checked {
+      border-color: #708520;
+      background-color: #708520;
+    }
+    .custom-radio:checked::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #ffffff;
+    }
+
+    /* Transition states */
+    .fade-enter {
+      animation: fadeIn 0.2s ease-in-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 flex justify-center">
+<div class="w-full max-w-[1400px] flex flex-col gap-6">
+<!-- BEGIN: Header -->
+<header class="bg-white border border-gray-200/80 rounded-2xl px-6 py-3.5 flex items-center justify-between shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+<!-- Logo -->
+<div class="flex items-center gap-3">
+<a class="text-[22px] font-bold tracking-tight text-neutral-900 flex items-center gap-1.5 font-sans" href="#">
+<span>Finder</span>
+</a>
+</div>
+<!-- Navigation & User Actions -->
+<div class="flex items-center gap-4 md:gap-7">
+<nav class="hidden md:flex items-center gap-6 text-[14px] font-medium text-neutral-700">
+<a class="flex items-center gap-1.5 hover:text-black transition-colors" href="#">
+<span class="text-[17px] leading-none text-neutral-500">+</span>
+<span>Выполнить поиск</span>
+</a>
+<a class="flex items-center gap-1.5 hover:text-black transition-colors" href="#">
+<span class="material-symbols-outlined text-[19px] text-neutral-500">history</span>
+<span>История поиска</span>
+</a>
+</nav>
+<!-- Balance chip and user avatar -->
+<div class="flex items-center gap-3 pl-2 border-l border-gray-200">
+<!-- Balance Chip -->
+<div class="bg-neutral-100/90 hover:bg-neutral-200/80 transition-colors cursor-pointer px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
+<svg class="w-3.5 h-3.5 text-emerald-500 fill-current" viewbox="0 0 24 24">
+<path d="M12 2l2.4 6.8 6.8 2.4-6.8 2.4L12 20.4l-2.4-6.8L2.8 11.2l6.8-2.4L12 2z"></path>
+</svg>
+<span>2</span>
+<span class="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center text-[10px] font-bold ml-0.5">T</span>
+</div>
+<!-- Avatar -->
+<img alt="Аватар пользователя" class="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXGihHaOjlz3a0OoTA4U25ACYvAQxejA02_sqUhNunNZtGdRPNPy83MUCLl4ANTufgb_CUWEGwkGCoTLwjhd_yvCS4RHHoJN8hqobOxZDWz3Y19QqekXmGUH9vajRY94a0v3Gdjf0OyQKB42HhoYLKxPd1CE5YlNHRAlR0GqmvtBFID2QV3TtDqdq7B9_qahqG_OrOqUlNkp_A7weH4K7fh1So1E-rYiRtMBpOdVuy"/>
+</div>
+</div>
+</header>
+<!-- END: Header -->
+<!-- BEGIN: Main Grid Layout -->
+<main class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN (Steps 1 & 2) -->
+<div class="lg:col-span-4 flex flex-col gap-6">
+<!-- STEP 1: Product Card -->
+<section class="bg-white border border-gray-200/90 rounded-[22px] p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all relative">
+<!-- STATE 1: Empty Photo Box (hidden by default) -->
+<div class="fade-enter hidden" id="productEmptyState">
+<!-- Header step title -->
+<div class="flex items-center gap-2.5 mb-5">
+<span class="w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-bold flex items-center justify-center">1</span>
+<h2 class="text-base font-bold text-neutral-900">Ваш товар</h2>
+</div>
+<!-- Dashed Upload Zone -->
+<div class="border-2 border-dashed border-neutral-300 rounded-2xl py-8 px-5 flex flex-col items-center justify-center text-center bg-white hover:border-neutral-400 transition-colors cursor-pointer" onclick="toggleProductState()">
+<div class="w-12 h-12 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-500 mb-3.5">
+<svg class="w-6 h-6 text-neutral-600" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m9-5.25v9l-9 5.25m0-14.25v9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h3 class="text-[15px] font-semibold text-neutral-900 mb-3.5">Добавьте фото товара</h3>
+<button class="bg-[#1e1e1e] hover:bg-neutral-800 text-white text-[13.5px] font-medium px-4 py-2 rounded-xl inline-flex items-center gap-1.5 transition-colors shadow-sm" onclick="event.stopPropagation(); toggleProductState();" type="button">
+<span>+</span>
+<span>Выбрать фото</span>
+</button>
+<span class="text-[11.5px] text-neutral-400 mt-4 tracking-tight">До 4 фото, или вставьте ⌘+V</span>
+</div>
+</div>
+<!-- STATE 2: Loaded Photo Slots (visible by default) -->
+<div class="fade-enter" id="productLoadedState">
+<!-- Header with green checkmark and cross button -->
+<div class="flex items-center justify-between mb-5">
+<div class="flex items-center gap-2.5">
+<div class="w-6 h-6 rounded-full bg-[#83d41f] text-white flex items-center justify-center">
+<svg class="w-3.5 h-3.5 stroke-[3]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<h2 class="text-base font-bold text-neutral-900">Ваш товар</h2>
+</div>
+<button aria-label="Сбросить товар" class="text-neutral-400 hover:text-neutral-700 transition-colors p-1" onclick="toggleProductState()" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- 4 Slots Grid -->
+<div class="grid grid-cols-4 gap-2.5 mb-4">
+<!-- Slot 1: Uploaded Coffee Grinder Preview -->
+<div class="aspect-square rounded-2xl border border-neutral-200 overflow-hidden relative group bg-neutral-50 shadow-sm flex items-center justify-center p-1">
+<img alt="Кофемолка Kitfort KT-741" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVdQF1l1cfCyngh6yVbb4UKMAJwi2zjDIwnyCAns98pWChdBFsTJtcvJeTUIRRKunYH4SMuMysFn2Kr3o9RN_KsfKTvZ_qBtJsgQx4oxA-9GLvaiRSI1j13iGDvisY8F_VvQKjUSLLRJ3vrDgKekFz3W5jopPuvXvLUe6F1A81JsaUkLLJsUEPdWtkGoMM7bEHa789AA-Bw9p5n0azwI5Vl2VRCMP2MreWHUe3MGQr"/>
+<div class="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm">edit</span>
+</div>
+</div>
+<!-- Slot 2: Empty -->
+<div class="aspect-square rounded-2xl border-2 border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 cursor-pointer transition-colors bg-white">
+<span class="text-xl leading-none font-light text-neutral-400">+</span>
+</div>
+<!-- Slot 3: Empty -->
+<div class="aspect-square rounded-2xl border-2 border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 cursor-pointer transition-colors bg-white">
+<span class="text-xl leading-none font-light text-neutral-400">+</span>
+</div>
+<!-- Slot 4: Empty -->
+<div class="aspect-square rounded-2xl border-2 border-dashed border-neutral-300 flex items-center justify-center text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 cursor-pointer transition-colors bg-white">
+<span class="text-xl leading-none font-light text-neutral-400">+</span>
+</div>
+</div>
+<!-- Item title input & Category selector card -->
+<div class="bg-[#f7f8f9] rounded-2xl p-3 border border-neutral-200/70 space-y-2 mb-3">
+<input class="w-full bg-transparent border-0 p-1 text-[15px] font-semibold text-neutral-900 focus:ring-0 focus:outline-none placeholder-neutral-400" id="productTitleInput" type="text" value="Кофемолка Kitfort KT-741"/>
+<div class="border-t border-neutral-200 pt-2 flex items-center justify-between text-neutral-800 px-1 cursor-pointer select-none" id="categoryHeaderBtn" onclick="toggleDropdown()">
+<span class="text-[14.5px] font-medium text-neutral-900" id="selectedCategoryTitle">Электроника и техника</span>
+<span class="material-symbols-outlined text-[20px] text-neutral-500 transition-transform duration-200" id="dropdownArrow">expand_less</span>
+</div>
+</div>
+<!-- CATEGORY DROPDOWN MENU (Open by default as in IMAGE_1) -->
+<div class="bg-white border border-gray-200 rounded-2xl p-2 shadow-lg space-y-1 transition-all" id="categoriesDropdown">
+<!-- Category Option 1 -->
+<div class="category-option flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors group" data-category="Красота и здоровье" onclick="selectCategory('Красота и здоровье')">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 flex-shrink-0 group-hover:bg-neutral-200/80 transition-colors">
+<span class="material-symbols-outlined text-[20px]">water_drop</span>
+</div>
+<div>
+<div class="text-[14px] font-semibold text-neutral-900 leading-snug">Красота и здоровье</div>
+<div class="text-[12px] text-neutral-500 leading-tight mt-0.5">Косметика, парфюм, уход, бытовая химия, аптека</div>
+</div>
+</div>
+<span class="check-icon material-symbols-outlined text-[20px] text-neutral-900 font-bold hidden pl-2">check</span>
+</div>
+<!-- Category Option 2 -->
+<div class="category-option flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors group" data-category="Блюда и выпечка" onclick="selectCategory('Блюда и выпечка')">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 flex-shrink-0 group-hover:bg-neutral-200/80 transition-colors">
+<span class="material-symbols-outlined text-[20px]">restaurant</span>
+</div>
+<div>
+<div class="text-[14px] font-semibold text-neutral-900 leading-snug">Блюда и выпечка</div>
+<div class="text-[12px] text-neutral-500 leading-tight mt-0.5">Блюда кафе и ресторанов, выпечка, торты, десерты</div>
+</div>
+</div>
+<span class="check-icon material-symbols-outlined text-[20px] text-neutral-900 font-bold hidden pl-2">check</span>
+</div>
+<!-- Category Option 3 -->
+<div class="category-option flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors group" data-category="Продукты и напитки" onclick="selectCategory('Продукты и напитки')">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 flex-shrink-0 group-hover:bg-neutral-200/80 transition-colors">
+<span class="material-symbols-outlined text-[20px]">shopping_basket</span>
+</div>
+<div>
+<div class="text-[14px] font-semibold text-neutral-900 leading-snug">Продукты и напитки</div>
+<div class="text-[12px] text-neutral-500 leading-tight mt-0.5">Фасованные продукты, сладости, чай, кофе, напитки</div>
+</div>
+</div>
+<span class="check-icon material-symbols-outlined text-[20px] text-neutral-900 font-bold hidden pl-2">check</span>
+</div>
+<!-- Category Option 4 (Selected by default) -->
+<div class="category-option flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors group" data-category="Электроника и техника" onclick="selectCategory('Электроника и техника')">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 flex-shrink-0 group-hover:bg-neutral-200/80 transition-colors">
+<span class="material-symbols-outlined text-[20px]">smartphone</span>
+</div>
+<div>
+<div class="text-[14px] font-semibold text-neutral-900 leading-snug">Электроника и техника</div>
+<div class="text-[12px] text-neutral-500 leading-tight mt-0.5">Гаджеты, аксессуары к телефонам, бытовая техника</div>
+</div>
+</div>
+<span class="check-icon material-symbols-outlined text-[20px] text-neutral-900 font-bold block pl-2">check</span>
+</div>
+<!-- Category Option 5 -->
+<div class="category-option flex items-center justify-between p-2.5 rounded-xl hover:bg-neutral-50 cursor-pointer transition-colors group" data-category="Дом и интерьер" onclick="selectCategory('Дом и интерьер')">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 flex-shrink-0 group-hover:bg-neutral-200/80 transition-colors">
+<span class="material-symbols-outlined text-[20px]">weekend</span>
+</div>
+<div>
+<div class="text-[14px] font-semibold text-neutral-900 leading-snug">Дом и интерьер</div>
+<div class="text-[12px] text-neutral-500 leading-tight mt-0.5">Мебель, декор, текстиль, посуда, свет</div>
+</div>
+</div>
+<span class="check-icon material-symbols-outlined text-[20px] text-neutral-900 font-bold hidden pl-2">check</span>
+</div>
+</div>
+</div>
+</section>
+<!-- STEP 2 / DETAILS CARD: «Уточним детали» -->
+<section class="bg-white border border-gray-200/90 rounded-[22px] p-6 sm:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[380px]">
+<div>
+<!-- Card Title -->
+<h2 class="text-[20px] font-bold text-[#0f172a] mb-3">Уточним детали</h2>
+<!-- Progress Row -->
+<div class="flex items-center gap-3 mb-6">
+<span class="text-[13.5px] text-neutral-500 whitespace-nowrap">Вопрос 2 из 5</span>
+<div class="w-44 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+<div class="h-full bg-[#758a23] rounded-full" style="width: 40%;"></div>
+</div>
+</div>
+<!-- Question Title -->
+<h3 class="text-[17px] sm:text-[18px] font-bold text-[#0f172a] mb-5 tracking-tight">Какой объём партии вам нужен?</h3>
+<!-- Radio Options List -->
+<div class="space-y-4">
+<label class="flex items-center gap-3.5 cursor-pointer group select-none">
+<input class="custom-radio" name="order_volume" type="radio" value="under_100"/>
+<span class="text-[15px] text-neutral-800 group-hover:text-black">До 100 шт.</span>
+</label>
+<label class="flex items-center gap-3.5 cursor-pointer group select-none">
+<input checked="" class="custom-radio" name="order_volume" type="radio" value="100_500"/>
+<span class="text-[15px] text-neutral-900 group-hover:text-black">100–500 шт.</span>
+</label>
+<label class="flex items-center gap-3.5 cursor-pointer group select-none">
+<input class="custom-radio" name="order_volume" type="radio" value="over_500"/>
+<span class="text-[15px] text-neutral-800 group-hover:text-black">Более 500 шт.</span>
+</label>
+</div>
+</div>
+<!-- Bottom Navigation: Back Arrow & Lime Forward Button -->
+<div class="pt-8 flex items-center justify-between">
+<button aria-label="Назад" class="bg-neutral-100 hover:bg-neutral-200/80 active:scale-[0.98] text-[#111827] font-semibold text-[15px] px-5 py-2.5 rounded-2xl flex items-center gap-1.5 transition-all" type="button">
+<span class="material-symbols-outlined text-[19px]">arrow_back</span>
+<span>Назад</span>
+</button>
+<button class="bg-[#dcf638] hover:bg-[#cde929] active:scale-[0.98] text-[#111827] font-semibold text-[15px] px-6 py-2.5 rounded-2xl flex items-center gap-1.5 shadow-sm transition-all" type="button">
+<span>Далее</span>
+<span class="material-symbols-outlined text-[19px]">arrow_forward</span>
+</button>
+</div>
+</section>
+</div>
+<!-- RIGHT COLUMN (Step 3: Results) -->
+<section class="lg:col-span-8 bg-white border border-gray-200/90 rounded-[24px] p-7 md:p-8 min-h-[580px] flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+<!-- Results Step Header -->
+<div class="flex items-center gap-2.5 mb-6">
+<span class="w-6 h-6 rounded-full bg-neutral-100 text-neutral-700 text-xs font-bold flex items-center justify-center">3</span>
+<h2 class="text-base font-bold text-neutral-900">Результаты</h2>
+</div>
+<!-- Center Empty State placeholder matching Aidentika style -->
+<div class="flex-1 flex flex-col items-center justify-center text-center p-8">
+<div class="w-12 h-12 rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-400 mb-3.5">
+<svg class="w-6 h-6 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="13" rx="2.5" width="13" x="7" y="4"></rect>
+<path d="M4 8v10a2 2 0 002 2h10" stroke-linecap="round" stroke-linejoin="round"></path>
+<circle cx="11.5" cy="8.5" fill="currentColor" r="1.2"></circle>
+<path d="M17.5 14l-3-3.5-4 4.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<p class="text-[14.5px] text-neutral-400 max-w-sm">
+            Здесь появятся ваши генерации и предложения поставщиков
+          </p>
+</div>
+</section>
+</main>
+<!-- END: Main Grid Layout -->
+</div>
+<!-- Interactive script -->
+<script>
+    function toggleProductState() {
+      const emptyBox = document.getElementById('productEmptyState');
+      const loadedBox = document.getElementById('productLoadedState');
+      
+      if (emptyBox.classList.contains('hidden')) {
+        emptyBox.classList.remove('hidden');
+        loadedBox.classList.add('hidden');
+      } else {
+        emptyBox.classList.add('hidden');
+        loadedBox.classList.remove('hidden');
+      }
+    }
+
+    function toggleDropdown() {
+      const dropdown = document.getElementById('categoriesDropdown');
+      const arrow = document.getElementById('dropdownArrow');
+      if (dropdown.classList.contains('hidden')) {
+        dropdown.classList.remove('hidden');
+        arrow.textContent = 'expand_less';
+      } else {
+        dropdown.classList.add('hidden');
+        arrow.textContent = 'expand_more';
+      }
+    }
+
+    function selectCategory(categoryName) {
+      document.getElementById('selectedCategoryTitle').textContent = categoryName;
+      const options = document.querySelectorAll('.category-option');
+      options.forEach(opt => {
+        const check = opt.querySelector('.check-icon');
+        if (opt.getAttribute('data-category') === categoryName) {
+          check.classList.remove('hidden');
+          check.classList.add('block');
+        } else {
+          check.classList.add('hidden');
+          check.classList.remove('block');
+        }
+      });
+      // Optionally close after select, or keep visible as requested
+    }
+  </script>
+</body></html>

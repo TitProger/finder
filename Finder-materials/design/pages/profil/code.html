@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Finder — Личный кабинет и Профиль</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Customization -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              lime: '#B8EE34',
+              'lime-hover': '#a6dc24',
+              blue: '#0284c7',
+              dark: '#111827'
+            }
+          },
+          boxShadow: {
+            'menu': '0 10px 40px -10px rgba(0,0,0,0.12), 0 2px 10px -2px rgba(0,0,0,0.04)',
+            'card': '0 2px 12px 0 rgba(0,0,0,0.03)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="base-styling">
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f7f9fa;
+      color: #111827;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="min-h-screen relative overflow-x-hidden selection:bg-lime-200">
+<!-- BEGIN: MainContainer -->
+<div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
+<!-- BEGIN: Header -->
+<header class="bg-white rounded-full px-6 py-2.5 mb-6 shadow-sm border border-gray-100 flex items-center justify-between relative z-30">
+<!-- Brand Logo & Service Badge -->
+<div class="flex items-center space-x-3">
+<a class="text-2xl font-black tracking-tight text-gray-950 flex items-baseline" href="#">
+          Finder
+        </a>
+<span class="text-xs px-2.5 py-0.5 font-medium rounded-full bg-gray-100 text-gray-500 border border-gray-200/60 hidden sm:inline-block">
+          AI Search
+        </span>
+</div>
+<!-- Center Actions / Links -->
+<div class="hidden md:flex items-center space-x-6 text-[14px] text-gray-600 font-medium">
+<a class="flex items-center space-x-1.5 hover:text-gray-900 transition-colors" href="#">
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+<span>Воронка карточек</span>
+</a>
+<a class="flex items-center space-x-1.5 hover:text-gray-900 transition-colors" href="#">
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+<span>Замена товара</span>
+</a>
+<button class="flex items-center space-x-1.5 hover:text-gray-900 transition-colors">
+<span class="text-base leading-none text-gray-400 font-light">+</span>
+<span>Создать проект</span>
+</button>
+</div>
+<!-- Right Navigation & Profile Widget -->
+<div class="flex items-center space-x-2 sm:space-x-3">
+<!-- "Все проекты" button -->
+<a class="bg-black text-white text-[13px] font-medium px-4 py-2 rounded-full flex items-center space-x-2 hover:bg-neutral-800 transition-colors" href="#">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4 6h16M4 10h16M4 14h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="hidden sm:inline">Все проекты</span>
+</a>
+<!-- Balance Token Indicator -->
+<div class="flex items-center space-x-1.5 bg-gray-100/90 text-gray-800 text-[13px] font-semibold px-3 py-1.5 rounded-full border border-gray-200/50">
+<span class="text-yellow-500 font-bold text-sm">✦</span>
+<span>2</span>
+</div>
+<!-- User Profile Avatar (Trigger) -->
+<div class="relative">
+<button aria-expanded="true" aria-haspopup="true" class="w-8 h-8 rounded-full bg-[#0284c7] text-white flex items-center justify-center font-semibold text-sm ring-2 ring-blue-500/20 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" type="button">
+            T
+          </button>
+</div>
+</div>
+</header>
+<!-- END: Header -->
+<!-- BEGIN: MainContentWrapper -->
+<div class="relative">
+<!-- BEGIN: ProfileDropdownMenu -->
+<!-- Positioned precisely aligned with the profile trigger from header -->
+<div class="absolute right-0 top-0 w-72 bg-white rounded-2xl shadow-menu border border-gray-100/80 p-4 z-40 transition-all" data-purpose="profile-dropdown-card">
+<!-- User Info Header -->
+<div class="flex items-center space-x-3 mb-3.5">
+<div class="w-10 h-10 rounded-full bg-[#0284c7] text-white flex items-center justify-center font-bold text-base shadow-sm">
+            T
+          </div>
+<div class="min-w-0 flex-1">
+<p class="text-sm font-semibold text-gray-950 truncate leading-tight">Tit Mirgaliev</p>
+<div class="flex items-center space-x-1 text-xs text-gray-400 mt-0.5">
+<span class="text-[11px] font-medium text-gray-500 font-sans">G</span>
+<span class="truncate">tit.4mir@gmail.com</span>
+</div>
+</div>
+</div>
+<!-- Balance & Refill Section -->
+<div class="bg-gray-50/70 border border-gray-100 rounded-xl p-2.5 mb-3 flex items-center justify-between">
+<div>
+<span class="text-[11px] text-gray-400 block font-normal leading-tight">Баланс</span>
+<div class="flex items-center space-x-1 text-sm font-bold text-gray-900 mt-0.5">
+<span>2</span>
+<span class="text-emerald-500 text-xs font-black">✦</span>
+</div>
+</div>
+<button class="bg-brand-lime hover:bg-brand-lime-hover text-gray-950 text-xs font-semibold px-3.5 py-1.5 rounded-lg shadow-sm transition active:scale-95" type="button">
+            Пополнить
+          </button>
+</div>
+<div class="border-t border-gray-100 my-2"></div>
+<!-- Profile Link -->
+<a class="flex items-center space-x-2.5 px-1.5 py-2 text-sm text-gray-700 hover:text-gray-950 rounded-lg hover:bg-gray-50 transition-colors" href="#profile">
+<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+<span class="font-normal text-xs text-gray-800">Профиль</span>
+</a>
+<!-- Theme Setting Switcher -->
+<div class="flex items-center justify-between px-1.5 py-2">
+<span class="text-xs text-gray-600 font-normal">Тема</span>
+<div class="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200/50">
+<!-- Light -->
+<button class="p-1 rounded-md text-gray-400 hover:text-gray-700 transition" title="Светлая">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="4" stroke-width="2"></circle>
+<path d="M12 2v2m0 16v2m10-10h-2M4 10H2m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414m12.728 0l-1.414-1.414M7.05 7.05L5.636 5.636" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Dark -->
+<button class="p-1 rounded-md text-gray-400 hover:text-gray-700 transition" title="Темная">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- System (Active) -->
+<button class="p-1 rounded-md bg-black text-white shadow-xs transition" title="Системная">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9.75 17L9 20l2 1h2l2-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Language Switcher -->
+<div class="flex items-center justify-between px-1.5 py-2">
+<span class="text-xs text-gray-600 font-normal">Язык</span>
+<div class="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200/50 text-[11px] font-medium">
+<span class="bg-black text-white px-2 py-0.5 rounded-md shadow-xs">RU</span>
+<button class="text-gray-500 hover:text-gray-800 px-2 py-0.5 transition">EN</button>
+<button class="text-gray-500 hover:text-gray-800 px-2 py-0.5 transition">ES</button>
+</div>
+</div>
+<div class="border-t border-gray-100 my-2"></div>
+<!-- Logout Action -->
+<button class="w-full flex items-center space-x-2 px-1.5 py-1.5 text-xs text-gray-600 hover:text-red-600 rounded-lg hover:bg-red-50/50 transition-colors" type="button">
+<svg class="w-4 h-4 text-gray-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+</svg>
+<span class="font-normal">Выйти</span>
+</button>
+</div>
+<!-- END: ProfileDropdownMenu -->
+<!-- BEGIN: ContentCard -->
+<!-- Main view underlying the menu -->
+<main class="bg-white rounded-3xl p-6 sm:p-8 shadow-card border border-gray-100 min-h-[620px]">
+<!-- Header row inside the main list -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+<div class="flex items-baseline space-x-2">
+<h1 class="text-2xl font-bold tracking-tight text-gray-950">Все проекты</h1>
+<span class="text-gray-400 font-semibold text-lg">2</span>
+</div>
+<!-- Actions & View Switches -->
+<div class="flex items-center space-x-3">
+<button class="px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 bg-gray-50/50 hover:bg-gray-100 flex items-center space-x-1.5">
+<span>Категория</span>
+<svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<button class="px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 bg-gray-50/50 hover:bg-gray-100 flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 4h18M3 8h12m-12 4h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>По дате</span>
+<svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div>
+<!-- Table view with sample project records -->
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs">
+<thead>
+<tr class="text-gray-400 border-b border-gray-100 font-normal">
+<th class="py-3 px-3 w-10">
+<input class="rounded border-gray-300 text-black focus:ring-0" type="checkbox"/>
+</th>
+<th class="py-3 px-3 font-normal">Название</th>
+<th class="py-3 px-3 font-normal">Контент</th>
+<th class="py-3 px-3 font-normal">Обновлён</th>
+<th class="py-3 px-3 font-normal">Создан</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-50">
+<!-- Item 1 -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="py-3 px-3">
+<input class="rounded border-gray-300 text-black focus:ring-0" type="checkbox"/>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-xs overflow-hidden shrink-0">
+<span class="text-[10px] text-amber-700 font-medium">Платье</span>
+</div>
+<div>
+<p class="font-medium text-gray-900 text-xs">Летнее платье в горошек</p>
+<p class="text-[11px] text-gray-400">Одежда</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 text-gray-400">—</td>
+<td class="py-3 px-3 text-gray-500">22 нояб., 11:25</td>
+<td class="py-3 px-3 text-gray-500">22 нояб., 11:20</td>
+</tr>
+<!-- Item 2 -->
+<tr class="hover:bg-gray-50/50 transition-colors">
+<td class="py-3 px-3">
+<input class="rounded border-gray-300 text-black focus:ring-0" type="checkbox"/>
+</td>
+<td class="py-3 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-xs overflow-hidden shrink-0">
+<span class="text-[10px] text-blue-700 font-medium">Халат</span>
+</div>
+<div>
+<p class="font-medium text-gray-900 text-xs">Лабораторный халат</p>
+<p class="text-[11px] text-gray-400">Одежда</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 text-gray-700">1 карточка</td>
+<td class="py-3 px-3 text-gray-500">21 нояб., 08:28</td>
+<td class="py-3 px-3 text-gray-500">21 нояб., 08:15</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Table Pagination Footer -->
+<div class="mt-20 pt-4 border-t border-gray-100 flex items-center justify-center space-x-6 text-xs text-gray-500">
+<span>1–2 из 2</span>
+<div class="flex items-center space-x-2">
+<button class="p-1 text-gray-300 hover:text-gray-500 cursor-not-allowed" disabled="">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<span class="px-2 font-medium text-gray-900">1/1</span>
+<button class="p-1 text-gray-300 hover:text-gray-500 cursor-not-allowed" disabled="">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+<div class="flex items-center space-x-1 cursor-pointer hover:text-gray-800">
+<span>по 20</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+</main>
+<!-- END: ContentCard -->
+</div>
+<!-- END: MainContentWrapper -->
+</div>
+<!-- END: MainContainer -->
+</body></html>

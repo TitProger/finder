@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { configureApp } from './common/config/app/app.config';
 import { Envs } from './common/envs/env';
 import { Logger } from './common/logger/logger';
+import { DatabaseSeeder } from './infrastructure/database/seeders/database.seeder';
 
 export class App {
     private readonly ADDRESS: string;
@@ -34,6 +35,17 @@ export class App {
         const app = await App.createNestApp();
 
         await configureApp(app);
+
+        if (Envs.postgres.seedersRun) {
+            try {
+                await app.get(DatabaseSeeder).run();
+            } catch (error: unknown) {
+                Logger.error('Сид при старте не выполнен', Logger.statuses.FAIL, {
+                    data: { error: error instanceof Error ? error.message : String(error) },
+                });
+            }
+        }
+
         await app.listen(this.PORT, this.ADDRESS);
 
         this.logInformationAfterStartServer(await app.getUrl());

@@ -20,6 +20,8 @@ import { OptimalCardEntity } from '../../../domain/entities/market/optimal-card.
 import { ManualEconomicsEntity } from '../../../domain/entities/market/manual-economics.entity';
 import { PlanEntity } from '../../../domain/entities/tariff/plan.entity';
 import { DailyUsageEntity } from '../../../domain/entities/tariff/daily-usage.entity';
+import { StoredFileEntity } from '../../../domain/entities/file/stored-file.entity';
+import { SearchedProductEntity } from '../../../domain/entities/catalog/searched-product.entity';
 import { AppUserRepositoryImpl } from '../../database/postgres/repositories/user/app-user.repository.impl';
 import { CategoryRepositoryImpl } from '../../database/postgres/repositories/category/category.repository.impl';
 import { CategoryPhraseRepositoryImpl } from '../../database/postgres/repositories/category/category-phrase.repository.impl';
@@ -38,8 +40,14 @@ import { OptimalCardRepositoryImpl } from '../../database/postgres/repositories/
 import { ManualEconomicsRepositoryImpl } from '../../database/postgres/repositories/market/manual-economics.repository.impl';
 import { PlanRepositoryImpl } from '../../database/postgres/repositories/tariff/plan.repository.impl';
 import { DailyUsageRepositoryImpl } from '../../database/postgres/repositories/tariff/daily-usage.repository.impl';
+import { StoredFileRepositoryImpl } from '../../database/postgres/repositories/file/stored-file.repository.impl';
+import { SearchedProductRepositoryImpl } from '../../database/postgres/repositories/catalog/searched-product.repository.impl';
 import { AdminSeeder } from '../../database/seeders/admin.seeder';
 import { CategorySeederService } from '../../database/seeders/category-seeder.service';
+import { DatabaseSeeder } from '../../database/seeders/database.seeder';
+import { DemoProductsSeeder } from '../../database/seeders/demo/demo-products.seeder';
+import { FILE_STORAGE } from '../../../application/ports/file-storage.port';
+import { LocalFileStorage } from '../../storage/local-file-storage';
 
 const entities = [
     AppUserEntity,
@@ -60,6 +68,8 @@ const entities = [
     ManualEconomicsEntity,
     PlanEntity,
     DailyUsageEntity,
+    StoredFileEntity,
+    SearchedProductEntity,
 ];
 
 @Module({
@@ -83,8 +93,13 @@ const entities = [
         { provide: REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY, useClass: ManualEconomicsRepositoryImpl },
         { provide: REPOSITORY_TOKENS.PLAN_REPOSITORY, useClass: PlanRepositoryImpl },
         { provide: REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY, useClass: DailyUsageRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.STORED_FILE_REPOSITORY, useClass: StoredFileRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.SEARCHED_PRODUCT_REPOSITORY, useClass: SearchedProductRepositoryImpl },
+        { provide: FILE_STORAGE, useClass: LocalFileStorage },
         AdminSeeder,
         CategorySeederService,
+        DemoProductsSeeder,
+        DatabaseSeeder,
     ],
     exports: [
         MikroOrmModule,
@@ -106,6 +121,10 @@ const entities = [
         REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY,
         REPOSITORY_TOKENS.PLAN_REPOSITORY,
         REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY,
+        REPOSITORY_TOKENS.STORED_FILE_REPOSITORY,
+        REPOSITORY_TOKENS.SEARCHED_PRODUCT_REPOSITORY,
+        FILE_STORAGE,
+        DatabaseSeeder,
     ],
 })
 export class InfrastructureModule {}

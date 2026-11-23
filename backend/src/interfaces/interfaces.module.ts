@@ -11,6 +11,12 @@ import { ResearchRerunController } from './http/controllers/inquiry/research-rer
 import { InquiryController } from './http/controllers/inquiry/inquiry.controller';
 import { OptimalCardAdminController } from './http/controllers/market/optimal-card-admin.controller';
 import { ResearchIngestController } from './http/controllers/research/research-ingest.controller';
+import { SearchedProductController } from './http/controllers/product/searched-product.controller';
+import { SearchPackController } from './http/controllers/search/search-pack.controller';
+import { StoredFileController } from './http/controllers/file/stored-file.controller';
+import { SearchedProductMapper } from './http/mappers/product/searched-product.mapper';
+import { SearchedProductHttpService } from './http/services/impls/product/searched-product.http-service';
+import { StoredFileHttpService } from './http/services/impls/file/stored-file.http-service';
 import { PlanAdminController } from './http/controllers/tariff/plan-admin.controller';
 import { TelegramBotApi } from './telegram/telegram-api';
 import { TelegramDialog } from './telegram/telegram-dialog';
@@ -33,8 +39,14 @@ import { TELEGRAM_OUTBOUND } from './telegram/telegram.types';
         OptimalCardAdminController,
         PlanAdminController,
         ResearchIngestController,
+        SearchedProductController,
+        SearchPackController,
+        StoredFileController,
     ],
     providers: [
+        SearchedProductMapper,
+        SearchedProductHttpService,
+        StoredFileHttpService,
         { provide: APP_GUARD, useClass: AdminTokenGuard },
         TelegramBotApi,
         { provide: TELEGRAM_OUTBOUND, useExisting: TelegramBotApi },

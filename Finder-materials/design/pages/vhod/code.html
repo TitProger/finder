@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Вход в Finder</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              lime: '#c6f022',
+              telegram: '#2AABEE',
+              dark: '#111211',
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-typography">
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f8f9fa] text-neutral-900 flex flex-col justify-between selection:bg-[#c6f022] selection:text-neutral-900">
+<!-- BEGIN: MainHeader -->
+<header class="w-full pt-4 md:pt-6 px-4 md:px-8">
+<div class="max-w-[1360px] mx-auto bg-white border border-neutral-200/80 rounded-full px-6 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+<!-- Site Logo -->
+<a class="text-xl md:text-2xl font-extrabold italic tracking-tight text-neutral-900 hover:opacity-90 transition-opacity" href="#">
+        Finder<span class="text-neutral-500 font-normal not-italic text-lg md:text-xl">.com</span>
+</a>
+<!-- Header Action Button -->
+<div>
+<a class="inline-flex items-center justify-center px-6 py-2 rounded-full bg-[#c6f022] hover:bg-[#b8e21c] text-neutral-950 font-semibold text-sm transition-all duration-200 shadow-sm active:scale-95" href="#">
+          Войти
+        </a>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 flex flex-col items-center justify-center px-4 py-12 md:py-16">
+<div class="w-full max-w-[480px] flex flex-col items-center">
+<!-- Page Title & Subtitle -->
+<div class="text-center mb-8">
+<h1 class="text-3xl md:text-4xl font-extrabold text-neutral-950 tracking-tight mb-2.5">
+          Вход в Finder
+        </h1>
+<p class="text-neutral-500 text-sm md:text-base font-normal">
+          Для доступа к сервису необходимо войти
+        </p>
+</div>
+<!-- Auth Card Container -->
+<div class="w-full bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" data-purpose="auth-card">
+<!-- Primary Action: Telegram Login Button -->
+<a class="w-full h-12 bg-[#2AABEE] hover:bg-[#2297d3] text-white font-medium text-sm md:text-base rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-sm active:scale-[0.99]" href="#">
+<svg aria-hidden="true" class="w-5 h-5 fill-current" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"></path>
+</svg>
+<span>Войти через Telegram</span>
+</a>
+<!-- Divider -->
+<div class="relative flex py-5 items-center">
+<div class="flex-grow border-t border-neutral-200"></div>
+<span class="flex-shrink mx-4 text-neutral-400 text-xs tracking-wide">или другим способом</span>
+<div class="flex-grow border-t border-neutral-200"></div>
+</div>
+<!-- Alternative Login Providers List -->
+<div class="space-y-3">
+<!-- VK ID Button -->
+<a class="w-full h-12 bg-white hover:bg-neutral-50 text-neutral-800 font-medium text-sm md:text-base rounded-2xl border border-neutral-200 flex items-center justify-center gap-3 transition-colors active:scale-[0.99]" href="#">
+<svg aria-hidden="true" class="w-5 h-5" fill="none" viewbox="0 0 24 24">
+<rect fill="#0077FF" height="24" rx="6" width="24"></rect>
+<path d="M12.92 16.5c-4.4 0-6.91-3.02-7.02-8.06h2.21c.08 3.7 1.71 5.27 3 5.59V8.44h2.08v3.19c1.27-.14 2.6-1.59 3.05-3.19h2.08a6.3 6.3 0 01-2.81 4.02c1.78.83 3.33 2.45 3.79 3.99h-2.29c-.48-1.5-1.68-2.66-3.26-2.82v2.87h-.83z" fill="white"></path>
+</svg>
+<span>Войти с VK ID</span>
+</a>
+<!-- Yandex ID Button -->
+<a class="w-full h-12 bg-white hover:bg-neutral-50 text-neutral-800 font-medium text-sm md:text-base rounded-2xl border border-neutral-200 flex items-center justify-center gap-3 transition-colors active:scale-[0.99]" href="#">
+<span class="w-5 h-5 rounded-full bg-[#fc3f1d] flex items-center justify-center text-white text-[13px] font-bold">
+              Я
+            </span>
+<span>Войти с Яндекс ID</span>
+</a>
+<!-- Google Button with "Последний вход" Badge -->
+<div class="relative pt-1">
+<div class="absolute -top-1.5 right-6 z-10 pointer-events-none">
+<span class="bg-[#c6f022] text-neutral-950 text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm tracking-tight">
+                Последний вход
+              </span>
+</div>
+<a class="w-full h-12 bg-white hover:bg-neutral-50 text-neutral-800 font-medium text-sm md:text-base rounded-2xl border border-neutral-200 flex items-center justify-center gap-3 transition-colors active:scale-[0.99]" href="#">
+<svg aria-hidden="true" class="w-5 h-5" viewbox="0 0 24 24">
+<path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.67v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.16z" fill="#4285F4"></path>
+<path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.33 24 12 24z" fill="#34A853"></path>
+<path d="M5.28 14.27A7.18 7.18 0 0 1 4.9 12c0-.79.14-1.57.38-2.27V6.58H1.24A11.96 11.96 0 0 0 0 12c0 1.92.45 3.74 1.24 5.42l4.04-3.15z" fill="#FBBC05"></path>
+<path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" fill="#EA4335"></path>
+</svg>
+<span>Войти с Google</span>
+</a>
+</div>
+</div>
+<!-- Terms & Privacy Footnote -->
+<p class="text-xs text-center text-neutral-400 mt-6 leading-relaxed">
+          Продолжая, вы принимаете условия 
+          <a class="underline hover:text-neutral-700 transition-colors" href="#">оферты</a> 
+          и 
+          <a class="underline hover:text-neutral-700 transition-colors" href="#">политики конфиденциальности</a>
+</p>
+</div>
+<!-- Return to Home Link -->
+<div class="mt-8 text-center">
+<a class="inline-flex items-center text-sm font-medium text-neutral-600 hover:text-neutral-950 transition-colors" href="#">
+          ←  Вернуться на главную
+        </a>
+</div>
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: MainFooter -->
+<footer class="w-full bg-[#111211] text-white pt-14 pb-8 px-6 md:px-12 mt-12 border-t border-neutral-800">
+<div class="max-w-[1360px] mx-auto">
+<!-- Top Row: Logo & Navigation Columns -->
+<div class="flex flex-col lg:flex-row justify-between gap-10 pb-12">
+<!-- Left Column: Branding and Info -->
+<div class="max-w-xs">
+<a class="text-2xl font-extrabold italic tracking-tight text-white hover:opacity-90 transition-opacity" href="#">
+            Finder<span class="text-neutral-400 font-normal not-italic text-xl">.com</span>
+</a>
+<p class="mt-4 text-xs md:text-sm text-neutral-400 leading-relaxed font-normal">
+            Умный поиск товаров и поставщиков с искусственным интеллектом для маркетплейсов
+          </p>
+</div>
+<!-- Right Columns: Links Navigation -->
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-8 md:gap-14 lg:gap-20 text-xs md:text-sm">
+<!-- Column 1: Продукт -->
+<div>
+<h3 class="text-neutral-400 font-semibold uppercase tracking-wider text-xs mb-4">
+              ПРОДУКТ
+            </h3>
+<ul class="space-y-3 font-normal text-neutral-300">
+<li>
+<a class="hover:text-white transition-colors" href="#">Главная</a>
+</li>
+<li>
+<a class="hover:text-white transition-colors" href="#">Тарифы</a>
+</li>
+<li>
+<a class="inline-flex items-center gap-2 hover:text-white transition-colors" href="#">
+<svg class="w-4 h-4 text-neutral-400" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"></path>
+</svg>
+<span>Telegram-канал</span>
+</a>
+</li>
+</ul>
+</div>
+<!-- Column 2: Поддержка -->
+<div>
+<h3 class="text-neutral-400 font-semibold uppercase tracking-wider text-xs mb-4">
+              ПОДДЕРЖКА
+            </h3>
+<ul class="space-y-3 font-normal text-neutral-300">
+<li>
+<a class="inline-flex items-center gap-2 hover:text-white transition-colors" href="#">
+<svg class="w-4 h-4 text-neutral-400" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"></path>
+</svg>
+<span>Telegram-поддержка</span>
+</a>
+</li>
+<li>
+<a class="inline-flex items-center gap-2 hover:text-white transition-colors" href="#">
+<svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
+<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+</svg>
+<span>Чат с поддержкой</span>
+</a>
+</li>
+</ul>
+</div>
+<!-- Column 3: Документы -->
+<div class="col-span-2 sm:col-span-1">
+<h3 class="text-neutral-400 font-semibold uppercase tracking-wider text-xs mb-4">
+              ДОКУМЕНТЫ
+            </h3>
+<ul class="space-y-3 font-normal text-neutral-300">
+<li>
+<a class="hover:text-white transition-colors" href="#">Конфиденциальность</a>
+</li>
+<li>
+<a class="hover:text-white transition-colors" href="#">Условия</a>
+</li>
+<li>
+<a class="hover:text-white transition-colors" href="#">Оферта</a>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Bottom Line Indicator -->
+<div class="pt-6 border-t border-neutral-900 flex justify-center">
+<div class="w-10 h-1 bg-neutral-800 rounded-full"></div>
+</div>
+</div>
+</footer>
+<!-- END: MainFooter -->
+</body></html>

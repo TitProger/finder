@@ -1,3 +1,5 @@
+> **Устарело.** Здесь JWT-вход, pgvector и слои manufacturing. Рабочий план — [редакция 1.3](web-rework-1.3.md): образец кода — sekvoiya, не manufacturing. Продукт — Word редакции 1.2 в `Finder-materials`. Этот файл не удалять.
+
 ---
 name: Finder MVP tech
 overview: "Технический план до первого MVP: отдельный репозиторий OpenAPI, бэкенд NestJS по слоям manufacturing без предметной области производства, отдельный этап BDM на английских полях и самодостаточный промт на каждый этап."

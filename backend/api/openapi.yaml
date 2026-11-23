@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Finder API
-  version: 0.8.0
+  version: 0.10.0
   description: |
-    Контракт API Finder. Источник правды — каталог api-contract в этом репозитории.
+    Контракт API Finder. Источник правды — этот репозиторий (git tag).
 servers:
   - url: http://localhost:8090
     description: local
@@ -18,6 +18,12 @@ tags:
     description: Оптимальная карточка, которую админ помечает живой
   - name: research
     description: Запуск ресерча и приём досье
+  - name: products
+    description: История поиска и карточка товара для клиента
+  - name: search
+    description: Пачка вопросов первой страницы
+  - name: files
+    description: Файлы, на которые ссылается карточка
 paths:
   /health:
     get:
@@ -27,17 +33,17 @@ paths:
       summary: Проверка работоспособности сервиса
       security: []
       responses:
-        '200':
+        "200":
           description: Сервис доступен
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/HealthData'
+                        $ref: "#/components/schemas/HealthData"
   /admin/categories:
     post:
       operationId: createCategory
@@ -46,32 +52,33 @@ paths:
       tags:
         - categories
       summary: Создать категорию
-      description: Только ADMIN. Без фраз, вопросов и площадок — их добавляют отдельными ручками.
+      description: Только ADMIN. Без фраз, вопросов и площадок — их добавляют
+        отдельными ручками.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategoryRequest'
+              $ref: "#/components/schemas/CreateCategoryRequest"
       responses:
-        '200':
+        "200":
           description: Созданная категория
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Category'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{id}:
+                        $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{id}":
     get:
       operationId: getCategoryById
       security:
@@ -87,21 +94,21 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Категория целиком
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategoryDetail'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/CategoryDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
     patch:
       operationId: updateCategory
       security:
@@ -121,28 +128,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCategoryRequest'
+              $ref: "#/components/schemas/UpdateCategoryRequest"
       responses:
-        '200':
+        "200":
           description: Обновлённая категория
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Category'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/phrases:
+                        $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/phrases":
     post:
       operationId: createCategoryPhrase
       security:
@@ -162,28 +169,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategoryPhraseRequest'
+              $ref: "#/components/schemas/CreateCategoryPhraseRequest"
       responses:
-        '200':
+        "200":
           description: Фраза
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategoryPhrase'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/phrases/{id}:
+                        $ref: "#/components/schemas/CategoryPhrase"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/phrases/{id}":
     patch:
       operationId: updateCategoryPhrase
       security:
@@ -209,28 +216,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCategoryPhraseRequest'
+              $ref: "#/components/schemas/UpdateCategoryPhraseRequest"
       responses:
-        '200':
+        "200":
           description: Фраза
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategoryPhrase'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/question-packs:
+                        $ref: "#/components/schemas/CategoryPhrase"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/question-packs":
     post:
       operationId: createQuestionPack
       security:
@@ -250,28 +257,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateQuestionPackRequest'
+              $ref: "#/components/schemas/CreateQuestionPackRequest"
       responses:
-        '200':
+        "200":
           description: Пакет
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/QuestionPack'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/question-packs/{id}:
+                        $ref: "#/components/schemas/QuestionPack"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/question-packs/{id}":
     patch:
       operationId: updateQuestionPack
       security:
@@ -297,28 +304,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateQuestionPackRequest'
+              $ref: "#/components/schemas/UpdateQuestionPackRequest"
       responses:
-        '200':
+        "200":
           description: Пакет
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/QuestionPack'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/questions:
+                        $ref: "#/components/schemas/QuestionPack"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/questions":
     post:
       operationId: createCategoryQuestion
       security:
@@ -338,26 +345,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategoryQuestionRequest'
+              $ref: "#/components/schemas/CreateCategoryQuestionRequest"
       responses:
-        '200':
+        "200":
           description: Вопрос
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategoryQuestion'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/questions/{id}:
+                        $ref: "#/components/schemas/CategoryQuestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/questions/{id}":
     patch:
       operationId: updateCategoryQuestion
       security:
@@ -383,26 +390,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCategoryQuestionRequest'
+              $ref: "#/components/schemas/UpdateCategoryQuestionRequest"
       responses:
-        '200':
+        "200":
           description: Вопрос
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategoryQuestion'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/sites:
+                        $ref: "#/components/schemas/CategoryQuestion"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/sites":
     post:
       operationId: createCategorySite
       security:
@@ -422,26 +429,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategorySiteRequest'
+              $ref: "#/components/schemas/CreateCategorySiteRequest"
       responses:
-        '200':
+        "200":
           description: Площадка
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategorySite'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/categories/{categoryId}/sites/{id}:
+                        $ref: "#/components/schemas/CategorySite"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/categories/{categoryId}/sites/{id}":
     patch:
       operationId: updateCategorySite
       security:
@@ -467,33 +474,38 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCategorySiteRequest'
+              $ref: "#/components/schemas/UpdateCategorySiteRequest"
       responses:
-        '200':
+        "200":
           description: Площадка
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/CategorySite'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/CategorySite"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /inquiries:
     post:
       operationId: createInquiry
       tags:
         - inquiries
       summary: Создать заявку текстом
-      description: |
-        Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.
+      description: >
+        Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram
+        user id — это вход, не регистрация. Точная фраза активной категории
+        пишет category_id и отдаёт вопросы этой категории и одного пакета, если
+        текст точно совпал с его code или title. Иначе заявка на паузе,
+        category_id пустой, research_run не создаётся. Telegram-бот и парсеры не
+        вызываются.
       security:
         - bearerAuth: []
       requestBody:
@@ -501,35 +513,39 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateInquiryRequest'
+              $ref: "#/components/schemas/CreateInquiryRequest"
       responses:
-        '200':
+        "200":
           description: Заявка после классификации
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Inquiry'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /inquiries/{id}:
+                        $ref: "#/components/schemas/Inquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/inquiries/{id}":
     get:
       operationId: getInquiryById
       tags:
         - inquiries
       summary: Прочитать заявку
-      description: |
-        Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
+      description: >
+        Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid.
+        На паузе questions пустой. После категории — вопросы базы и выбранного
+        пакета. Если обязательные ответы совпали с живой карточкой, статус
+        SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая.
+        research_run не создаётся.
       security:
         - bearerAuth: []
       parameters:
@@ -540,33 +556,35 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Заявка
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Inquiry'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/inquiries/{id}/assign-category:
+                        $ref: "#/components/schemas/Inquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/inquiries/{id}/assign-category":
     post:
       operationId: assignInquiryCategory
       tags:
         - inquiries
       summary: Назначить категорию
-      description: |
-        Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу клиента в category_phrase. Повтор той же фразы в категории ошибкой не считается. research_run не создаётся.
+      description: >
+        Только ADMIN. Снимает паузу, пишет category_id и дописывает фразу
+        клиента в category_phrase. Повтор той же фразы в категории ошибкой не
+        считается. research_run не создаётся.
       security:
         - bearerAuth: []
       parameters:
@@ -581,39 +599,40 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignCategoryRequest'
+              $ref: "#/components/schemas/AssignCategoryRequest"
       responses:
-        '200':
+        "200":
           description: Заявка после назначения
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Inquiry'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/inquiries/{id}/assign-new-category:
+                        $ref: "#/components/schemas/Inquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/inquiries/{id}/assign-new-category":
     post:
       operationId: createCategoryAndAssignInquiry
       tags:
         - inquiries
       summary: Создать категорию и назначить
-      description: |
-        Только ADMIN. Создаёт активную категорию, назначает её заявке и дописывает фразу клиента. Пауза снимается. research_run не создаётся.
+      description: >
+        Только ADMIN. Создаёт активную категорию, назначает её заявке и
+        дописывает фразу клиента. Пауза снимается. research_run не создаётся.
       security:
         - bearerAuth: []
       parameters:
@@ -628,39 +647,41 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategoryAndAssignRequest'
+              $ref: "#/components/schemas/CreateCategoryAndAssignRequest"
       responses:
-        '200':
+        "200":
           description: Заявка после новой категории
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Inquiry'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/inquiries/{id}/rerun-research:
+                        $ref: "#/components/schemas/Inquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/inquiries/{id}/rerun-research":
     post:
       operationId: rerunInquiryResearch
       tags:
         - inquiries
       summary: Повторно запустить ресерч
-      description: |
-        Только админ (статический ADMIN_API_TOKEN). Создаёт новый run_id и снова шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.
+      description: >
+        Только админ (статический ADMIN_API_TOKEN). Создаёт новый run_id и снова
+        шлёт webhook. Дневной лимит клиента не списывается. Заявка должна быть в
+        RESEARCHING или DOSSIER_WITH_ADMIN и с категорией. В ответе нет цен.
       security:
         - bearerAuth: []
       parameters:
@@ -671,35 +692,38 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Новый прогон поставлен в очередь
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/ResearchRerunResult'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/inquiries/{id}/economics:
+                        $ref: "#/components/schemas/ResearchRerunResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/inquiries/{id}/economics":
     get:
       operationId: getInquiryEconomics
       tags:
         - inquiries
       summary: Слои цен и ручная экономика заявки
-      description: |
-        Только админ (статический ADMIN_API_TOKEN). Слои FACTORY, CHINA_OPEN, RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы не смешиваются. Если в досье нет курса, берётся запасной и это помечается. Клиенту этот ответ не отправляется.
+      description: >
+        Только админ (статический ADMIN_API_TOKEN). Слои FACTORY, CHINA_OPEN,
+        RUSSIA_RETAIL и RUSSIA_WHOLESALE в рублях, без логистики. Разные единицы
+        не смешиваются. Если в досье нет курса, берётся запасной и это
+        помечается. Клиенту этот ответ не отправляется.
       security:
         - bearerAuth: []
       parameters:
@@ -710,30 +734,33 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Слои и, если менеджер уже ввёл затраты, себестоимость
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/InquiryEconomics'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/InquiryEconomics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
     post:
       operationId: saveInquiryEconomics
       tags:
         - inquiries
       summary: Записать ручные затраты и посчитать себестоимость
-      description: |
-        Только админ. Доставка за единицу, пошлина в процентах, прочие затраты и наценка в процентах. Себестоимость считается от минимальной заводской цены в рублях и сравнивается с розницей РФ той же единицы. client_price не заполняется: клиенту цена не уходит.
+      description: >
+        Только админ. Доставка за единицу, пошлина в процентах, прочие затраты и
+        наценка в процентах. Себестоимость считается от минимальной заводской
+        цены в рублях и сравнивается с розницей РФ той же единицы. client_price
+        не заполняется: клиенту цена не уходит.
       security:
         - bearerAuth: []
       parameters:
@@ -748,35 +775,39 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SaveInquiryEconomicsRequest'
+              $ref: "#/components/schemas/SaveInquiryEconomicsRequest"
       responses:
-        '200':
+        "200":
           description: Затраты записаны, себестоимость посчитана
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/InquiryEconomics'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/InquiryEconomics"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /admin/optimal-cards:
     post:
       operationId: createOptimalCard
       tags:
         - optimal-cards
       summary: Создать оптимальную карточку
-      description: |
-        Только ADMIN. Карточка создаётся вручную или из оффера, если передан offerId. Оффер уже должен быть в базе: парсеры и research_run этот вызов не запускает. Флаг isLive по умолчанию выключен. Включение снимает флаг с другой живой строки того же товара и того же диапазона количества. Снятая строка остаётся.
+      description: >
+        Только ADMIN. Карточка создаётся вручную или из оффера, если передан
+        offerId. Оффер уже должен быть в базе: парсеры и research_run этот вызов
+        не запускает. Флаг isLive по умолчанию выключен. Включение снимает флаг
+        с другой живой строки того же товара и того же диапазона количества.
+        Снятая строка остаётся.
       security:
         - bearerAuth: []
       requestBody:
@@ -784,32 +815,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateOptimalCardRequest'
+              $ref: "#/components/schemas/CreateOptimalCardRequest"
       responses:
-        '200':
+        "200":
           description: Созданная карточка
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/OptimalCard'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /admin/optimal-cards/{id}:
+                        $ref: "#/components/schemas/OptimalCard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/admin/optimal-cards/{id}":
     get:
       operationId: getOptimalCardById
       tags:
@@ -826,34 +857,36 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Карточка
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/OptimalCard'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/OptimalCard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
     patch:
       operationId: updateOptimalCard
       tags:
         - optimal-cards
       summary: Править оптимальную карточку
-      description: |
-        Только ADMIN. Меняет переданные поля. Повторное isLive=true на тот же товар и тот же диапазон снимает флаг с предыдущей строки, саму строку не удаляет. research_run не создаётся.
+      description: >
+        Только ADMIN. Меняет переданные поля. Повторное isLive=true на тот же
+        товар и тот же диапазон снимает флаг с предыдущей строки, саму строку не
+        удаляет. research_run не создаётся.
       security:
         - bearerAuth: []
       parameters:
@@ -868,39 +901,46 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateOptimalCardRequest'
+              $ref: "#/components/schemas/UpdateOptimalCardRequest"
       responses:
-        '200':
+        "200":
           description: Карточка после правки
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/OptimalCard'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/OptimalCard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /research/ingest:
     post:
       operationId: ingestResearchDossier
       tags:
         - research
       summary: Принять JSON-досье ресерча
-      description: |
-        Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.
+      description: >
+        Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через
+        crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же
+        run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же
+        run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без
+        quote и контакт без source_url попадают в discarded, остальное пишется.
+        status=partial и status=failed принимаются. Компания с уже известным
+        USCC обновляется, а не даёт 409. Успех переводит заявку в
+        DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.
       security:
         - researchIngestToken: []
       requestBody:
@@ -908,31 +948,154 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ResearchDossier'
+              $ref: "#/components/schemas/ResearchDossier"
       responses:
-        '200':
+        "200":
           description: Досье принято или повтор того же тела
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: "#/components/schemas/ApiResponse"
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/ResearchIngestResult'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/Unprocessable'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        $ref: "#/components/schemas/ResearchIngestResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /search/pack:
+    get:
+      operationId: getSearchPack
+      tags:
+        - search
+      summary: Пачка вопросов и категории экрана поиска
+      description: >
+        Публичная пачка для первой страницы. На экране виден один вопрос. Иконки
+        категорий — имена, не картинки.
+      security: []
+      responses:
+        "200":
+          description: Пачка
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SearchPack"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /products:
+    get:
+      operationId: listProducts
+      security: []
+      tags:
+        - products
+      summary: История поиска
+      description: >
+        Публичный список товаров, которые уже искали. Сортировка — JSON,
+        например {"searchedAt":"desc"}. Фильтр category сравнивается с
+        categoryLabel.
+      parameters:
+        - $ref: "#/components/parameters/PageQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/SortQuery"
+        - name: category
+          in: query
+          required: false
+          description: Подпись категории. Пусто — все категории.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Страница истории
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProductListItem"
+                      page:
+                        $ref: "#/components/schemas/PageInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/products/{id}":
+    get:
+      operationId: getProductById
+      security: []
+      tags:
+        - products
+      summary: Карточка товара
+      description: >
+        Описание, характеристики и четыре блока отчёта. Числа приходят в полях
+        ответа. Доставка с available=false — статус «недоступно».
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Карточка
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProductCard"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/files/{id}/content":
+    get:
+      operationId: getStoredFileContent
+      security: []
+      tags:
+        - files
+      summary: Байты файла карточки
+      description: Обложка и галерея. Повтор того же пути в сиде не создаёт второй файл.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Содержимое файла
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:
@@ -943,6 +1106,40 @@ components:
       type: http
       scheme: bearer
       description: Секрет RESEARCH_INGEST_TOKEN. Не путать с токеном админки.
+  parameters:
+    PageQuery:
+      name: page
+      in: query
+      description: Номер страницы
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitQuery:
+      name: limit
+      in: query
+      description: Размер страницы
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SortQuery:
+      name: sort
+      in: query
+      description: >
+        Сортировка в виде JSON-строки, например `{"title":"asc"}` или
+        `{"createdAt":"desc"}`.
+      schema:
+        type: string
+        example: '{"title":"asc"}'
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     ApiStatus:
       type: string
@@ -994,24 +1191,25 @@ components:
         - status
         - message
         - data
-      description: |
-        Единая обёртка ответа. При status=success: data — полезная нагрузка; error обычно отсутствует. При status=error: data обычно null; error — детали ошибки.
+      description: >
+        Единая обёртка ответа. При status=success: data — полезная нагрузка;
+        error обычно отсутствует. При status=error: data обычно null; error —
+        детали ошибки.
       properties:
         status:
-          $ref: '#/components/schemas/ApiStatus'
+          $ref: "#/components/schemas/ApiStatus"
         message:
           type: string
           example: OK
         data:
-          nullable: true
           description: Полезная нагрузка или null при ошибке
         page:
-          $ref: '#/components/schemas/PageInfo'
+          $ref: "#/components/schemas/PageInfo"
         count: {}
         requestId:
           type: string
         error:
-          $ref: '#/components/schemas/ApiError'
+          $ref: "#/components/schemas/ApiError"
     CategoryStatus:
       type: string
       enum:
@@ -1049,17 +1247,18 @@ components:
         description:
           type: string
         status:
-          $ref: '#/components/schemas/CategoryStatus'
+          $ref: "#/components/schemas/CategoryStatus"
         createdAt:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CategoryDetail:
       allOf:
-        - $ref: '#/components/schemas/Category'
+        - $ref: "#/components/schemas/Category"
         - type: object
           required:
             - phrases
@@ -1070,19 +1269,19 @@ components:
             phrases:
               type: array
               items:
-                $ref: '#/components/schemas/CategoryPhrase'
+                $ref: "#/components/schemas/CategoryPhrase"
             questionPacks:
               type: array
               items:
-                $ref: '#/components/schemas/QuestionPack'
+                $ref: "#/components/schemas/QuestionPack"
             questions:
               type: array
               items:
-                $ref: '#/components/schemas/CategoryQuestion'
+                $ref: "#/components/schemas/CategoryQuestion"
             sites:
               type: array
               items:
-                $ref: '#/components/schemas/CategorySite'
+                $ref: "#/components/schemas/CategorySite"
     CategoryPhrase:
       type: object
       required:
@@ -1103,9 +1302,10 @@ components:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     QuestionPack:
       type: object
       required:
@@ -1128,8 +1328,9 @@ components:
         title:
           type: string
         description:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         sortOrder:
           type: integer
         isActive:
@@ -1138,9 +1339,10 @@ components:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CategoryQuestion:
       type: object
       required:
@@ -1159,20 +1361,21 @@ components:
           type: string
           format: uuid
         questionPackId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
           description: null = базовый вопрос категории
         prompt:
           type: string
         answerType:
-          $ref: '#/components/schemas/QuestionAnswerType'
+          $ref: "#/components/schemas/QuestionAnswerType"
         choices:
           description: Варианты для SINGLE_CHOICE / MULTI_CHOICE; иначе null
           oneOf:
             - type: object
             - type: array
-            - type: 'null'
+            - type: "null"
         isRequired:
           type: boolean
         sortOrder:
@@ -1181,9 +1384,10 @@ components:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CategorySite:
       type: object
       required:
@@ -1203,31 +1407,35 @@ components:
           type: string
           format: uuid
         siteRole:
-          $ref: '#/components/schemas/SiteRole'
+          $ref: "#/components/schemas/SiteRole"
         name:
           type: string
         baseUrl:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         priority:
           type: integer
         requiresLogin:
           type: boolean
         queryTemplate:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         excludeNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         isActive:
           type: boolean
         createdAt:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CreateCategoryRequest:
       type: object
       required:
@@ -1243,7 +1451,7 @@ components:
           type: string
           minLength: 1
         status:
-          $ref: '#/components/schemas/CategoryStatus'
+          $ref: "#/components/schemas/CategoryStatus"
     UpdateCategoryRequest:
       type: object
       additionalProperties: false
@@ -1257,7 +1465,7 @@ components:
           type: string
           minLength: 1
         status:
-          $ref: '#/components/schemas/CategoryStatus'
+          $ref: "#/components/schemas/CategoryStatus"
     CreateCategoryPhraseRequest:
       type: object
       required:
@@ -1291,8 +1499,9 @@ components:
           minLength: 1
           maxLength: 255
         description:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         sortOrder:
           type: integer
         isActive:
@@ -1311,8 +1520,9 @@ components:
           minLength: 1
           maxLength: 255
         description:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         sortOrder:
           type: integer
         isActive:
@@ -1325,21 +1535,22 @@ components:
       additionalProperties: false
       properties:
         questionPackId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
           description: null или отсутствие = базовый вопрос
         prompt:
           type: string
           minLength: 1
         answerType:
-          $ref: '#/components/schemas/QuestionAnswerType'
+          $ref: "#/components/schemas/QuestionAnswerType"
         choices:
           description: Варианты ответа; иначе null
           oneOf:
             - type: object
             - type: array
-            - type: 'null'
+            - type: "null"
         isRequired:
           type: boolean
         sortOrder:
@@ -1350,20 +1561,21 @@ components:
       minProperties: 1
       properties:
         questionPackId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
         prompt:
           type: string
           minLength: 1
         answerType:
-          $ref: '#/components/schemas/QuestionAnswerType'
+          $ref: "#/components/schemas/QuestionAnswerType"
         choices:
           description: Варианты ответа; иначе null
           oneOf:
             - type: object
             - type: array
-            - type: 'null'
+            - type: "null"
         isRequired:
           type: boolean
         sortOrder:
@@ -1376,25 +1588,28 @@ components:
       additionalProperties: false
       properties:
         siteRole:
-          $ref: '#/components/schemas/SiteRole'
+          $ref: "#/components/schemas/SiteRole"
         name:
           type: string
           minLength: 1
           maxLength: 255
         baseUrl:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           maxLength: 2048
         priority:
           type: integer
         requiresLogin:
           type: boolean
         queryTemplate:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         excludeNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         isActive:
           type: boolean
     UpdateCategorySiteRequest:
@@ -1403,25 +1618,28 @@ components:
       minProperties: 1
       properties:
         siteRole:
-          $ref: '#/components/schemas/SiteRole'
+          $ref: "#/components/schemas/SiteRole"
         name:
           type: string
           minLength: 1
           maxLength: 255
         baseUrl:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           maxLength: 2048
         priority:
           type: integer
         requiresLogin:
           type: boolean
         queryTemplate:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         excludeNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         isActive:
           type: boolean
     InquiryStatus:
@@ -1437,16 +1655,22 @@ components:
         - CLOSED
     ClassificationMatch:
       type: string
-      description: |
-        Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM.
+      description: >
+        Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы.
+        keyword — совпадение по ключевым словам. llm — классификация через LLM.
       enum:
         - exact_phrase
         - keyword
         - llm
     ClassificationOutcome:
       type: string
-      description: |
-        exact_phrase — одна активная категория по точной фразе. keyword_match — совпадение по ключевым словам. llm_confident — LLM уверенно выбрала категорию. ambiguous_phrase — та же фраза в нескольких категориях. ambiguous_keyword — ключевые слова совпали с несколькими категориями. llm_low_confidence — LLM не уверена в выборе. no_match — фраза, ключевые слова и LLM категорию не выбрали.
+      description: >
+        exact_phrase — одна активная категория по точной фразе. keyword_match —
+        совпадение по ключевым словам. llm_confident — LLM уверенно выбрала
+        категорию. ambiguous_phrase — та же фраза в нескольких категориях.
+        ambiguous_keyword — ключевые слова совпали с несколькими категориями.
+        llm_low_confidence — LLM не уверена в выборе. no_match — фраза, ключевые
+        слова и LLM категорию не выбрали.
       enum:
         - exact_phrase
         - keyword_match
@@ -1470,9 +1694,10 @@ components:
           type: string
         score:
           type: number
-          description: 1 у точной фразы и у уверенного LLM. У ключевых слов — доля совпадения.
+          description: 1 у точной фразы и у уверенного LLM. У ключевых слов — доля
+            совпадения.
         matchedBy:
-          $ref: '#/components/schemas/ClassificationMatch'
+          $ref: "#/components/schemas/ClassificationMatch"
     ClassificationScores:
       type: object
       required:
@@ -1481,7 +1706,7 @@ components:
         - candidates
       properties:
         outcome:
-          $ref: '#/components/schemas/ClassificationOutcome'
+          $ref: "#/components/schemas/ClassificationOutcome"
         stub:
           type: boolean
           description: Всегда false. Отдельной заглушки классификатора больше нет.
@@ -1489,7 +1714,7 @@ components:
           type: array
           maxItems: 5
           items:
-            $ref: '#/components/schemas/ClassificationCandidate'
+            $ref: "#/components/schemas/ClassificationCandidate"
     InquiryQuestion:
       type: object
       required:
@@ -1500,7 +1725,8 @@ components:
         - isRequired
         - sortOrder
         - createdAt
-      description: Вопрос, который надо задать клиенту. База категории и, если выбран, один пакет.
+      description: Вопрос, который надо задать клиенту. База категории и, если выбран,
+        один пакет.
       properties:
         id:
           type: string
@@ -1509,20 +1735,21 @@ components:
           type: string
           format: uuid
         questionPackId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
           description: null — базовый вопрос категории
         prompt:
           type: string
         answerType:
-          $ref: '#/components/schemas/QuestionAnswerType'
+          $ref: "#/components/schemas/QuestionAnswerType"
         choices:
           description: Варианты для SINGLE_CHOICE / MULTI_CHOICE; иначе null
           oneOf:
             - type: object
             - type: array
-            - type: 'null'
+            - type: "null"
         isRequired:
           type: boolean
         sortOrder:
@@ -1531,9 +1758,10 @@ components:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     Inquiry:
       type: object
       required:
@@ -1566,67 +1794,83 @@ components:
           minimum: 1
           description: Telegram user id клиента. Вход, не отдельная регистрация.
         status:
-          $ref: '#/components/schemas/InquiryStatus'
+          $ref: "#/components/schemas/InquiryStatus"
         rawText:
           type: string
-          description: Текст клиента. При назначении категории эта фраза дописывается в category_phrase.
+          description: Текст клиента. При назначении категории эта фраза дописывается в
+            category_phrase.
         photoUrls:
           type: array
           items:
             type: string
-          description: |
-            Telegram file_id фото, которое клиент приложил к тексту. Пустой массив, если фото нет. POST /inquiries фото не принимает. Бот пишет file_id сюда и пересылает фото админу. Это не публичная ссылка.
+          description: >
+            Telegram file_id фото, которое клиент приложил к тексту. Пустой
+            массив, если фото нет. POST /inquiries фото не принимает. Бот пишет
+            file_id сюда и пересылает фото админу. Это не публичная ссылка.
         categoryId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
           description: null, пока классификатор сомневается или фраза неоднозначна.
         questionPackId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: |
-            Один подходящий пакет. null — только базовые вопросы категории. Пакет выбирается точным совпадением текста с code или title. Сомнение между пакетами паузу не ставит.
+          description: >
+            Один подходящий пакет. null — только базовые вопросы категории.
+            Пакет выбирается точным совпадением текста с code или title.
+            Сомнение между пакетами паузу не ставит.
         isPaused:
           type: boolean
           description: true — ресерч не стартует. research_run не создаётся.
         pauseReason:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         assignedByUserId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: Админ, который назначил категорию вручную. null, если категорию выбрала точная фраза.
+          description: Админ, который назначил категорию вручную. null, если категорию
+            выбрала точная фраза.
         classificationScores:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ClassificationScores'
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/ClassificationScores"
         questions:
           type: array
           items:
-            $ref: '#/components/schemas/InquiryQuestion'
-          description: |
-            Пусто на паузе. Иначе базовые вопросы категории и вопросы выбранного пакета. Вопросы других пакетов не отдаются.
+            $ref: "#/components/schemas/InquiryQuestion"
+          description: >
+            Пусто на паузе. Иначе базовые вопросы категории и вопросы выбранного
+            пакета. Вопросы других пакетов не отдаются.
         optimalCardId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: |
-            Живая карточка, которую отдали из базы. null, пока ответов не хватает или подходящей живой карточки нет. research_run при этом не создаётся.
+          description: >
+            Живая карточка, которую отдали из базы. null, пока ответов не
+            хватает или подходящей живой карточки нет. research_run при этом не
+            создаётся.
         optimalCard:
-          nullable: true
-          description: |
-            Та же карточка целиком. Пусто, если заявка ещё не в статусе «ответ из базы».
-          allOf:
-            - $ref: '#/components/schemas/OptimalCard'
+          description: >
+            Та же карточка целиком. Пусто, если заявка ещё не в статусе «ответ
+            из базы».
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/OptimalCard"
         createdAt:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CreateInquiryRequest:
       type: object
       required:
@@ -1684,7 +1928,7 @@ components:
           type: string
           format: uuid
         inquiryStatus:
-          $ref: '#/components/schemas/InquiryStatus'
+          $ref: "#/components/schemas/InquiryStatus"
         runStatus:
           type: string
           enum:
@@ -1737,19 +1981,19 @@ components:
         quotes:
           type: array
           items:
-            $ref: '#/components/schemas/LayerQuote'
+            $ref: "#/components/schemas/LayerQuote"
         fxFallback:
           type: boolean
           description: true, если хотя бы один слой взял запасной курс.
         economics:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/SaveInquiryEconomicsRequest'
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/SaveInquiryEconomicsRequest"
         landed:
           type: array
           description: Пустой, пока менеджер не ввёл затраты или нет заводской цены.
           items:
-            $ref: '#/components/schemas/LandedUnit'
+            $ref: "#/components/schemas/LandedUnit"
     ContactChannel:
       type: string
       description: Канал контакта на оптимальной карточке.
@@ -1807,12 +2051,14 @@ components:
         canonicalProductId:
           type: string
           format: uuid
-          description: Товар карточки. Повторная живая снимает флаг у другой строки с тем же товаром и тем же диапазоном.
+          description: Товар карточки. Повторная живая снимает флаг у другой строки с тем
+            же товаром и тем же диапазоном.
         nameRu:
           type: string
         nameZh:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         qtyMin:
           type: number
           minimum: 0
@@ -1827,75 +2073,93 @@ components:
           description: Обязательный вопрос типа NUMBER. Его число должно попасть в диапазон.
         isLive:
           type: boolean
-          description: Живая карточка. На один товар и один диапазон живая только одна. Снятая строка остаётся.
+          description: Живая карточка. На один товар и один диапазон живая только одна.
+            Снятая строка остаётся.
         offerId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: Оффер, из которого собрали карточку. Пусто, если админ вписал её вручную.
+          description: Оффер, из которого собрали карточку. Пусто, если админ вписал её
+            вручную.
         companyId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
         storefrontId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
         price:
-          type: number
+          type:
+            - number
+            - "null"
           minimum: 0
-          nullable: true
         currency:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Трёхбуквенный код валюты, если цена есть.
         contactValue:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         contactChannel:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ContactChannel'
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/ContactChannel"
         contactUrl:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Страница контакта. Пусто, если контакт вписан админом.
         contactAdminEntered:
           type: boolean
           description: true — контакт вписан админом, без url.
         contactEnteredAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         productAttributes:
           type: object
-          description: |
-            Обязательные ответы кроме объёма. Ключ — id вопроса. Набор ключей должен совпасть с обязательными ответами заявки, кроме вопроса объёма.
+          description: >
+            Обязательные ответы кроме объёма. Ключ — id вопроса. Набор ключей
+            должен совпасть с обязательными ответами заявки, кроме вопроса
+            объёма.
           additionalProperties:
-            $ref: '#/components/schemas/AttributeValue'
+            $ref: "#/components/schemas/AttributeValue"
         reasonNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         markedLiveByUserId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
         markedLiveAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         expiresAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
-          description: Пока эта дата в будущем, карточку можно отдать из базы. Если срок не задан при создании — 30 дней.
+          description: Пока эта дата в будущем, карточку можно отдать из базы. Если срок
+            не задан при создании — 30 дней.
         createdAt:
           type: string
           format: date-time
         updatedAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     CreateOptimalCardRequest:
       type: object
       additionalProperties: false
@@ -1910,25 +2174,32 @@ components:
           type: string
           format: uuid
         offerId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: |
-            Если задан, карточка собирается из оффера: цена, валюта, компания, витрина и url страницы. Явно переданные поля заменяют снятые с оффера. Парсер не вызывается.
+          description: >
+            Если задан, карточка собирается из оффера: цена, валюта, компания,
+            витрина и url страницы. Явно переданные поля заменяют снятые с
+            оффера. Парсер не вызывается.
         canonicalProductId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
-          description: Уже существующий товар этой категории. Иначе товар создаётся из nameRu.
+          description: Уже существующий товар этой категории. Иначе товар создаётся из
+            nameRu.
         nameRu:
           type: string
           minLength: 1
           maxLength: 512
-          description: Имя товара. Обязательно, когда своего товара ещё нет ни в запросе, ни в оффере.
+          description: Имя товара. Обязательно, когда своего товара ещё нет ни в запросе,
+            ни в оффере.
         nameZh:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 512
-          nullable: true
         qtyMin:
           type: number
           minimum: 0
@@ -1941,42 +2212,50 @@ components:
         productAttributes:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/AttributeValue'
+            $ref: "#/components/schemas/AttributeValue"
         isLive:
           type: boolean
           default: false
-          description: true снимает флаг с другой живой строки того же товара и того же диапазона. Строка остаётся.
+          description: true снимает флаг с другой живой строки того же товара и того же
+            диапазона. Строка остаётся.
         price:
-          type: number
+          type:
+            - number
+            - "null"
           minimum: 0
-          nullable: true
         currency:
-          type: string
+          type:
+            - string
+            - "null"
           minLength: 3
           maxLength: 3
-          nullable: true
         contactValue:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 512
-          nullable: true
         contactChannel:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ContactChannel'
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/ContactChannel"
         contactUrl:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 2048
-          nullable: true
         contactAdminEntered:
           type: boolean
-          description: true очищает url. Если url пустой, а контакт есть, флаг всё равно становится true.
+          description: true очищает url. Если url пустой, а контакт есть, флаг всё равно
+            становится true.
         reasonNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         expiresAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
           description: Пусто или null при создании — срок 30 дней от текущего момента.
     UpdateOptimalCardRequest:
       type: object
@@ -1984,17 +2263,19 @@ components:
       description: Пустые поля не меняют карточку. null в сроке снова ставит 30 дней.
       properties:
         canonicalProductId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
-          nullable: true
         nameRu:
           type: string
           minLength: 1
           maxLength: 512
         nameZh:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 512
-          nullable: true
         qtyMin:
           type: number
           minimum: 0
@@ -2007,39 +2288,45 @@ components:
         productAttributes:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/AttributeValue'
+            $ref: "#/components/schemas/AttributeValue"
         isLive:
           type: boolean
         price:
-          type: number
+          type:
+            - number
+            - "null"
           minimum: 0
-          nullable: true
         currency:
-          type: string
+          type:
+            - string
+            - "null"
           minLength: 3
           maxLength: 3
-          nullable: true
         contactValue:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 512
-          nullable: true
         contactChannel:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ContactChannel'
+          anyOf:
+            - type: "null"
+            - $ref: "#/components/schemas/ContactChannel"
         contactUrl:
-          type: string
+          type:
+            - string
+            - "null"
           maxLength: 2048
-          nullable: true
         contactAdminEntered:
           type: boolean
         reasonNote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         expiresAt:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     ResearchDossier:
       type: object
       additionalProperties: true
@@ -2059,38 +2346,42 @@ components:
           type: string
           format: uuid
         status:
-          $ref: '#/components/schemas/DossierStatus'
+          $ref: "#/components/schemas/DossierStatus"
         category:
           type: string
           description: code категории заявки
         pack:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         started_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         finished_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
         sites:
           type: array
           items:
-            $ref: '#/components/schemas/DossierSite'
+            $ref: "#/components/schemas/DossierSite"
         companies:
           type: array
           items:
-            $ref: '#/components/schemas/DossierCompany'
+            $ref: "#/components/schemas/DossierCompany"
         offers:
           type: array
           items:
-            $ref: '#/components/schemas/DossierOffer'
+            $ref: "#/components/schemas/DossierOffer"
         fx:
-          $ref: '#/components/schemas/DossierFx'
+          $ref: "#/components/schemas/DossierFx"
         summary_ru:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: Текст для админа, клиенту не отправляется
     ResearchIngestResult:
       type: object
@@ -2110,15 +2401,414 @@ components:
           type: string
           format: uuid
         inquiry_status:
-          $ref: '#/components/schemas/InquiryStatus'
+          $ref: "#/components/schemas/InquiryStatus"
         duplicate:
           type: boolean
         counts:
-          $ref: '#/components/schemas/ResearchIngestCounts'
+          $ref: "#/components/schemas/ResearchIngestCounts"
         discarded:
           type: array
           items:
-            $ref: '#/components/schemas/DiscardedItem'
+            $ref: "#/components/schemas/DiscardedItem"
+    ProductListItem:
+      type: object
+      description: Строка истории поиска.
+      required:
+        - id
+        - slug
+        - name
+        - categoryLabel
+        - materialCount
+        - searchedAt
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          description: Стабильный код демо-записи, повторный сид его не дублирует.
+        name:
+          type: string
+        categoryLabel:
+          type: string
+          description: Подпись категории в таблице и в фильтре.
+        chipLabel:
+          type:
+            - string
+            - "null"
+          description: Короткий чип на карточке сетки. Пусто — чипа нет.
+        photoUrl:
+          type:
+            - string
+            - "null"
+          description: Относительный путь байтов обложки.
+        materialCount:
+          type: integer
+          minimum: 0
+          description: Число материалов в колонке «контент».
+        searchedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ProductCard:
+      allOf:
+        - $ref: "#/components/schemas/ProductListItem"
+        - type: object
+          required:
+            - photos
+            - specs
+          properties:
+            headline:
+              type:
+                - string
+                - "null"
+              description: Заголовок на карточке, если он длиннее имени в истории.
+            cardCategoryLabel:
+              type:
+                - string
+                - "null"
+              description: Бейдж категории на карточке.
+            article:
+              type:
+                - string
+                - "null"
+            manufacturer:
+              type:
+                - string
+                - "null"
+            oemLabel:
+              type:
+                - string
+                - "null"
+            summaryTitle:
+              type:
+                - string
+                - "null"
+            summary:
+              type:
+                - string
+                - "null"
+            availabilityLabel:
+              type:
+                - string
+                - "null"
+            demandLabel:
+              type:
+                - string
+                - "null"
+            galleryMoreLabel:
+              type:
+                - string
+                - "null"
+            verifiedLabel:
+              type:
+                - string
+                - "null"
+            updatedLabel:
+              type:
+                - string
+                - "null"
+            specsTitle:
+              type:
+                - string
+                - "null"
+            passportLabel:
+              type:
+                - string
+                - "null"
+            photos:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductPhoto"
+            specs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductSpec"
+            procurement:
+              anyOf:
+                - $ref: "#/components/schemas/ProductProcurement"
+                - type: "null"
+            delivery:
+              anyOf:
+                - $ref: "#/components/schemas/ProductDelivery"
+                - type: "null"
+            market:
+              anyOf:
+                - $ref: "#/components/schemas/ProductMarket"
+                - type: "null"
+            breakdown:
+              anyOf:
+                - $ref: "#/components/schemas/ProductBreakdown"
+                - type: "null"
+    ProductPhoto:
+      type: object
+      required:
+        - url
+        - alt
+      properties:
+        url:
+          type: string
+        alt:
+          type: string
+    ProductSpec:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+    ProductPriceTier:
+      type: object
+      required:
+        - title
+        - price
+        - note
+        - highlighted
+      properties:
+        title:
+          type: string
+        price:
+          type: string
+        priceUnit:
+          type:
+            - string
+            - "null"
+        converted:
+          type:
+            - string
+            - "null"
+        note:
+          type: string
+        badge:
+          type:
+            - string
+            - "null"
+        highlighted:
+          type: boolean
+    ProductProcurement:
+      type: object
+      required:
+        - title
+        - moqLabel
+        - tiers
+      properties:
+        title:
+          type: string
+        moqLabel:
+          type: string
+        tiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductPriceTier"
+    ProductDeliveryRate:
+      type: object
+      required:
+        - caption
+        - price
+      properties:
+        caption:
+          type: string
+        price:
+          type: string
+        priceSuffix:
+          type:
+            - string
+            - "null"
+        detail:
+          type:
+            - string
+            - "null"
+    ProductDelivery:
+      type: object
+      required:
+        - available
+        - demo
+        - title
+      properties:
+        available:
+          type: boolean
+          description: false — на экране «недоступно», чисел нет.
+        demo:
+          type: boolean
+          description: Фикстура стенда, не книга ставок.
+        title:
+          type: string
+        modes:
+          type: array
+          items:
+            type: string
+        perUnit:
+          anyOf:
+            - $ref: "#/components/schemas/ProductDeliveryRate"
+            - type: "null"
+        perBatch:
+          anyOf:
+            - $ref: "#/components/schemas/ProductDeliveryRate"
+            - type: "null"
+        included:
+          type: array
+          items:
+            type: string
+    ProductMarketQuote:
+      type: object
+      required:
+        - title
+        - price
+        - note
+        - highlighted
+      properties:
+        title:
+          type: string
+        price:
+          type: string
+        note:
+          type: string
+        highlighted:
+          type: boolean
+    ProductMarket:
+      type: object
+      required:
+        - title
+        - sellersLabel
+        - quotes
+      properties:
+        title:
+          type: string
+        sellersLabel:
+          type: string
+        quotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductMarketQuote"
+    ProductPriceSegment:
+      type: object
+      required:
+        - label
+        - sharePercent
+        - tone
+      properties:
+        label:
+          type: string
+        sharePercent:
+          type: number
+          minimum: 0
+        tone:
+          type: string
+          description: product, logistics, fee, fulfillment или profit.
+    ProductBreakdown:
+      type: object
+      required:
+        - title
+        - verdict
+        - stars
+        - costPrice
+        - costNote
+        - profitPrice
+        - profitNote
+        - saleLabel
+        - marginLabel
+        - segments
+      properties:
+        title:
+          type: string
+        verdict:
+          type: string
+        stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+        costPrice:
+          type: string
+        costSuffix:
+          type:
+            - string
+            - "null"
+        costNote:
+          type: string
+        profitPrice:
+          type: string
+        profitExtra:
+          type:
+            - string
+            - "null"
+        profitNote:
+          type: string
+        saleLabel:
+          type: string
+        marginLabel:
+          type: string
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductPriceSegment"
+    SearchPack:
+      type: object
+      additionalProperties: false
+      required:
+        - questions
+        - categories
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchQuestion"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchCategory"
+    SearchQuestion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - options
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchOption"
+    SearchOption:
+      type: object
+      additionalProperties: false
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+    SearchCategory:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - hint
+        - icon
+      properties:
+        name:
+          type: string
+        hint:
+          type: string
+        icon:
+          type: string
+          description: Имя иконки на клиенте. Клиент рисует её сам.
     LayerQuote:
       type: object
       additionalProperties: false
@@ -2183,14 +2873,17 @@ components:
         landedRub:
           type: number
         retailRub:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         deltaRub:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         verdict:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           enum:
             - выгодно
             - не выгодно
@@ -2226,13 +2919,15 @@ components:
         site:
           type: string
         status:
-          $ref: '#/components/schemas/SiteStatus'
+          $ref: "#/components/schemas/SiteStatus"
         url:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         note:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
     RegistryStatus:
       type: string
       enum:
@@ -2262,37 +2957,43 @@ components:
         - value
       properties:
         channel:
-          $ref: '#/components/schemas/DossierContactChannel'
+          $ref: "#/components/schemas/DossierContactChannel"
         value:
           type: string
         source_url:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
     DossierCompany:
       type: object
       additionalProperties: true
       properties:
         name_cn:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         name:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         uscc:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           description: 18 символов единого социального кода или null
         registry_status:
-          $ref: '#/components/schemas/RegistryStatus'
+          $ref: "#/components/schemas/RegistryStatus"
         scope:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         insured_count:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
           minimum: 0
         role:
-          $ref: '#/components/schemas/CompanyRole'
+          $ref: "#/components/schemas/CompanyRole"
         role_evidence:
           type: array
           items:
@@ -2300,7 +3001,7 @@ components:
         contacts:
           type: array
           items:
-            $ref: '#/components/schemas/DossierContact'
+            $ref: "#/components/schemas/DossierContact"
     OfferCurrency:
       type: string
       enum:
@@ -2326,45 +3027,55 @@ components:
     DossierOffer:
       type: object
       additionalProperties: true
-      description: |
-        Оффер без source_url или без quote не отклоняет всё досье: он попадает в discarded.
+      description: >
+        Оффер без source_url или без quote не отклоняет всё досье: он попадает в
+        discarded.
       properties:
         company_ref:
-          type: integer
-          nullable: true
+          type:
+            - integer
+            - "null"
           description: Индекс в companies[] или null
         site:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         source_url:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         quote:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         title:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         price:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
           description: Хранится у оффера для админа. Клиенту не отдаётся.
         currency:
-          $ref: '#/components/schemas/OfferCurrency'
+          $ref: "#/components/schemas/OfferCurrency"
         unit:
-          $ref: '#/components/schemas/OfferUnit'
+          $ref: "#/components/schemas/OfferUnit"
         qty_from:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         moq:
-          type: number
-          nullable: true
+          type:
+            - number
+            - "null"
         layer:
-          $ref: '#/components/schemas/OfferLayer'
+          $ref: "#/components/schemas/OfferLayer"
         captured_at:
-          type: string
+          type:
+            - string
+            - "null"
           format: date-time
-          nullable: true
     DossierFx:
       type: object
       additionalProperties: true
@@ -2406,40 +3117,40 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     Forbidden:
       description: Недостаточно прав
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     NotFound:
       description: Ресурс не найден
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     BadRequest:
       description: Некорректный запрос
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     Conflict:
       description: Конфликт данных
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     InternalError:
       description: Внутренняя ошибка сервера
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
     Unprocessable:
       description: Категория досье не совпала с категорией заявки
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiResponse'
+            $ref: "#/components/schemas/ApiResponse"
