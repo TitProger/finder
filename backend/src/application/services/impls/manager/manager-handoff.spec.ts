@@ -11,11 +11,10 @@ import { InquiryAnswerEntity } from '../../../../domain/entities/inquiry/inquiry
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { OptimalCardEntity } from '../../../../domain/entities/market/optimal-card.entity';
 import { ResearchRunEntity } from '../../../../domain/entities/market/research-run.entity';
-import { DailyUsageEntity } from '../../../../domain/entities/tariff/daily-usage.entity';
-import { PlanEntity } from '../../../../domain/entities/tariff/plan.entity';
 import { AppUserEntity } from '../../../../domain/entities/user/app-user.entity';
 import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
 import { InquiryStatus } from '../../../../domain/enums/inquiry-status.enum';
+import { UserRole } from '../../../../domain/enums/user-role.enum';
 import { MarketPriceLayer } from '../../../../domain/enums/market-price-layer.enum';
 import { QuestionAnswerType } from '../../../../domain/enums/question-answer-type.enum';
 import { CompanyContactRepository } from '../../../../domain/repositories/catalog/company-contact.repository';
@@ -31,25 +30,17 @@ import { InquiryAnswerRepository } from '../../../../domain/repositories/inquiry
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { OptimalCardRepository } from '../../../../domain/repositories/market/optimal-card.repository';
 import { ResearchRunRepository } from '../../../../domain/repositories/market/research-run.repository';
-import { DailyUsageRepository } from '../../../../domain/repositories/tariff/daily-usage.repository';
-import { PlanRepository } from '../../../../domain/repositories/tariff/plan.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
-import { ManagerNotifyPort } from '../../../ports/manager-notify.port';
 import { GrokWebhookTrigger } from '../../../../infrastructure/research/grok-webhook.trigger';
-import { TelegramButton, TelegramIncoming, TelegramOutgoing } from '../../../../interfaces/telegram/telegram.types';
-import { TelegramDialog } from '../../../../interfaces/telegram/telegram-dialog';
 import { InquiryServiceImpl } from '../inquiry/inquiry.service.impl';
 import { OptimalCardServiceImpl } from '../market/optimal-card.service.impl';
-import { LimitCheckerServiceImpl } from '../tariff/limit-checker.service.impl';
 import { JsonResearchRunner } from '../research/json-research-runner';
 import { ResearchRunStatus } from '../../../../domain/enums/research-run-status.enum';
 import { ResearchLaunchService } from '../research/research-launch.service';
+import { Logger } from '../../../../common/logger/logger';
 import { ManagerHandoffService } from './manager-handoff.service';
 
-const CLIENT = 777001;
-const ADMINS = [111000111, 222000222] as const;
 const TEXT = 'халат';
-const CLIENT_PRICE = /\d+(?:[.,]\d+)?\s*(?:CNY|USD|RUB|руб\.?|¥|\$)/i;
 const CHEAP_URL = 'https://detail.1688.com/offer/cheap.html';
 const DEAR_URL = 'https://detail.1688.com/offer/dear.html';
 
@@ -90,7 +81,7 @@ function stamp<T>(entity: T, data: object): T {
     return entity;
 }
 
-function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
+function build(options?: { liveCard?: boolean }) {
     const users: AppUserEntity[] = [];
     const categories: CategoryEntity[] = [];
     const phrases: CategoryPhraseEntity[] = [];
@@ -105,8 +96,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
     const contacts: CompanyContactEntity[] = [];
     const offers: OfferEntity[] = [];
     const products: CanonicalProductEntity[] = [];
-    const usages: DailyUsageEntity[] = [];
-    const sent: TelegramOutgoing[] = [];
     const lists = new Map<object, Stored[]>();
     const em = {
         persist(entity: Stored) {
@@ -168,44 +157,7 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
             return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
         },
     };
-    const plan = stamp(new PlanEntity(), { code: 'free', title: 'Бесплатный', dailyResearchLimit: 3 });
-    const plans: Pick<PlanRepository, 'findByCode'> = {
-        async findByCode(code: string) {
-            return code === plan.code ? plan : null;
-        },
-    };
     const userRepo = repo(AppUserEntity, users);
-    const dailyUsage: Pick<DailyUsageRepository, 'findOrCreate' | 'incrementResearchCount'> = {
-        async findOrCreate(userId: string, usageDate: string) {
-            const existing = usages.find((row) => row.user.id === userId && row.usageDate === usageDate);
-
-            if (existing) {
-                return existing;
-            }
-
-            const user = users.find((item) => item.id === userId);
-
-            if (!user) {
-                throw new Error(`Нет пользователя ${userId}`);
-            }
-
-            const row = stamp(new DailyUsageEntity(), { user, usageDate, researchCount: 0 });
-
-            usages.push(row);
-
-            return row;
-        },
-        async incrementResearchCount(userId: string, usageDate: string) {
-            const row = await this.findOrCreate(userId, usageDate);
-
-            row.researchCount += 1;
-        },
-    };
-    const limitChecker = new LimitCheckerServiceImpl(
-        userRepo as unknown as AppUserRepository,
-        plans as PlanRepository,
-        dailyUsage as DailyUsageRepository,
-    );
     const inquiryRepo = repo(InquiryEntity, inquiries);
     const answerRepo = repo(InquiryAnswerEntity, answers);
     const questionRepo = repo(CategoryQuestionEntity, questions);
@@ -213,11 +165,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
     const offerRepo = repo(OfferEntity, offers);
     const runRepo = repo(ResearchRunEntity, runs);
     const cardRepo = repo(OptimalCardEntity, cards);
-    const notify: ManagerNotifyPort = options?.notify ?? {
-        async send(chatId, text, buttons) {
-            sent.push({ method: 'sendMessage', chatId, text, buttons });
-        },
-    };
     const cardsService = new OptimalCardServiceImpl(
         cardRepo as unknown as OptimalCardRepository,
         categoryRepo as unknown as CategoryRepository,
@@ -235,7 +182,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         cardRepo as unknown as OptimalCardRepository,
         userRepo as unknown as AppUserRepository,
         cardsService,
-        notify,
     );
     const launch = new ResearchLaunchService(
         inquiryRepo as unknown as InquiryRepository,
@@ -254,7 +200,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         questionRepo as unknown as CategoryQuestionRepository,
         answerRepo as unknown as InquiryAnswerRepository,
         cardRepo as unknown as OptimalCardRepository,
-        limitChecker,
         undefined,
         launch,
         handoff,
@@ -267,14 +212,6 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         runRepo as unknown as ResearchRunRepository,
         handoff,
     );
-    const dialog = new TelegramDialog(service, {} as never, {} as never, {
-        deliver(message) {
-            sent.push(message);
-
-            return Promise.resolve();
-        },
-    }, handoff, launch);
-
     const category = stamp(new CategoryEntity(), {
         code: 'clothing',
         name: 'Одежда',
@@ -336,29 +273,7 @@ function build(options?: { notify?: ManagerNotifyPort; liveCard?: boolean }) {
         em.persist(card);
     }
 
-    return { dialog, service, launch, runner, handoff, sent, inquiries, runs, offers, cards, usages, category, question };
-}
-
-function clientText(text: string): TelegramIncoming {
-    return { kind: 'message', chatId: CLIENT, telegramUserId: CLIENT, text, photoFileIds: [] };
-}
-
-function press(telegramUserId: number, data: string): TelegramIncoming {
-    return { kind: 'callback', chatId: telegramUserId, telegramUserId, callbackQueryId: `cb-${data}`, data };
-}
-
-function texts(sent: TelegramOutgoing[], chatId: number): string[] {
-    return sent.flatMap((item) => (item.method === 'sendMessage' && item.chatId === chatId ? [item.text] : []));
-}
-
-function buttons(sent: TelegramOutgoing[], chatId: number): TelegramButton[] {
-    return sent.flatMap((item) => {
-        if (item.method !== 'sendMessage' || item.chatId !== chatId) {
-            return [];
-        }
-
-        return (item.buttons ?? []).flat();
-    });
+    return { service, launch, runner, handoff, inquiries, runs, offers, cards, category, question, users };
 }
 
 function dossier(inquiryId: string, runId: string, status: 'partial' | 'failed' | 'complete' = 'partial') {
@@ -422,16 +337,34 @@ function dossier(inquiryId: string, runId: string, status: 'partial' | 'failed' 
 }
 
 async function ask(harness: ReturnType<typeof build>) {
-    await harness.dialog.handle(clientText(TEXT));
-    await harness.dialog.handle(clientText('1000'));
+    const created = await harness.service.create({ text: TEXT });
+    const inquiry = created.inquiry;
 
-    const inquiry = harness.inquiries[0];
-
-    if (!inquiry) {
-        throw new Error('заявка не создана');
+    if (inquiry.status !== InquiryStatus.RESEARCHING && inquiry.status !== InquiryStatus.SERVED_FROM_DATABASE) {
+        await harness.launch.startForInquiry(inquiry);
     }
 
     return inquiry;
+}
+
+function adminOf(harness: ReturnType<typeof build>) {
+    const existing = harness.users.find((user) => user.role === UserRole.ADMIN);
+
+    if (existing) {
+        return existing;
+    }
+
+    const admin = Object.assign(new AppUserEntity(), {
+        role: UserRole.ADMIN,
+        displayName: 'Admin',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: null,
+    });
+
+    harness.users.push(admin);
+
+    return admin;
 }
 
 function restoreEnv(name: string, value: string | undefined): void {
@@ -445,12 +378,10 @@ function restoreEnv(name: string, value: string | undefined): void {
 }
 
 describe('передача менеджеру', () => {
-    const previousAdmins = process.env.ADMIN_TELEGRAM_IDS;
     const previousUrl = process.env.RESEARCH_TRIGGER_URL;
     const originalFetch = global.fetch;
 
     beforeEach(() => {
-        process.env.ADMIN_TELEGRAM_IDS = ADMINS.join(',');
         process.env.LOGGER_SILENT = 'true';
         process.env.RESEARCH_TRIGGER_RETRY_DELAY_MS = '0';
         process.env.RESEARCH_TRIGGER_MAX_ATTEMPTS = '3';
@@ -459,188 +390,111 @@ describe('передача менеджеру', () => {
     });
 
     afterEach(() => {
-        restoreEnv('ADMIN_TELEGRAM_IDS', previousAdmins);
         restoreEnv('RESEARCH_TRIGGER_URL', previousUrl);
         global.fetch = originalFetch;
     });
 
-    it('карточку из базы видят все админы, клиент получает текст без цены', async () => {
+    it('карточка из базы пишется в лог без отдельного клиентского канала', async () => {
         const harness = build({ liveCard: true });
-        const inquiry = await ask(harness);
-        const client = texts(harness.sent, CLIENT).join('\n');
+        const inquiry = harness.inquiries[0] ?? (await harness.service.create({ text: TEXT })).inquiry;
 
-        expect(inquiry.status).toBe(InquiryStatus.SERVED_FROM_DATABASE);
-        expect(harness.usages).toHaveLength(0);
-        expect(texts(harness.sent, CLIENT).at(-1)).toBe('Менеджер скоро ответит');
-        expect(client).not.toMatch(CLIENT_PRICE);
-        expect(client).not.toContain('38.5');
+        inquiry.optimalCard = harness.cards[0];
+        inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
+        const info = jest.spyOn(Logger, 'info').mockImplementation(() => undefined);
 
-        for (const admin of ADMINS) {
-            const message = texts(harness.sent, admin).join('\n');
+        await harness.handoff.onCardServed(inquiry);
 
-            expect(message).toContain('Нашлась оптимальная карточка');
-            expect(message).toContain(TEXT);
-            expect(message).toContain('Одежда');
-            expect(message).toContain('Иуская фабрика');
-            expect(message).toContain('38.5');
-            expect(message).toContain('CNY');
-            expect(message).toContain('https://shop.example/coat');
-            expect(message).toMatch(CLIENT_PRICE);
-        }
+        const logged = info.mock.calls.map((call) => String(call[0])).join('\n');
+
+        expect(logged).toContain('Нашлась оптимальная карточка');
+        expect(logged).toContain(TEXT);
+        expect(logged).toContain('Иуская фабрика');
+        expect(logged).toContain('38.5');
+        info.mockRestore();
     });
 
-    it('досье уходит каждому админу со сводкой, слоями и заводской ценой', async () => {
+    it('досье пишет сводку в лог и переводит заявку к админу', async () => {
         const harness = build();
         const inquiry = await ask(harness);
-        const run = harness.runs[0];
+        const info = jest.spyOn(Logger, 'info').mockImplementation(() => undefined);
 
-        await harness.runner.ingest(dossier(inquiry.id, run.runId ?? '', 'partial'));
+        await harness.runner.ingest(dossier(inquiry.id, harness.runs[0].runId ?? '', 'partial'));
 
-        const client = texts(harness.sent, CLIENT).join('\n');
+        const logged = info.mock.calls.map((call) => String(call[0])).join('\n');
 
         expect(inquiry.status).toBe(InquiryStatus.DOSSIER_WITH_ADMIN);
-        expect(texts(harness.sent, CLIENT).at(-1)).toBe('Заявка принята, менеджер скоро ответит');
-        expect(client).not.toMatch(CLIENT_PRICE);
-        expect(client).not.toContain('12.5');
-        expect(client).not.toContain('Сводка для менеджера');
-
-        for (const admin of ADMINS) {
-            const message = texts(harness.sent, admin).join('\n');
-            const actions = buttons(harness.sent, admin).map((button) => button.text);
-
-            expect(message).toContain('Досье готово, частично');
-            expect(message).toContain('Частичное: да');
-            expect(message).toContain('Сводка для менеджера: завод дешевле витрины.');
-            expect(message).toContain('Компаний: 1');
-            expect(message).toContain('FACTORY 2');
-            expect(message).toContain('RUSSIA_RETAIL 1');
-            expect(message).toContain('captcha');
-            expect(message).toContain('blocked');
-            expect(message).toContain(CHEAP_URL);
-            expect(message.indexOf('12.5')).toBeLessThan(message.indexOf('40 CNY'));
-            expect(message).toMatch(CLIENT_PRICE);
-            expect(actions).toEqual(expect.arrayContaining(['Сделать оптимальной', 'Закрыть', 'Перезапустить']));
-        }
+        expect(logged).toContain('Досье готово, частично');
+        expect(logged).toContain(CHEAP_URL);
+        expect(logged).toContain('FACTORY');
+        info.mockRestore();
     });
 
-    it('незапустившийся прогон и зависший прогон пишутся всем админам', async () => {
+    it('незапустившийся и зависший прогон пишутся в лог', async () => {
         process.env.RESEARCH_TRIGGER_URL = 'https://research.example/hook';
         const harness = build();
+        const info = jest.spyOn(Logger, 'info').mockImplementation(() => undefined);
         const inquiry = await ask(harness);
 
         expect(harness.runs[0]?.status).toBe(ResearchRunStatus.FAILED_TO_START);
-        expect(harness.usages[0]?.researchCount).toBe(1);
-        expect(texts(harness.sent, CLIENT).join('\n')).not.toMatch(CLIENT_PRICE);
-
-        for (const admin of ADMINS) {
-            const message = texts(harness.sent, admin).join('\n');
-
-            expect(message).toContain('Ресерч не запустился');
-            expect(message).toContain('HTTP 503');
-            expect(message).toContain(TEXT);
-        }
+        expect(info.mock.calls.map((call) => String(call[0])).join('\n')).toContain('Ресерч не запустился');
 
         harness.runs[0].status = ResearchRunStatus.RUNNING;
         harness.runs[0].startedAt = new Date('2026-06-01T09:00:00.000Z');
         const marked = await harness.launch.markStale(new Date('2026-06-01T12:00:00.000Z'));
 
         expect(marked).toHaveLength(1);
-
-        for (const admin of ADMINS) {
-            expect(texts(harness.sent, admin).join('\n')).toContain('Ресерч завис');
-        }
+        expect(info.mock.calls.map((call) => String(call[0])).join('\n')).toContain('Ресерч завис');
+        expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
+        info.mockRestore();
     });
 
-    it('досье failed тоже уходит админам и не содержит цену у клиента', async () => {
+    it('досье failed пишется в лог и не откатывает приём', async () => {
         const harness = build();
         const inquiry = await ask(harness);
+        const info = jest.spyOn(Logger, 'info').mockImplementation(() => undefined);
 
         await harness.runner.ingest(dossier(inquiry.id, harness.runs[0].runId ?? '', 'failed'));
 
         expect(inquiry.status).toBe(InquiryStatus.DOSSIER_WITH_ADMIN);
-        expect(texts(harness.sent, CLIENT).join('\n')).not.toMatch(CLIENT_PRICE);
-
-        for (const admin of ADMINS) {
-            const message = texts(harness.sent, admin).join('\n');
-
-            expect(message).toContain('Досье failed');
-            expect(message).toContain('Площадки не открылись');
-        }
+        expect(info.mock.calls.map((call) => String(call[0])).join('\n')).toContain('Досье failed');
+        expect(harness.runs[0]?.notifyLastError ?? null).toBeNull();
+        info.mockRestore();
     });
 
-    it('кнопка от клиента не закрывает заявку и не создаёт карточку', async () => {
+    it('сделать оптимальной создаёт живую карточку по дешёвому заводскому офферу', async () => {
         const harness = build();
         const inquiry = await ask(harness);
-
-        await harness.dialog.handle(press(CLIENT, `cl:${inquiry.id}`));
-        await harness.dialog.handle(press(CLIENT, `mo:${inquiry.id}`));
-        await harness.dialog.handle(press(CLIENT, `rr:${inquiry.id}`));
-
-        expect(texts(harness.sent, CLIENT).join('\n')).toContain('Это действие для админа.');
-        expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
-        expect(harness.cards).toHaveLength(0);
-        expect(harness.runs).toHaveLength(1);
-        expect(harness.usages[0]?.researchCount).toBe(1);
-    });
-
-    it('Сделать оптимальной создаёт живую карточку по дешёвому заводскому офферу', async () => {
-        const harness = build();
-        const inquiry = await ask(harness);
+        const admin = adminOf(harness);
 
         await harness.runner.ingest(dossier(inquiry.id, harness.runs[0].runId ?? ''));
-        await harness.dialog.handle(press(ADMINS[0], `mo:${inquiry.id}`));
-
-        const live = harness.cards.filter((card) => card.isLive);
+        const card = await harness.handoff.makeOptimal(inquiry.id, admin.id);
         const cheap = harness.offers.find((offer) => offer.sourceUrl === CHEAP_URL);
 
-        expect(texts(harness.sent, ADMINS[0]).at(-1)).toContain('Оптимальная карточка сохранена');
-        expect(live).toHaveLength(1);
-        expect(live[0]?.offer?.id).toBe(cheap?.id);
-        expect(Number(live[0]?.price)).toBe(12.5);
-        expect(live[0]?.currency).toBe('CNY');
-        expect(live[0]?.category.id).toBe(harness.category.id);
-        expect(Number(live[0]?.qtyMin)).toBe(1000);
+        expect(card.isLive).toBe(true);
+        expect(card.offer?.id).toBe(cheap?.id);
+        expect(Number(card.price)).toBe(12.5);
+        expect(card.currency).toBe('CNY');
+        expect(card.category.id).toBe(harness.category.id);
     });
 
-    it('Закрыть переводит заявку в CLOSED', async () => {
+    it('закрыть переводит заявку в CLOSED', async () => {
         const harness = build();
         const inquiry = await ask(harness);
+        const admin = adminOf(harness);
+        const closed = await harness.handoff.close(inquiry.id, admin.id);
 
-        await harness.dialog.handle(press(ADMINS[0], `cl:${inquiry.id}`));
-
-        expect(inquiry.status).toBe(InquiryStatus.CLOSED);
-        expect(inquiry.closedAt).toBeInstanceOf(Date);
-        expect(texts(harness.sent, ADMINS[0]).at(-1)).toBe('Заявка закрыта.');
+        expect(closed.status).toBe(InquiryStatus.CLOSED);
+        expect(closed.closedAt).toBeInstanceOf(Date);
     });
 
-    it('Перезапустить создаёт новый run и не списывает лимит', async () => {
+    it('повторный запуск создаёт новый run', async () => {
         const harness = build();
         const inquiry = await ask(harness);
         const first = harness.runs[0]?.runId;
-
-        await harness.dialog.handle(press(ADMINS[0], `rr:${inquiry.id}`));
+        const again = await harness.launch.rerun(inquiry.id);
 
         expect(harness.runs).toHaveLength(2);
-        expect(harness.runs[1]?.runId).not.toBe(first);
+        expect(again.runId).not.toBe(first);
         expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
-        expect(harness.usages[0]?.researchCount).toBe(1);
-        expect(texts(harness.sent, ADMINS[0]).at(-1)).toBe('Ресерч запущен заново.');
-        expect(texts(harness.sent, CLIENT).join('\n')).not.toMatch(CLIENT_PRICE);
-    });
-
-    it('сбой Telegram не ломает приём досье и записывает ошибку', async () => {
-        const harness = build({
-            notify: {
-                async send() {
-                    throw new Error('telegram down');
-                },
-            },
-        });
-        const inquiry = await ask(harness);
-        const result = await harness.runner.ingest(dossier(inquiry.id, harness.runs[0].runId ?? '', 'complete'));
-
-        expect(result.inquiryStatus).toBe(InquiryStatus.DOSSIER_WITH_ADMIN);
-        expect(inquiry.status).toBe(InquiryStatus.DOSSIER_WITH_ADMIN);
-        expect(harness.runs[0]?.notifyLastError).toContain('telegram down');
     });
 });

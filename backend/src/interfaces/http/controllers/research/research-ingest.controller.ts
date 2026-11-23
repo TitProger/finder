@@ -1,32 +1,19 @@
-import { Body, Controller, HttpCode, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 
-import { RESEARCH_RUNNER, ResearchRunner } from '../../../../application/ports/research-runner.port';
 import { Public } from '../../auth/public.decorator';
 import { ResearchIngestGuard } from '../../auth/research-ingest.guard';
 import type { ResearchDossier } from '../../generated/requests/research';
-import type { ResearchIngestResult } from '../../generated/responses/research';
+import { ResearchIngestHttpService } from '../../services/impls/research/research-ingest.http-service';
 
 @Public()
 @Controller('research')
 export class ResearchIngestController {
-    constructor(
-        @Inject(RESEARCH_RUNNER)
-        private readonly runner: ResearchRunner,
-    ) {}
+    constructor(private readonly ingestService: ResearchIngestHttpService) {}
 
     @Post('ingest')
     @HttpCode(200)
     @UseGuards(ResearchIngestGuard)
-    async ingest(@Body() body: ResearchDossier): Promise<ResearchIngestResult> {
-        const result = await this.runner.ingest(body);
-
-        return {
-            research_run_id: result.researchRunId,
-            inquiry_id: result.inquiryId,
-            inquiry_status: result.inquiryStatus,
-            duplicate: result.duplicate,
-            counts: result.counts,
-            discarded: result.discarded,
-        };
+    ingest(@Body() body: ResearchDossier) {
+        return this.ingestService.ingest(body);
     }
 }

@@ -4,8 +4,6 @@ import { AppModule } from '../../app.module';
 import { MigrationService } from '../../common/config/mikro-orm/migration.service';
 
 async function bootstrap() {
-    process.env.TELEGRAM_POLLING = 'false';
-
     const app = await NestFactory.createApplicationContext(AppModule, {
         logger: ['log', 'error', 'warn'],
     });

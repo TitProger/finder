@@ -17,11 +17,9 @@ require() {
 require DEPLOY_HOST
 require DEPLOY_USER
 require POSTGRES_PASSWORD
-require ADMIN_TELEGRAM_IDS
 require ADMIN_API_TOKEN
 require RESEARCH_INGEST_TOKEN
 require RESEARCH_TRIGGER_SECRET
-require TELEGRAM_BOT_TOKEN
 require FINDER_SHA
 require GHCR_TOKEN
 require GHCR_USER
@@ -124,10 +122,6 @@ PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://bot.passimx.com}"
   printf '%s\n' "PG_LOGGING=false"
   printf '%s\n' "SWAGGER_ENABLED=false"
   printf 'ADMIN_API_TOKEN=%s\n' "$ADMIN_API_TOKEN"
-  printf 'ADMIN_TELEGRAM_IDS=%s\n' "$ADMIN_TELEGRAM_IDS"
-  printf 'TELEGRAM_BOT_TOKEN=%s\n' "$TELEGRAM_BOT_TOKEN"
-  printf '%s\n' "TELEGRAM_WEBHOOK_URL="
-  printf '%s\n' "FREE_PLAN_DAILY_LIMIT=${FREE_PLAN_DAILY_LIMIT:-3}"
   printf 'RESEARCH_INGEST_TOKEN=%s\n' "$RESEARCH_INGEST_TOKEN"
   printf 'RESEARCH_TRIGGER_URL=%s\n' "${RESEARCH_TRIGGER_URL:-}"
   printf 'RESEARCH_TRIGGER_SECRET=%s\n' "$RESEARCH_TRIGGER_SECRET"
@@ -136,8 +130,6 @@ PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://bot.passimx.com}"
   printf '%s\n' "RESEARCH_TRIGGER_RETRY_DELAY_MS=250"
   printf '%s\n' "RESEARCH_STALE_AFTER_MIN=60"
   printf '%s\n' "RESEARCH_STALE_CHECK_MIN=5"
-  printf '%s\n' "MANAGER_NOTIFY_MAX_ATTEMPTS=3"
-  printf '%s\n' "MANAGER_NOTIFY_RETRY_DELAY_MS=200"
   printf '%s\n' "FX_FALLBACK_CNY_RUB=${FX_FALLBACK_CNY_RUB:-12.3}"
   printf '%s\n' "FX_FALLBACK_USD_RUB=${FX_FALLBACK_USD_RUB:-90}"
   printf '%s\n' "LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://api.openai.com/v1/chat/completions}"

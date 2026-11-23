@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
-import { adminTelegramIds } from '../../../application/telegram/admin-telegram-ids';
 import { UserRole } from '../../../domain/enums/user-role.enum';
 import { REPOSITORY_TOKENS } from '../../../domain/repositories/repository.tokens';
 import { AppUserRepository } from '../../../domain/repositories/user/app-user.repository';
 
 /**
- * Сид админов из ADMIN_TELEGRAM_IDS. Пароля нет: HTTP ходит со статическим токеном, бот — по Telegram id.
+ * Если админа ещё нет, создаёт одного с displayName Admin.
+ * HTTP ходит со статическим токеном.
  */
 @Injectable()
 export class AdminSeeder implements OnModuleInit {
@@ -18,31 +18,19 @@ export class AdminSeeder implements OnModuleInit {
     ) {}
 
     async onModuleInit(): Promise<void> {
-        for (const telegramUserId of adminTelegramIds()) {
-            await this.ensureAdmin(telegramUserId);
-        }
-    }
+        const existing = await this.users.find({ role: UserRole.ADMIN });
 
-    private async ensureAdmin(telegramUserId: string): Promise<void> {
-        const existing = await this.users.findOne({ telegramUserId });
-
-        if (existing) {
-            if (existing.role !== UserRole.ADMIN) {
-                this.logger.error(`Telegram ${telegramUserId} уже занят, админ не создан`);
-            }
-
+        if (existing.length > 0) {
             return;
         }
 
         const admin = this.users.create({
             role: UserRole.ADMIN,
-            telegramUserId,
-            displayName: `Admin ${telegramUserId}`,
+            displayName: 'Admin',
             isActive: true,
-            planCode: 'unlimited',
         });
 
         await this.users.getEntityManager().persistAndFlush(admin);
-        this.logger.log(`Seeded ADMIN telegram=${telegramUserId}`);
+        this.logger.log('Seeded ADMIN');
     }
 }

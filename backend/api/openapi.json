@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Finder API",
-    "version": "0.10.0",
+    "version": "0.16.0",
     "description": "Контракт API Finder. Источник правды — этот репозиторий (git tag).\n"
   },
   "servers": [
@@ -21,20 +21,36 @@
       "description": "Справочник категорий для админа"
     },
     {
+      "name": "taxonomy",
+      "description": "Дерево категорий Wikkeo — поиск пути и админская правка"
+    },
+    {
       "name": "inquiries",
       "description": "Заявка клиента и назначение категории админом"
     },
     {
+      "name": "client-inquiries",
+      "description": "Клиентская заявка сайта без Telegram-полей"
+    },
+    {
       "name": "optimal-cards",
-      "description": "Оптимальная карточка, которую админ помечает живой"
+      "description": "Оптимальная карточка (наследие). Новые сценарии — тег dossiers"
+    },
+    {
+      "name": "dossiers",
+      "description": "Утверждённое каноническое досье и live-кэш"
     },
     {
       "name": "research",
-      "description": "Запуск ресерча и приём досье"
+      "description": "Очередь ресерча на Postgres, ingest и сырые свидетельства"
+    },
+    {
+      "name": "rates",
+      "description": "Книга ставок владельца и детерминированные калькуляторы логистики и маржи"
     },
     {
       "name": "products",
-      "description": "История поиска и карточка товара для клиента"
+      "description": "История поиска и безопасный отчёт карточки для клиента"
     },
     {
       "name": "search",
@@ -42,7 +58,7 @@
     },
     {
       "name": "files",
-      "description": "Файлы, на которые ссылается карточка"
+      "description": "Файлы хранилища и карточки"
     }
   ],
   "paths": {
@@ -854,6 +870,231 @@
         }
       }
     },
+    "/taxonomy/paths": {
+      "get": {
+        "operationId": "searchTaxonomyPaths",
+        "tags": [
+          "taxonomy"
+        ],
+        "summary": "Подсказки пути категории",
+        "description": "Публичный поиск по имени и пути в дереве Wikkeo. В ответе цепочки вида «Дом → Сад → Газонокосилки», без выдачи всех узлов сразу. Токен не нужен.\n",
+        "security": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Строка поиска по имени или пути.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Сколько подсказок вернуть.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "required": false,
+            "description": "Сузить поиск поддеревом родителя (id узла Wikkeo).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Подсказки пути",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TaxonomyPathSuggestion"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/taxonomy/nodes": {
+      "get": {
+        "operationId": "listTaxonomyNodes",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "taxonomy"
+        ],
+        "summary": "Поиск узлов таксономии",
+        "description": "Только ADMIN. Поиск и страница по дереву Wikkeo. Клиентский поиск пути — отдельная публичная ручка.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Поиск по имени или pathLabel.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "required": false,
+            "description": "Только прямые дети этого узла. Без параметра — без фильтра по родителю.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница узлов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TaxonomyNode"
+                          }
+                        },
+                        "page": {
+                          "$ref": "#/components/schemas/PageInfo"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/taxonomy/nodes/{nodeId}": {
+      "patch": {
+        "operationId": "updateTaxonomyNode",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "tags": [
+          "taxonomy"
+        ],
+        "summary": "Править узел таксономии",
+        "description": "Только ADMIN. Меняет имя, slug, признак скрытия или url. Id и родителя не трогает.",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "Id узла Wikkeo.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaxonomyNodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Обновлённый узел",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/TaxonomyNode"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/inquiries": {
       "post": {
         "operationId": "createInquiry",
@@ -861,7 +1102,7 @@
           "inquiries"
         ],
         "summary": "Создать заявку текстом",
-        "description": "Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.\n",
+        "description": "Только админ (статический ADMIN_API_TOKEN). Тело — текст заявки. Telegram user id не принимается. Бот в создании заявки не участвует. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся.\n",
         "security": [
           {
             "bearerAuth": []
@@ -967,6 +1208,103 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/client/inquiries": {
+      "post": {
+        "operationId": "createClientInquiry",
+        "tags": [
+          "client-inquiries"
+        ],
+        "summary": "Создать клиентскую заявку",
+        "description": "Публичная ручка сайта. Текст и mediaIds (внутренние id файлов хранилища). telegramUserId и админский токен не нужны и не принимаются. Классификация как у старой заявки: точная фраза даёт категорию, иначе пауза. При известной категории сначала ищется живое досье (точное или похожее). Попадание в кэш — статус SERVED_FROM_DATABASE, очередь ресерча не ставится. Иначе заявка ставится в очередь ресерча на Postgres. Ответ 200 значит «заявка принята», не «досье готово». Готовой цены в ответе нет.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientInquiryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Заявка принята",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ClientInquiry"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/client/inquiries/{id}": {
+      "get": {
+        "operationId": "getClientInquiry",
+        "tags": [
+          "client-inquiries"
+        ],
+        "summary": "Статус клиентской заявки",
+        "description": "Публичное чтение статуса заявки сайта по id. clientStatus и clientStatusLabel — честные подписи без процентов прогресса. Telegram-поля не отдаются.\n",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Текущий статус заявки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ClientInquiry"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -1535,6 +1873,874 @@
         }
       }
     },
+    "/admin/dossiers": {
+      "post": {
+        "operationId": "createDossier",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Создать черновик утверждённого досье",
+        "description": "Только ADMIN. Эволюция optimal card: заявка, товар, поставщик и оффер остаются разными сущностями. isLive не включается — для этого publish. Контакты и сырая закупка остаются внутренними.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDossierRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Черновик досье",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminDossier"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/dossiers/{id}": {
+      "get": {
+        "operationId": "getDossierById",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Полное досье для админа",
+        "description": "Только ADMIN. Отдаёт контакты, сырую закупку и внутренние заметки. Клиентская ручка /dossiers/{id}/report этого не делает.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Полное досье",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminDossier"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDossier",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Править черновик или снятое досье",
+        "description": "Только ADMIN. Публикацию живым делает POST .../publish, не этот PATCH.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDossierRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Досье после правки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminDossier"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/dossiers/{id}/reviews": {
+      "post": {
+        "operationId": "reviewDossier",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Подтвердить или отклонить часть досье",
+        "description": "Только ADMIN. Цель — category, offer или supplier. Внутренний note клиенту не отдаётся. Публикация требует approved по всем трём.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDossierRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Досье после review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminDossier"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/dossiers/{id}/publish": {
+      "post": {
+        "operationId": "publishDossier",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Опубликовать живое досье",
+        "description": "Только ADMIN. Ставит isLive и срок перепроверки. Снимает флаг с другой живой строки того же товара и диапазона. Очередь ресерча не трогает.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishDossierRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Живое досье",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AdminDossier"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/dossiers/{id}/report": {
+      "get": {
+        "operationId": "getDossierReport",
+        "tags": [
+          "dossiers"
+        ],
+        "summary": "Безопасный отчёт досье",
+        "description": "Публично. Типичная и нижняя правдоподобная цена, MOQ, условия, источники, доставка или unavailable, оговорка. Без контактов завода, сырой закупки и внутренних заметок. Неживой или просроченный — 404.\n",
+        "security": [],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Безопасный отчёт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SafeDossierReport"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/client/inquiries/{id}/report": {
+      "get": {
+        "operationId": "getClientInquiryReport",
+        "tags": [
+          "client-inquiries"
+        ],
+        "summary": "Безопасный отчёт по заявке",
+        "description": "Публично. Если заявка обслужилась из живого досье — отдаёт безопасный отчёт с matchKind exact или similar. Контакты завода, сырая закупка и внутренние заметки не входят. Пока досье не опубликовано или заявка ещё в ресерче — 404.\n",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Безопасный отчёт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SafeDossierReport"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/rates": {
+      "get": {
+        "operationId": "listLogisticsRates",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Список ставок владельца",
+        "description": "Только ADMIN. Книга может быть пустой — это норма для фазы 1. Пустая книга даёт quote со status unavailable и reason rates_not_configured.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageQuery"
+          },
+          {
+            "$ref": "#/components/parameters/LimitQuery"
+          },
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "required": false,
+            "description": "true — только активные ставки.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница ставок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/LogisticsRate"
+                          }
+                        },
+                        "page": {
+                          "$ref": "#/components/schemas/PageInfo"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createLogisticsRate",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Добавить ставку в книгу",
+        "description": "Только ADMIN. Расчёт логистики идёт кодом по этой книге, не моделью.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLogisticsRateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Созданная ставка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LogisticsRate"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/rates/{id}": {
+      "get": {
+        "operationId": "getLogisticsRateById",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Одна ставка",
+        "description": "Только ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ставка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LogisticsRate"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateLogisticsRate",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Править ставку",
+        "description": "Только ADMIN. Пустые поля не меняют строку.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLogisticsRateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Обновлённая ставка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LogisticsRate"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteLogisticsRate",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Удалить ставку",
+        "description": "Только ADMIN. Строка убирается из книги. Боевых данных нет.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ставка удалена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/rates/quote": {
+      "post": {
+        "operationId": "quoteLogistics",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Расчёт доставки по книге ставок",
+        "description": "Публично. Считает код по активным ставкам владельца. Модель не участвует. Пока книги нет или нет активных ставок — data.status=unavailable, reason=rates_not_configured. Вес с origin=inferred — 400, в расчёт не идёт. Один и тот же вход при тех же ставках даёт один и тот же результат.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogisticsQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Расчёт или unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LogisticsQuoteResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/rates/margin": {
+      "post": {
+        "operationId": "estimateMargin",
+        "tags": [
+          "rates"
+        ],
+        "summary": "Оценка маржи с расходами",
+        "description": "Публично. Арифметика кода, не модели. Результат — оценка с оговоркой, не факт прибыли. Доставку сюда передают числом из quote.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarginEstimateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Оценка или unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MarginEstimateResult"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/research/ingest": {
       "post": {
         "operationId": "ingestResearchDossier",
@@ -1542,7 +2748,7 @@
           "research"
         ],
         "summary": "Принять JSON-досье ресерча",
-        "description": "Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.\n",
+        "description": "Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Повтор с тем же payload sha256 → 200 и duplicate=true, второй прогон не создаётся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются. Живой webhook Grok этим пакетом не обещается: приёмка — фикстурами.\n",
         "security": [
           {
             "researchIngestToken": []
@@ -1595,6 +2801,69 @@
           },
           "422": {
             "$ref": "#/components/responses/Unprocessable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/admin/research/runs/{runId}/evidence": {
+      "get": {
+        "operationId": "getResearchEvidence",
+        "tags": [
+          "research"
+        ],
+        "summary": "Сырые свидетельства прогона",
+        "description": "Только админский Bearer. URL, цитата, время и статус площадки из принятого досье. Цены и контакты завода не отдаёт. Публикация канонического досье — тег dossiers.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Внешний run_id прогона ресерча."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список сырых свидетельств",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/ResearchEvidence"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1714,8 +2983,8 @@
         "tags": [
           "products"
         ],
-        "summary": "Карточка товара",
-        "description": "Описание, характеристики и четыре блока отчёта. Числа приходят в полях ответа. Доставка с available=false — статус «недоступно».\n",
+        "summary": "Безопасный отчёт карточки товара",
+        "description": "Клиентская карточка истории поиска: описание, характеристики и четыре блока. Это безопасный отчёт — контакты завода, сырая закупка и внутренние заметки не отдаются. Числа приходят в полях ответа, не из JSX. Доставка с available=false — статус «недоступно». Живое утверждённое досье — GET /dossiers/{id}/report.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdPath"
@@ -1746,6 +3015,57 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/files": {
+      "post": {
+        "operationId": "uploadStoredFile",
+        "security": [],
+        "tags": [
+          "files"
+        ],
+        "summary": "Загрузить фото для заявки",
+        "description": "Публичная загрузка в файловое хранилище. Multipart-поле file. Только jpg, jpeg, png, webp. В ответе id файла для mediaIds заявки. Это не Telegram file_id.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStoredFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Файл сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/StoredFile"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2577,16 +3897,152 @@
           }
         }
       },
+      "TaxonomyPathSuggestion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nodeId",
+          "parentId",
+          "slug",
+          "name",
+          "pathLabel",
+          "level"
+        ],
+        "description": "Подсказка пути в дереве Wikkeo. Клиент не получает всё дерево сразу.",
+        "properties": {
+          "nodeId": {
+            "type": "integer",
+            "description": "Id узла из источника Wikkeo."
+          },
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Id родителя. null у корня."
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя узла без пути."
+          },
+          "pathLabel": {
+            "type": "string",
+            "description": "Иерархический путь для подсказки, например «Дом и сад → Дача, сезонные товары и сад → Газонокосилки и триммеры».\n"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "TaxonomyNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nodeId",
+          "parentId",
+          "slug",
+          "name",
+          "pathLabel",
+          "level",
+          "childCount",
+          "isPrivate",
+          "url",
+          "createdAt"
+        ],
+        "description": "Узел таксономии Wikkeo.",
+        "properties": {
+          "nodeId": {
+            "type": "integer",
+            "description": "Id узла из источника Wikkeo."
+          },
+          "parentId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pathLabel": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "childCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isPrivate": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL категории на витрине-источнике, если был в снимке."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateTaxonomyNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "Админская правка узла. Id и родителя не меняют.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "isPrivate": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
       "InquiryStatus": {
         "type": "string",
         "enum": [
           "DRAFT",
           "AWAITING_CATEGORY",
           "COLLECTING_ANSWERS",
+          "QUEUED_RESEARCH",
           "SERVED_FROM_DATABASE",
           "RESEARCHING",
           "DOSSIER_WITH_ADMIN",
-          "LIMIT_EXCEEDED",
           "CLOSED"
         ]
       },
@@ -2734,7 +4190,6 @@
         "required": [
           "id",
           "clientUserId",
-          "telegramUserId",
           "status",
           "rawText",
           "photoUrls",
@@ -2759,11 +4214,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "telegramUserId": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Telegram user id клиента. Вход, не отдельная регистрация."
-          },
           "status": {
             "$ref": "#/components/schemas/InquiryStatus"
           },
@@ -2776,7 +4226,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Telegram file_id фото, которое клиент приложил к тексту. Пустой массив, если фото нет. POST /inquiries фото не принимает. Бот пишет file_id сюда и пересылает фото админу. Это не публичная ссылка.\n"
+            "description": "Идентификаторы файлов хранилища или другие непрозрачные строки. Пустой массив, если фото нет. POST /inquiries файл не принимает. Это не публичная ссылка.\n"
           },
           "categoryId": {
             "type": [
@@ -2864,21 +4314,209 @@
       "CreateInquiryRequest": {
         "type": "object",
         "required": [
-          "telegramUserId",
           "text"
         ],
         "additionalProperties": false,
         "properties": {
-          "telegramUserId": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Telegram user id. Если клиента ещё нет, создаётся роль CLIENT."
-          },
           "text": {
             "type": "string",
             "minLength": 1,
             "maxLength": 8000,
             "description": "Свободный текст заявки."
+          }
+        }
+      },
+      "ClientInquiryStatus": {
+        "type": "string",
+        "description": "Честный статус для экрана поиска. Без процентов прогресса.\n",
+        "enum": [
+          "draft",
+          "analyzing",
+          "needs_clarification",
+          "submitted",
+          "searching",
+          "partial",
+          "ready",
+          "no_results",
+          "error",
+          "can_retry"
+        ]
+      },
+      "ClientInquiry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "clientStatus",
+          "clientStatusLabel",
+          "rawText",
+          "mediaIds",
+          "categoryId",
+          "taxonomyNodeId",
+          "isPaused",
+          "pauseReason",
+          "profileJson",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "Клиентская заявка веба. Без telegramUserId и без Telegram file_id. mediaIds — внутренние id файлов хранилища. Категория дерева — taxonomyNodeId (узел Wikkeo), не свободная строка. clientStatus — честная подпись для панели результатов, не процент.\n",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InquiryStatus"
+          },
+          "clientStatus": {
+            "$ref": "#/components/schemas/ClientInquiryStatus"
+          },
+          "clientStatusLabel": {
+            "type": "string",
+            "description": "Русская подпись статуса для UI."
+          },
+          "rawText": {
+            "type": "string"
+          },
+          "mediaIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id файлов из POST /files. Пустой массив, если фото нет."
+          },
+          "categoryId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Категория старого плоского справочника (классификатор). null, пока классификатор сомневается или фраза неоднозначна.\n"
+          },
+          "taxonomyNodeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Выбранный узел дерева Wikkeo. Истина категории заявки для сайта. null, если клиент узел ещё не выбрал.\n"
+          },
+          "isPaused": {
+            "type": "boolean"
+          },
+          "pauseReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profileJson": {
+            "description": "Ответы анкеты. Недостающее поле — null, не выдумка. null целиком, если профиль ещё не передавали.\n",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateClientInquiryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ],
+        "description": "Текст и/или уже загруженные mediaIds. telegramUserId не принимается. Токен админа не нужен.\n",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000,
+            "description": "Название или свободный текст заявки."
+          },
+          "mediaIds": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Id из POST /files. Повтор и неизвестный id — 400."
+          },
+          "taxonomyNodeId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Id узла дерева Wikkeo с выбора категории на сайте. Неизвестный id — 400. Не подменяет categoryId классификатора.\n"
+          },
+          "profileJson": {
+            "description": "Профиль ответов. Ключ без значения — null. Неизвестные поля не выдумываются.\n",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          }
+        }
+      },
+      "StoredFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "mime",
+          "sizeBytes"
+        ],
+        "description": "Файл в хранилище. Скачивание — GET /files/{id}/content.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "UploadStoredFileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file"
+        ],
+        "description": "Multipart: одно поле file. Принимаются jpg, jpeg, png, webp. Ответ — id файла; его передают в mediaIds клиентской заявки.\n",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary"
           }
         }
       },
@@ -3477,6 +5115,1319 @@
           }
         }
       },
+      "DossierReviewDecision": {
+        "type": "string",
+        "description": "Решение админа по части досье.",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ]
+      },
+      "DossierReviewTarget": {
+        "type": "string",
+        "description": "Что именно подтверждают или отклоняют.",
+        "enum": [
+          "category",
+          "offer",
+          "supplier"
+        ]
+      },
+      "DossierMatchKind": {
+        "type": "string",
+        "description": "Как повторный запрос совпал с живым досье.",
+        "enum": [
+          "exact",
+          "similar"
+        ]
+      },
+      "SafeDossierSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "capturedAt"
+        ],
+        "description": "Публичный источник без контактов завода.",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "quote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Короткая публичная цитата. null, если нет."
+          }
+        }
+      },
+      "SafeDossierReportBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "categoryLabel",
+          "typicalPrice",
+          "lowestCrediblePrice",
+          "currency",
+          "moqLabel",
+          "conditions",
+          "sources",
+          "delivery",
+          "disclaimer",
+          "photos",
+          "specs"
+        ],
+        "description": "Тело безопасного отчёта без id. Без контактов завода, сырой закупки и внутренних заметок. Числа не зашиваются в JSX.\n",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "categoryLabel": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "typicalPrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Типичная достижимая цена. null, если ещё нет."
+          },
+          "lowestCrediblePrice": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Самая низкая правдоподобная сопоставимая. Не цена-приманка."
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "moqLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conditions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Условия поставки, видимые клиенту."
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SafeDossierSource"
+            }
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/ProductDelivery"
+          },
+          "disclaimer": {
+            "type": "string",
+            "description": "Оговорка, что оценка не является фактом прибыли."
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPhoto"
+            }
+          },
+          "specs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductSpec"
+            }
+          },
+          "procurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductProcurement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "market": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductMarket"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "breakdown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SafeDossierReport": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SafeDossierReportBody"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "matchKind",
+              "revalidateAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Id утверждённого досье."
+              },
+              "matchKind": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DossierMatchKind"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "null, если отчёт открыли напрямую, а не из кэша заявки."
+              },
+              "revalidateAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "Срок перепроверки живого досье."
+              }
+            }
+          }
+        ]
+      },
+      "AdminDossier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "categoryId",
+          "canonicalProductId",
+          "nameRu",
+          "nameZh",
+          "qtyMin",
+          "qtyMax",
+          "quantityQuestionId",
+          "isLive",
+          "offerId",
+          "companyId",
+          "storefrontId",
+          "price",
+          "currency",
+          "contactValue",
+          "contactChannel",
+          "contactUrl",
+          "contactAdminEntered",
+          "contactEnteredAt",
+          "productAttributes",
+          "reasonNote",
+          "categoryReview",
+          "offerReview",
+          "supplierReview",
+          "reviewNote",
+          "matchText",
+          "publicReport",
+          "markedLiveByUserId",
+          "markedLiveAt",
+          "revalidateAt",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "Полное утверждённое досье для админа. Заявка, товар, поставщик и оффер — разные сущности: здесь ссылки на них. Контакты и reasonNote только здесь.\n",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "canonicalProductId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nameRu": {
+            "type": "string"
+          },
+          "nameZh": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "qtyMin": {
+            "type": "number",
+            "minimum": 0
+          },
+          "qtyMax": {
+            "type": "number",
+            "minimum": 0
+          },
+          "quantityQuestionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isLive": {
+            "type": "boolean",
+            "description": "Живой кэш. На товар и диапазон количества живая одна строка."
+          },
+          "offerId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "companyId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "storefrontId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "price": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Внутренняя сырая закупка. Клиенту не отдаётся."
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contactValue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contactChannel": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactChannel"
+              }
+            ]
+          },
+          "contactUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contactAdminEntered": {
+            "type": "boolean"
+          },
+          "contactEnteredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "productAttributes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AttributeValue"
+            }
+          },
+          "reasonNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Внутренняя заметка. Клиенту не отдаётся."
+          },
+          "categoryReview": {
+            "$ref": "#/components/schemas/DossierReviewDecision"
+          },
+          "offerReview": {
+            "$ref": "#/components/schemas/DossierReviewDecision"
+          },
+          "supplierReview": {
+            "$ref": "#/components/schemas/DossierReviewDecision"
+          },
+          "reviewNote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Комментарий к последнему review. Внутренний."
+          },
+          "matchText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Нормализованный текст для похожего совпадения кэша."
+          },
+          "publicReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafeDossierReportBody"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Безопасный отчёт, который увидит клиент после публикации."
+          },
+          "markedLiveByUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "markedLiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "revalidateAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Срок перепроверки. При публикации по умолчанию 30 дней."
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "До этой даты кэш отдаётся. Совпадает с revalidateAt при публикации."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateDossierRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "categoryId",
+          "qtyMin",
+          "qtyMax",
+          "quantityQuestionId",
+          "productAttributes"
+        ],
+        "description": "Черновик утверждённого досье. Заявка сюда не смешивается. isLive по умолчанию false — публикация отдельной ручкой.\n",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offerId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "canonicalProductId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "nameRu": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "nameZh": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "qtyMin": {
+            "type": "number",
+            "minimum": 0
+          },
+          "qtyMax": {
+            "type": "number",
+            "minimum": 0
+          },
+          "quantityQuestionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productAttributes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AttributeValue"
+            }
+          },
+          "price": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "contactValue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "contactChannel": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactChannel"
+              }
+            ]
+          },
+          "contactUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "contactAdminEntered": {
+            "type": "boolean"
+          },
+          "reasonNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matchText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024,
+            "description": "Текст для похожего кэша. Пусто — берётся nameRu."
+          },
+          "publicReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafeDossierReportBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateDossierRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Пустые поля не меняют досье.",
+        "properties": {
+          "canonicalProductId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "nameRu": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "nameZh": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "qtyMin": {
+            "type": "number",
+            "minimum": 0
+          },
+          "qtyMax": {
+            "type": "number",
+            "minimum": 0
+          },
+          "quantityQuestionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productAttributes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AttributeValue"
+            }
+          },
+          "price": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "contactValue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "contactChannel": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactChannel"
+              }
+            ]
+          },
+          "contactUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "contactAdminEntered": {
+            "type": "boolean"
+          },
+          "reasonNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matchText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1024
+          },
+          "publicReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafeDossierReportBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ReviewDossierRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "decision"
+        ],
+        "description": "Подтверждение или отклонение категории, оффера или поставщика.",
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/DossierReviewTarget"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/DossierReviewDecision",
+            "description": "pending сбрасывает решение. approved или rejected — итог."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000,
+            "description": "Внутренний комментарий. Клиенту не отдаётся."
+          }
+        }
+      },
+      "PublishDossierRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Публикует живое досье. Категория, оффер и поставщик должны быть approved. Нужен publicReport без контактов. Срок перепроверки по умолчанию 30 дней.\n",
+        "properties": {
+          "revalidateAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Пусто или null — сейчас + 30 дней."
+          },
+          "publicReport": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafeDossierReportBody"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Если задан, заменяет сохранённый безопасный отчёт перед публикацией."
+          }
+        }
+      },
+      "FactOrigin": {
+        "type": "string",
+        "description": "Откуда взято число. inferred нельзя подавать в логистический калькулятор.\n",
+        "enum": [
+          "user",
+          "verified",
+          "inferred"
+        ]
+      },
+      "MeasuredWeight": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valueKg",
+          "origin"
+        ],
+        "description": "Вес одной единицы товара в килограммах с provenance.",
+        "properties": {
+          "valueKg": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Килограммы за штуку. Больше нуля."
+          },
+          "origin": {
+            "$ref": "#/components/schemas/FactOrigin"
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Уверенность 0…1. null, если не задана."
+          }
+        }
+      },
+      "LogisticsRate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "mode",
+          "label",
+          "originPlace",
+          "destination",
+          "currency",
+          "pricePerKg",
+          "fxToRub",
+          "minCharge",
+          "transitDaysMin",
+          "transitDaysMax",
+          "included",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "Строка книги ставок владельца. Пустая книга — норма: калькулятор отвечает unavailable / rates_not_configured. Курс fxToRub фиксирован в ставке, чтобы один вход давал один расчёт.\n",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "type": "string",
+            "description": "Код режима, например cargo или white.",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "label": {
+            "type": "string",
+            "description": "Подпись для человека, например «Карго быстрая».",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "originPlace": {
+            "type": "string",
+            "description": "Пункт отправления в нижнем регистре, например guangzhou.",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "destination": {
+            "type": "string",
+            "description": "Пункт назначения в нижнем регистре, например moscow.",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "Валюта ставки ISO-4217. Обычно USD или RUB."
+          },
+          "pricePerKg": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Ставка за килограмм в currency."
+          },
+          "fxToRub": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Фиксированный множитель currency→RUB для детерминированного расчёта. Для RUB равен 1.\n"
+          },
+          "minCharge": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Минимальная стоимость отправки в currency."
+          },
+          "transitDaysMin": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transitDaysMax": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "included": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Что входит в ставку."
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateLogisticsRateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "label",
+          "originPlace",
+          "destination",
+          "currency",
+          "pricePerKg",
+          "fxToRub"
+        ],
+        "description": "Новая ставка в книгу владельца. По умолчанию активна.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "originPlace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "pricePerKg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fxToRub": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minCharge": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          },
+          "transitDaysMin": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "transitDaysMax": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "included": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateLogisticsRateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Пустые поля не меняют ставку.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "originPlace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "pricePerKg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "fxToRub": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minCharge": {
+            "type": "number",
+            "minimum": 0
+          },
+          "transitDaysMin": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transitDaysMax": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "included": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LogisticsQuoteUnavailableReason": {
+        "type": "string",
+        "description": "Почему расчёт недоступен. Модель сюда не зовётся.",
+        "enum": [
+          "rates_not_configured",
+          "no_matching_rate"
+        ]
+      },
+      "LogisticsQuoteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "weight",
+          "quantity",
+          "destination"
+        ],
+        "description": "Вход детерминированного калькулятора. Вес с origin=inferred отклоняется до расчёта (400), в калькулятор не подаётся.\n",
+        "properties": {
+          "weight": {
+            "$ref": "#/components/schemas/MeasuredWeight"
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Число штук в партии."
+          },
+          "originPlace": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "Пункт отправления. null — любой из книги."
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64,
+            "description": "Предпочтительный режим. null — первая подходящая активная ставка."
+          }
+        }
+      },
+      "LogisticsQuoteUnavailable": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          },
+          "reason": {
+            "$ref": "#/components/schemas/LogisticsQuoteUnavailableReason"
+          }
+        }
+      },
+      "LogisticsQuoteOk": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "rateId",
+          "mode",
+          "label",
+          "currency",
+          "pricePerKg",
+          "fxToRub",
+          "weightKg",
+          "quantity",
+          "perUnitRub",
+          "perBatchRub",
+          "transitDaysMin",
+          "transitDaysMax",
+          "included"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "rateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "pricePerKg": {
+            "type": "number"
+          },
+          "fxToRub": {
+            "type": "number"
+          },
+          "weightKg": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "perUnitRub": {
+            "type": "number",
+            "description": "Доставка за штуку в рублях."
+          },
+          "perBatchRub": {
+            "type": "number",
+            "description": "Доставка всей партии в рублях."
+          },
+          "transitDaysMin": {
+            "type": "integer"
+          },
+          "transitDaysMax": {
+            "type": "integer"
+          },
+          "included": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LogisticsQuoteResult": {
+        "description": "Успех расчёта или честный unavailable. Не выдуманный тариф.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LogisticsQuoteUnavailable"
+          },
+          {
+            "$ref": "#/components/schemas/LogisticsQuoteOk"
+          }
+        ]
+      },
+      "MarginExpense": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "amountRub"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "amountRub": {
+            "type": "number"
+          }
+        }
+      },
+      "MarginEstimateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productCostRub",
+          "deliveryPerUnitRub"
+        ],
+        "description": "Оценка маржи с расходами. Это не факт прибыли. Доставку считает отдельный quote; сюда передают уже число.\n",
+        "properties": {
+          "productCostRub": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Себестоимость товара за штуку в рублях без доставки."
+          },
+          "deliveryPerUnitRub": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Доставка за штуку из logistics quote."
+          },
+          "dutyPercent": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0,
+            "description": "Пошлина в процентах от цены товара."
+          },
+          "otherCostRub": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0,
+            "description": "Прочие расходы на штуку в рублях."
+          },
+          "salePriceRub": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Цена продажи. null — маржа в деньгах не считается."
+          }
+        }
+      },
+      "MarginEstimateUnavailable": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason",
+          "disclaimer"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "invalid_input"
+            ]
+          },
+          "disclaimer": {
+            "type": "string"
+          }
+        }
+      },
+      "MarginEstimateOk": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "costWithDeliveryRub",
+          "expenses",
+          "marginRub",
+          "marginPercent",
+          "disclaimer"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "costWithDeliveryRub": {
+            "type": "number",
+            "description": "Товар + доставка + пошлина + прочее за штуку."
+          },
+          "expenses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MarginExpense"
+            }
+          },
+          "marginRub": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "salePriceRub − costWithDeliveryRub. null без цены продажи."
+          },
+          "marginPercent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Доля маржи от цены продажи. null без цены продажи."
+          },
+          "disclaimer": {
+            "type": "string",
+            "description": "Всегда оговорка, что это оценка, не факт прибыли."
+          }
+        }
+      },
+      "MarginEstimateResult": {
+        "description": "Оценка маржи с расходами или unavailable при плохом входе.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MarginEstimateUnavailable"
+          },
+          {
+            "$ref": "#/components/schemas/MarginEstimateOk"
+          }
+        ]
+      },
       "ResearchDossier": {
         "type": "object",
         "additionalProperties": true,
@@ -3588,6 +6539,83 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DiscardedItem"
+            }
+          }
+        }
+      },
+      "ResearchSiteStatus": {
+        "type": "string",
+        "description": "Статус площадки в сыром досье.",
+        "enum": [
+          "ok",
+          "captcha",
+          "login_required",
+          "blocked",
+          "empty",
+          "skipped",
+          "unknown"
+        ]
+      },
+      "ResearchEvidenceItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "quote",
+          "capturedAt",
+          "siteStatus"
+        ],
+        "description": "Сырое свидетельство для админа: URL, цитата, время, статус площадки. Цены и контакты завода сюда не входят.\n",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Адрес страницы-источника."
+          },
+          "quote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Цитата или фрагмент карточки. null, если в оффере не было."
+          },
+          "capturedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "site": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Имя площадки из досье, если известно."
+          },
+          "siteStatus": {
+            "$ref": "#/components/schemas/ResearchSiteStatus"
+          }
+        }
+      },
+      "ResearchEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runId",
+          "inquiryId",
+          "items"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Внешний run_id прогона."
+          },
+          "inquiryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResearchEvidenceItem"
             }
           }
         }

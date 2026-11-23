@@ -55,9 +55,7 @@ jobs:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          ADMIN_TELEGRAM_IDS: ${{ secrets.ADMIN_TELEGRAM_IDS }}
           ADMIN_API_TOKEN: ${{ secrets.ADMIN_API_TOKEN }}
           RESEARCH_INGEST_TOKEN: ${{ secrets.RESEARCH_INGEST_TOKEN }}
           RESEARCH_TRIGGER_URL: ${{ secrets.RESEARCH_TRIGGER_URL }}

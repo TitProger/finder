@@ -2,7 +2,7 @@
 
 Сервер: Ubuntu, `130.17.14.150`, одно ядро и мало свободной памяти, рядом работают другие приложения. Образ **собирается в GitHub Actions** и публикуется в `ghcr.io/titproger/finder` с тегами SHA коммита и `latest`. На VPS сборки нет: сервер только скачивает образ и запускает контейнеры.
 
-Postgres наружу не публикуется. Приложение слушает **127.0.0.1:8080**. Nginx уже проксирует `https://bot.passimx.com` на этот адрес. Бот ходит в Telegram через long polling, отдельный домен для Telegram не нужен.
+Postgres наружу не публикуется. Приложение слушает **127.0.0.1:8080**. Nginx уже проксирует `https://bot.passimx.com` на этот адрес.
 
 После вливания в `main` зелёный CI сам запускает workflow **Deploy**. Две выкладки одновременно не идут.
 
@@ -68,9 +68,7 @@ openssl rand -hex 32
 | `DEPLOY_PASSWORD` | пароль SSH этого пользователя | да, если нет ключа |
 | `DEPLOY_SSH_KEY` | весь закрытый ключ, включая `BEGIN`/`END` | нет, пока вход по паролю |
 | `DEPLOY_PORT` | `22`. Если секрета нет, тоже 22 | нет |
-| `TELEGRAM_BOT_TOKEN` | токен от @BotFather | да |
 | `POSTGRES_PASSWORD` | `openssl rand -hex 32`. В приложении это `PG_PASSWORD` | да |
-| `ADMIN_TELEGRAM_IDS` | Telegram id админов через запятую, например `871909427` | да |
 | `ADMIN_API_TOKEN` | `openssl rand -hex 32`. Bearer для админского HTTP | да |
 | `RESEARCH_INGEST_TOKEN` | `openssl rand -hex 32`. Секрет приёма досье | да |
 | `RESEARCH_TRIGGER_SECRET` | `openssl rand -hex 32`. Заголовок запуска ресерча | да |
@@ -129,12 +127,6 @@ ufw delete allow 8080/tcp
 
 Права файла с секретами: `ls -l /opt/finder/.env` должен показать `-rw-------`.
 
-## 6. Бот
-
-`TELEGRAM_WEBHOOK_URL` пустой: процесс снимает webhook и слушает обновления long polling. Порт для Telegram открывать не нужно.
-
-Напишите боту с id из `ADMIN_TELEGRAM_IDS`. Этот id безлимитный и получает роль ADMIN при первом сообщении.
-
-## 7. Nginx
+## 6. Nginx
 
 `https://bot.passimx.com` уже проксируется на `127.0.0.1:8080`. Публикация порта в compose поэтому только на loopback: `127.0.0.1:8080:8080`. Менять Nginx для выкладки не нужно. `PUBLIC_BASE_URL` оставляйте `https://bot.passimx.com`, чтобы приём досье шёл на публичный HTTPS, а не на закрытый порт.

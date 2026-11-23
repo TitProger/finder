@@ -140,13 +140,13 @@ if ! compose up -d --no-build --wait --wait-timeout 180; then
 fi
 
 log "→ Миграции"
-if ! compose exec -T -e TELEGRAM_POLLING=false app node dist/src/infrastructure/database/migrate.command.js; then
+if ! compose exec -T app node dist/src/infrastructure/database/migrate.command.js; then
   show_logs
   exit 1
 fi
 
 log "→ Справочник категорий"
-if ! compose exec -T -e TELEGRAM_POLLING=false app npm run seed; then
+if ! compose exec -T app npm run seed; then
   show_logs
   exit 1
 fi

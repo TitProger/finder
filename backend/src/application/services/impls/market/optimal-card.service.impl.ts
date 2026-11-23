@@ -2,7 +2,7 @@ import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
-import { findActingAdmin } from '../../../telegram/acting-admin';
+import { findActingAdmin } from '../../../auth/acting-admin';
 import {
     CreateOptimalCardInput,
     OptimalCardService,

@@ -6,6 +6,7 @@ import { BaseEntity } from '../common/base.entity';
 import { CategoryEntity } from '../category/category.entity';
 import { QuestionPackEntity } from '../category/question-pack.entity';
 import { OptimalCardEntity } from '../market/optimal-card.entity';
+import { TaxonomyNodeEntity } from '../taxonomy/taxonomy-node.entity';
 import { AppUserEntity } from '../user/app-user.entity';
 
 @Entity({ tableName: 'inquiry' })
@@ -25,12 +26,30 @@ export class InquiryEntity extends BaseEntity<'status' | 'photoUrls' | 'isPaused
     @Property({ type: 'text[]', fieldName: 'photo_urls', default: '{}' })
     photoUrls: string[] = [];
 
+    /**
+     * Ответы анкеты сайта. Недостающее — null.
+     * Для веб-заявки photo_urls хранит uuid файлов хранилища, не Telegram file_id.
+     */
+    @Property({ type: 'jsonb', fieldName: 'profile_json', nullable: true })
+    profileJson?: Record<string, unknown> | null;
+
     @ManyToOne(() => CategoryEntity, {
         fieldName: 'category_id',
         deleteRule: 'set null',
         nullable: true,
     })
     category?: Rel<CategoryEntity> | null;
+
+    /**
+     * Узел дерева Wikkeo. Истина категории для сайта.
+     * Старый category_id — плоский классификатор, не дерево.
+     */
+    @ManyToOne(() => TaxonomyNodeEntity, {
+        fieldName: 'taxonomy_node_id',
+        deleteRule: 'set null',
+        nullable: true,
+    })
+    taxonomyNode?: Rel<TaxonomyNodeEntity> | null;
 
     @ManyToOne(() => QuestionPackEntity, {
         fieldName: 'question_pack_id',

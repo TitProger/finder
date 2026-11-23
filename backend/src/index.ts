@@ -23,7 +23,7 @@ export class App {
             AppModule,
             new FastifyAdapter({
                 genReqId: () => randomUUID(),
-                bodyLimit: 5 * 1024 * 1024,
+                bodyLimit: 10 * 1024 * 1024,
             }),
             {
                 bufferLogs: true,

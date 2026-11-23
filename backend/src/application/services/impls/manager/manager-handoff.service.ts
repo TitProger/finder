@@ -1,12 +1,10 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { Logger } from '../../../../common/logger/logger';
 import { AppErrors } from '../../../errors';
 import { ConflictAppException } from '../../../../common/exceptions/conflict.exception';
 import { ForbiddenAppException } from '../../../../common/exceptions/forbidden.exception';
 import { NotFoundAppException } from '../../../../common/exceptions/not-found.exception';
-import { MANAGER_NOTIFY, ManagerButton, ManagerNotifyPort } from '../../../ports/manager-notify.port';
-import { adminChatIds } from '../../../telegram/admin-telegram-ids';
 import {
     CreateOptimalCardInput,
     OPTIMAL_CARD_SERVICE,
@@ -49,8 +47,8 @@ const SUMMARY_LIMIT = 700;
 const FACTORY_LIMIT = 3;
 
 /**
- * Сообщения менеджерам и кнопки по заявке.
- * Сбой доставки пишется в прогон и не пробрасывается наружу: приём досье уже завершён.
+ * Заметки менеджеру по заявке пишутся в лог.
+ * Сбой записи не пробрасывается наружу: приём досье уже завершён.
  */
 @Injectable()
 export class ManagerHandoffService {
@@ -71,9 +69,6 @@ export class ManagerHandoffService {
         private readonly users: AppUserRepository,
         @Inject(OPTIMAL_CARD_SERVICE)
         private readonly optimalCards: OptimalCardService,
-        @Optional()
-        @Inject(MANAGER_NOTIFY)
-        private readonly notify?: ManagerNotifyPort,
     ) {}
 
     async onCardServed(inquiry: InquiryEntity): Promise<void> {
@@ -87,7 +82,7 @@ export class ManagerHandoffService {
             `Ссылка: ${card?.offer?.sourceUrl || card?.contactUrl || '—'}`,
         ];
 
-        await this.fanout(lines.join('\n'), managerButtons(inquiry.id), null);
+        this.logNotice(lines.join('\n'));
     }
 
     async onDossierReady(inquiry: InquiryEntity, run: ResearchRunEntity): Promise<void> {
@@ -111,7 +106,7 @@ export class ManagerHandoffService {
             formatLayerLines(layerQuotes(offers, run.fx)),
         ];
 
-        await this.fanout(lines.join('\n'), managerButtons(inquiry.id), run);
+        this.logNotice(lines.join('\n'));
     }
 
     async onRunProblem(run: ResearchRunEntity): Promise<void> {
@@ -129,7 +124,7 @@ export class ManagerHandoffService {
             `Причина: ${clip(run.failureReason || run.triggerLastError || run.summaryRu || '—', SUMMARY_LIMIT)}`,
         ];
 
-        await this.fanout(lines.join('\n'), managerButtons(inquiry?.id ?? run.inquiry?.id ?? ''), run);
+        this.logNotice(lines.join('\n'));
     }
 
     async makeOptimal(inquiryId: string, adminUserId: string): Promise<OptimalCardEntity> {
@@ -212,44 +207,8 @@ export class ManagerHandoffService {
         return inquiry;
     }
 
-    private async fanout(text: string, buttons: ManagerButton[][], run: ResearchRunEntity | null): Promise<void> {
-        if (!this.notify) {
-            return;
-        }
-
-        const chats = adminChatIds();
-
-        if (chats.length === 0) {
-            Logger.warn('Нет ADMIN_TELEGRAM_IDS, менеджеру не написали', Logger.statuses.WARNING);
-
-            return;
-        }
-
-        const errors: string[] = [];
-
-        for (const chatId of chats) {
-            try {
-                await this.notify.send(chatId, text, buttons);
-            } catch (error) {
-                const message = error instanceof Error ? error.message : 'Telegram не принял сообщение';
-
-                errors.push(`${chatId}: ${message}`);
-                Logger.error('Не удалось написать менеджеру', Logger.statuses.FAIL, {
-                    data: { chatId, message },
-                });
-            }
-        }
-
-        if (!run || errors.length === 0) {
-            return;
-        }
-
-        run.notifyLastError = errors.join('; ').slice(0, 2000);
-
-        const em = this.runs.getEntityManager();
-
-        em.persist(run);
-        await em.flush();
+    private logNotice(text: string): void {
+        Logger.info(text, Logger.statuses.SUCCESS);
     }
 
     private async requireAdmin(adminUserId: string) {
@@ -341,21 +300,6 @@ export class ManagerHandoffService {
 
         return 1;
     }
-}
-
-function managerButtons(inquiryId: string): ManagerButton[][] {
-    if (!inquiryId) {
-        return [];
-    }
-
-    return [
-        [{ text: 'Сделать оптимальной', callbackData: `mo:${inquiryId}` }],
-        [
-            { text: 'Закрыть', callbackData: `cl:${inquiryId}` },
-            { text: 'Перезапустить', callbackData: `rr:${inquiryId}` },
-        ],
-        [{ text: 'Рассчитать', callbackData: `ec:${inquiryId}` }],
-    ];
 }
 
 function layerQuotes(offers: readonly OfferEntity[], fx: unknown) {

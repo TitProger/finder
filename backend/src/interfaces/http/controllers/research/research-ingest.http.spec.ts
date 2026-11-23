@@ -25,6 +25,7 @@ import { ResearchRunRepository } from '../../../../domain/repositories/market/re
 import { ApiExceptionFilter } from '../../filters/api-exception.filter';
 import { ApiResponseInterceptor } from '../../interceptors/api-response.interceptor';
 import { AdminTokenGuard } from '../../auth/admin-token.guard';
+import { ResearchIngestHttpService } from '../../services/impls/research/research-ingest.http-service';
 import { ResearchIngestController } from './research-ingest.controller';
 
 const TOKEN = 'ingest-secret';
@@ -48,6 +49,7 @@ const state: { runner: JsonResearchRunner | null } = { runner: null };
                 return state.runner;
             },
         },
+        ResearchIngestHttpService,
         { provide: APP_GUARD, useClass: AdminTokenGuard },
     ],
 })
@@ -356,7 +358,7 @@ describe('POST /research/ingest', () => {
         expect(JSON.stringify(firstBody)).not.toContain('Завод в Иу');
     });
 
-    it('повтор того же run_id возвращает duplicate и не пишет строки, другое тело даёт 409', async () => {
+    it('повтор с тем же payload sha256 идемпотентен; другое тело на тот же run_id даёт 409', async () => {
         const harness = buildHarness();
         const app = await boot(harness.runner);
         const runId = randomUUID();

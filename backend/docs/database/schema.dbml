@@ -31,6 +31,7 @@ Enum inquiry_status {
   DRAFT
   AWAITING_CATEGORY
   COLLECTING_ANSWERS
+  QUEUED_RESEARCH
   SERVED_FROM_DATABASE
   RESEARCHING
   DOSSIER_WITH_ADMIN
@@ -76,19 +77,18 @@ Enum contact_channel {
 
 Table app_user {
   id uuid [pk, not null, note: 'Первичный ключ пользователя.']
-  role user_role [not null, note: 'ADMIN — кнопки бота и статический токен HTTP; CLIENT — вход по Telegram user id.']
-  telegram_user_id bigint [null, unique, note: 'Telegram user id. Обязателен при role=CLIENT. У ADMIN заполняется, если он работает в боте: бот читает роль этой строки. Unique.']
+  role user_role [not null, note: 'ADMIN — статический токен HTTP; CLIENT — клиент веб-заявки.']
   display_name varchar(255) [null, note: 'Отображаемое имя для админки и логов.']
   is_active boolean [not null, default: true, note: 'Выключенный пользователь не входит.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда создана запись.']
   updated_at timestamptz [default: `now()`, note: 'Когда последний раз меняли запись.']
 
-  Note: 'Роли MVP: ADMIN и CLIENT. Отдельной регистрации нет. Бот узнаёт человека по telegram_user_id и отдаёт админские кнопки только при role=ADMIN.'
+  Note: 'Роли: ADMIN и CLIENT. Отдельной регистрации нет. Telegram-бот и telegram_user_id как ключ заявки сняты.'
 }
 
 Table category {
   id uuid [pk, not null, note: 'Первичный ключ категории.']
-  name varchar(255) [not null, unique, note: 'Имя категории для админа и бота. Unique.']
+  name varchar(255) [not null, unique, note: 'Имя категории для админа. Unique.']
   description text [not null, note: 'Текст описания для классификатора. Без цены.']
   status category_status [not null, default: 'ACTIVE', note: 'ACTIVE участвует в классификации; ARCHIVED скрыта.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда создана категория.']
@@ -133,7 +133,7 @@ Table category_question {
   id uuid [pk, not null, note: 'Первичный ключ вопроса.']
   category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория вопроса.']
   question_pack_id uuid [null, ref: > question_pack.id, note: 'ON DELETE CASCADE. Пакет уточнения. NULL = базовый вопрос категории.']
-  prompt text [not null, note: 'Текст вопроса клиенту в Telegram.']
+  prompt text [not null, note: 'Текст вопроса клиенту на сайте.']
   answer_type question_answer_type [not null, note: 'Как принимать и хранить ответ.']
   choices jsonb [null, note: 'Варианты для SINGLE_CHOICE / MULTI_CHOICE. Иначе NULL.']
   is_required boolean [not null, default: true, note: 'Обязательный ответ до продолжения брифа.']
@@ -219,10 +219,10 @@ Table storefront {
 
 Table inquiry {
   id uuid [pk, not null, note: 'Первичный ключ заявки.']
-  client_user_id uuid [not null, ref: > app_user.id, note: 'ON DELETE RESTRICT. Клиент Telegram, от которого заявка.']
-  status inquiry_status [not null, default: 'DRAFT', note: 'Черновик → ожидание категории → сбор ответов → из базы / ресерч → досье у админа → закрыто.']
-  raw_text text [not null, note: 'Свободный текст клиента из Telegram.']
-  photo_urls text[] [not null, default: `'{}'`, note: 'Telegram file_id фото клиента. Пустой массив, если фото нет. Бот пересылает их админу по этому id, это не публичная ссылка.']
+  client_user_id uuid [not null, ref: > app_user.id, note: 'ON DELETE RESTRICT. Клиент веб-заявки.']
+  status inquiry_status [not null, default: 'DRAFT', note: 'Черновик → ожидание категории → сбор ответов → очередь / из базы / ресерч → досье у админа → закрыто.']
+  raw_text text [not null, note: 'Свободный текст клиента с сайта.']
+  photo_urls text[] [not null, default: `'{}'`, note: 'Id файлов хранилища или непрозрачные строки. Пустой массив, если фото нет.']
   category_id uuid [null, ref: > category.id, note: 'ON DELETE SET NULL. Назначенная категория. NULL до выбора или при сомнении.']
   question_pack_id uuid [null, ref: > question_pack.id, note: 'ON DELETE SET NULL. Уточняющий пакет внутри категории. NULL = только база.']
   classification_scores jsonb [null, note: 'Топ категорий с оценками для карточки сомнения админу.']
@@ -240,7 +240,7 @@ Table inquiry {
     category_id
   }
 
-  Note: 'Заявка клиента. Коммерческое предложение бот не пишет. Логистика и ответ клиенту — человек.'
+  Note: 'Заявка клиента сайта. Коммерческое предложение сервер не пишет. Логистика и ответ клиенту — человек.'
 }
 
 Table inquiry_answer {

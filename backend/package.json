@@ -25,6 +25,7 @@
         "test:cov": "jest --coverage"
     },
     "dependencies": {
+        "@fastify/multipart": "^10.1.9",
         "@fastify/static": "^10.1.11",
         "@mikro-orm/core": "^6.5.9",
         "@mikro-orm/migrations": "^6.5.9",

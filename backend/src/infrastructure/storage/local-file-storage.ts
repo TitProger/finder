@@ -1,4 +1,4 @@
-import { copyFile, mkdir, stat } from 'node:fs/promises';
+import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { Injectable } from '@nestjs/common';
@@ -20,6 +20,17 @@ export class LocalFileStorage implements FileStoragePort {
 
         await mkdir(dirname(target), { recursive: true });
         await copyFile(sourcePath, target);
+    }
+
+    async putBytes(storageKey: string, body: Buffer): Promise<void> {
+        const target = this.resolveInside(storageKey);
+
+        if (!target) {
+            throw new Error(`Ключ файла выходит за хранилище: ${storageKey}`);
+        }
+
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(target, body);
     }
 
     resolveExisting(storageKey: string): string | null {

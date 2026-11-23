@@ -2,7 +2,7 @@
 
 Table category {
   id uuid [pk, not null, note: 'Первичный ключ категории.']
-  name varchar(255) [not null, unique, note: 'Имя категории для админа и бота. Unique.']
+  name varchar(255) [not null, unique, note: 'Имя категории для админа. Unique.']
   description text [not null, note: 'Текст описания для классификатора. Без цены.']
   status category_status [not null, default: 'ACTIVE', note: 'ACTIVE участвует в классификации; ARCHIVED скрыта.']
   created_at timestamptz [not null, default: `now()`, note: 'Когда создана категория.']
@@ -47,7 +47,7 @@ Table category_question {
   id uuid [pk, not null, note: 'Первичный ключ вопроса.']
   category_id uuid [not null, ref: > category.id, note: 'ON DELETE CASCADE. Категория вопроса.']
   question_pack_id uuid [null, ref: > question_pack.id, note: 'ON DELETE CASCADE. Пакет уточнения. NULL = базовый вопрос категории.']
-  prompt text [not null, note: 'Текст вопроса клиенту в Telegram.']
+  prompt text [not null, note: 'Текст вопроса клиенту на сайте.']
   answer_type question_answer_type [not null, note: 'Как принимать и хранить ответ.']
   choices jsonb [null, note: 'Варианты для SINGLE_CHOICE / MULTI_CHOICE. Иначе NULL.']
   is_required boolean [not null, default: true, note: 'Обязательный ответ до продолжения брифа.']

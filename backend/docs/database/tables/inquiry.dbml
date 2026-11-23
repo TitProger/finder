@@ -2,10 +2,10 @@
 
 Table inquiry {
   id uuid [pk, not null, note: 'Первичный ключ заявки.']
-  client_user_id uuid [not null, ref: > app_user.id, note: 'ON DELETE RESTRICT. Клиент Telegram, от которого заявка.']
-  status inquiry_status [not null, default: 'DRAFT', note: 'Черновик → ожидание категории → сбор ответов → из базы / ресерч → досье у админа → закрыто.']
-  raw_text text [not null, note: 'Свободный текст клиента из Telegram.']
-  photo_urls text[] [not null, default: `'{}'`, note: 'Telegram file_id фото клиента. Пустой массив, если фото нет. Бот пересылает их админу по этому id, это не публичная ссылка.']
+  client_user_id uuid [not null, ref: > app_user.id, note: 'ON DELETE RESTRICT. Клиент веб-заявки.']
+  status inquiry_status [not null, default: 'DRAFT', note: 'Черновик → ожидание категории → сбор ответов → очередь / из базы / ресерч → досье у админа → закрыто.']
+  raw_text text [not null, note: 'Свободный текст клиента с сайта.']
+  photo_urls text[] [not null, default: `'{}'`, note: 'Id файлов хранилища или непрозрачные строки. Пустой массив, если фото нет.']
   category_id uuid [null, ref: > category.id, note: 'ON DELETE SET NULL. Назначенная категория. NULL до выбора или при сомнении.']
   question_pack_id uuid [null, ref: > question_pack.id, note: 'ON DELETE SET NULL. Уточняющий пакет внутри категории. NULL = только база.']
   classification_scores jsonb [null, note: 'Топ категорий с оценками для карточки сомнения админу.']
@@ -23,7 +23,7 @@ Table inquiry {
     category_id
   }
 
-  Note: 'Заявка клиента. Коммерческое предложение бот не пишет. Логистика и ответ клиенту — человек.'
+  Note: 'Заявка клиента сайта. Коммерческое предложение сервер не пишет. Логистика и ответ клиенту — человек.'
 }
 
 Table inquiry_answer {

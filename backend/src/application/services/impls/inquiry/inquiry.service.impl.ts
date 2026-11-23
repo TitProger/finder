@@ -3,22 +3,15 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { AppErrors } from '../../../errors';
 import { CategoryClassifierPort } from '../../../ports/category-classifier.port';
-import { LimitCheckerService, LIMIT_CHECKER_SERVICE } from '../../contracts/tariff/limit-checker.service';
+import { findActingAdmin } from '../../../auth/acting-admin';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from '../research/research-launch.service';
 import { MANAGER_HANDOFF, ManagerHandoffService } from '../manager/manager-handoff.service';
-import { findActingAdmin } from '../../../telegram/acting-admin';
-import { adminTelegramIds } from '../../../telegram/admin-telegram-ids';
 import {
-    AdminRecipient,
-    AnswerQuestionInput,
     AssignCategoryInput,
-    ClientDialog,
     CreateCategoryAndAssignInput,
     CreateInquiryInput,
     InquiryService,
     InquiryView,
-    RejectCategoryInput,
-    TelegramActor,
 } from '../../contracts/inquiry/inquiry.service';
 import { BadRequestAppException } from '../../../../common/exceptions/bad-request.exception';
 import { ConflictAppException } from '../../../../common/exceptions/conflict.exception';
@@ -51,7 +44,6 @@ import { REPOSITORY_TOKENS } from '../../../../domain/repositories/repository.to
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
 import { compareAskedQuestions, isQuestionAsked, selectQuestionPack } from './inquiry-questions';
 import { classifyInquiry, ClassificationDecision } from './classify-inquiry';
-import { formatAskedPrompt, parseInquiryAnswer } from './parse-inquiry-answer';
 
 const LAUNCH_FAILED_TEXT = 'Не удалось запустить поиск. Напишите ещё раз, попробуем снова.';
 
@@ -71,8 +63,8 @@ const PAUSE_REASON: Record<PauseOutcome, string> = {
 /**
  * Заявка и классификация.
  * Сомнение ставит паузу и не создаёт research_run.
- * Когда обязательные ответы собраны, живая карточка той же категории отдаётся сразу.
- * Нет карточки — списывается дневной лимит и запускается ресерч.
+ * Когда обязательных вопросов не осталось, живая карточка той же категории отдаётся сразу.
+ * Нет карточки — запускается ресерч.
  */
 @Injectable()
 export class InquiryServiceImpl implements InquiryService {
@@ -93,8 +85,6 @@ export class InquiryServiceImpl implements InquiryService {
         private readonly answers: InquiryAnswerRepository,
         @Inject(REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY)
         private readonly optimalCards: OptimalCardRepository,
-        @Inject(LIMIT_CHECKER_SERVICE)
-        private readonly limitChecker: LimitCheckerService,
         private readonly llmClassifier?: CategoryClassifierPort,
         @Optional()
         @Inject(RESEARCH_LAUNCH_SERVICE)
@@ -106,7 +96,7 @@ export class InquiryServiceImpl implements InquiryService {
 
     async create(input: CreateInquiryInput): Promise<InquiryView> {
         const text = requireClientText(input.text);
-        const client = await this.findOrCreateClient(input.telegramUserId);
+        const client = await this.createAnonymousClient();
         const decision = await this.classify(text);
         const category = await this.categoryFromDecision(decision);
         const pack = category ? await this.pickPack(category.id, text) : null;
@@ -190,160 +180,6 @@ export class InquiryServiceImpl implements InquiryService {
         }
 
         await this.serveIfReady(inquiry);
-
-        return this.viewOf(inquiry);
-    }
-
-    async resolveTelegramActor(telegramUserId: number): Promise<TelegramActor> {
-        const telegramId = String(telegramUserId);
-        let user = await this.users.findOne({ telegramUserId: telegramId });
-
-        // Если пользователя нет, но его ID в списке админов - создаём админа
-        if (!user && this.isAdminTelegramId(telegramId)) {
-            user = await this.createAdminFromTelegram(telegramUserId);
-        }
-
-        if (!user) {
-            return { kind: 'new_client', telegramUserId };
-        }
-
-        if (!user.isActive) {
-            throw new ForbiddenAppException(AppErrors.auth.userInactive.message, {
-                code: AppErrors.auth.userInactive.code,
-            });
-        }
-
-        if (user.role === UserRole.ADMIN) {
-            return { kind: 'admin', userId: user.id, telegramUserId };
-        }
-
-        if (user.role !== UserRole.CLIENT) {
-            throw new ForbiddenAppException(AppErrors.inquiry.clientRole.message, {
-                code: AppErrors.inquiry.clientRole.code,
-            });
-        }
-
-        return { kind: 'client', userId: user.id, telegramUserId };
-    }
-
-    async listAdminRecipients(): Promise<AdminRecipient[]> {
-        // Получаем всех админов из базы
-        const admins = await this.users.find({ role: UserRole.ADMIN, isActive: true });
-
-        // Также добавляем админов из env, которых ещё может не быть в базе
-        const adminTelegramIds = Envs.admin.telegramIds.map((id) => toTelegramUserId(id)).filter((id) => id !== null);
-
-        const recipients = new Map<number, AdminRecipient>();
-
-        // Админы из базы
-        for (const admin of admins) {
-            const telegramUserId = toTelegramUserId(admin.telegramUserId);
-
-            if (telegramUserId !== null) {
-                recipients.set(telegramUserId, { userId: admin.id, telegramUserId });
-            }
-        }
-
-        // Админы из env (если их нет в базе, создадим при первом обращении)
-        for (const telegramUserId of adminTelegramIds) {
-            if (!recipients.has(telegramUserId)) {
-                // Временно добавляем с пустым userId - они будут созданы при первом контакте
-                const existing = await this.users.findOne({ telegramUserId: String(telegramUserId) });
-
-                if (existing) {
-                    recipients.set(telegramUserId, { userId: existing.id, telegramUserId });
-                }
-            }
-        }
-
-        return Array.from(recipients.values());
-    }
-
-    async findClientDialog(telegramUserId: number): Promise<ClientDialog> {
-        const inquiry = await this.latestOpenInquiry(telegramUserId);
-
-        if (!inquiry) {
-            return { kind: 'idle' };
-        }
-
-        return this.dialogFrom(await this.findInquiry(inquiry.id));
-    }
-
-    async answerQuestion(input: AnswerQuestionInput): Promise<ClientDialog> {
-        const inquiry = await this.requireOwned(input.inquiryId, input.telegramUserId);
-
-        if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
-            throw new ConflictAppException(AppErrors.inquiry.answerNotExpected.message, {
-                code: AppErrors.inquiry.answerNotExpected.code,
-            });
-        }
-
-        const view = await this.viewOf(inquiry);
-        const pending = await this.pendingQuestions(inquiry.id, view.questions);
-        const question = pending[0];
-
-        if (!question) {
-            throw new ConflictAppException(AppErrors.inquiry.answerNotExpected.message, {
-                code: AppErrors.inquiry.answerNotExpected.code,
-            });
-        }
-
-        const parsed = parseInquiryAnswer(question.answerType, question.choices, input.text);
-        const row = this.answers.create({
-            inquiry,
-            categoryQuestion: question,
-            valueText: parsed.valueText,
-            valueJson: parsed.valueJson,
-            answeredAt: new Date(),
-        });
-        const em = this.answers.getEntityManager();
-
-        em.persist(row);
-        await em.flush();
-
-        const remaining = pending.slice(1);
-
-        if (remaining.length === 0) {
-            await this.serveIfReady(inquiry, question.id);
-
-            const fresh = await this.findInquiry(inquiry.id);
-
-            return { kind: 'complete', view: await this.viewOf(fresh) };
-        }
-
-        const next = remaining[0];
-
-        return {
-            kind: 'asking',
-            view,
-            prompt: formatAskedPrompt(next.prompt, next.choices),
-            index: view.questions.length - remaining.length,
-            total: view.questions.length,
-        };
-    }
-
-    async rejectCategory(input: RejectCategoryInput): Promise<InquiryView> {
-        const inquiry = await this.requireOwned(input.inquiryId, input.telegramUserId);
-
-        if (inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
-            throw new ConflictAppException(AppErrors.inquiry.notRejectable.message, {
-                code: AppErrors.inquiry.notRejectable.code,
-            });
-        }
-
-        const existing = await this.answers.find({ inquiry: inquiry.id });
-        const em = this.inquiries.getEntityManager();
-
-        for (const answer of existing) {
-            em.remove(answer);
-        }
-
-        inquiry.category = null;
-        inquiry.questionPack = null;
-        inquiry.status = InquiryStatus.AWAITING_CATEGORY;
-        inquiry.isPaused = true;
-        inquiry.pauseReason = 'Клиент сказал, что это не та категория.';
-        await this.commitInquiry(inquiry);
 
         return this.viewOf(inquiry);
     }
@@ -444,20 +280,15 @@ export class InquiryServiceImpl implements InquiryService {
 
     /**
      * Поиск перед ресерчем. Совпадение пишет карточку и статус «ответ из базы».
-     * Совпадение с живой карточкой лимит не тратит.
-     * Промах списывает лимит один раз и создаёт research_run.
+     * Нет живой карточки — ресерч запускается сразу.
      */
-    private async serveIfReady(inquiry: InquiryEntity, justAnsweredId?: string): Promise<void> {
+    private async serveIfReady(inquiry: InquiryEntity): Promise<void> {
         if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
             return;
         }
 
         const view = await this.viewOf(inquiry);
-        const pending = await this.pendingQuestions(
-            inquiry.id,
-            view.questions,
-            justAnsweredId ? new Set([justAnsweredId]) : undefined,
-        );
+        const pending = await this.pendingQuestions(inquiry.id, view.questions);
 
         if (pending.length > 0) {
             return;
@@ -515,21 +346,6 @@ export class InquiryServiceImpl implements InquiryService {
         );
 
         if (!chosen) {
-            // Нет готовой карточки - нужен ресерч
-            // Проверяем дневной лимит
-            const telegramId = normalizeTelegramId(inquiry.clientUser.telegramUserId) ?? '';
-            const limitCheck = await this.limitChecker.canStartResearch(inquiry.clientUser.id, telegramId);
-
-            if (!limitCheck.allowed) {
-                // Лимит исчерпан - используем отдельный статус, чтобы не триггерить admin category card
-                inquiry.isPaused = true;
-                inquiry.pauseReason = 'Исчерпан дневной лимит запросов. Попробуйте завтра или обратитесь к менеджеру.';
-                inquiry.status = InquiryStatus.LIMIT_EXCEEDED;
-                await this.commitInquiry(inquiry);
-
-                return;
-            }
-
             await this.launchResearch(inquiry);
 
             return;
@@ -541,7 +357,6 @@ export class InquiryServiceImpl implements InquiryService {
             return;
         }
 
-        // Нашли готовую карточку - лимит не расходуется
         inquiry.optimalCard = card;
         inquiry.status = InquiryStatus.SERVED_FROM_DATABASE;
         await this.commitInquiry(inquiry);
@@ -549,7 +364,6 @@ export class InquiryServiceImpl implements InquiryService {
     }
 
     /**
-     * Лимит списывается только после успешного старта.
      * Ошибка до записи прогона не должна глотаться: клиент получает текст и может повторить.
      * Если прогон уже в базе, статус RESEARCHING оставляем и не прячем его за исключением.
      */
@@ -571,18 +385,6 @@ export class InquiryServiceImpl implements InquiryService {
             if (fresh.status !== InquiryStatus.RESEARCHING) {
                 throw new InternalServerAppException(LAUNCH_FAILED_TEXT);
             }
-        }
-
-        if (inquiry.status !== InquiryStatus.RESEARCHING) {
-            return;
-        }
-
-        try {
-            await this.limitChecker.incrementResearchUsage(inquiry.clientUser.id);
-        } catch (error) {
-            Logger.error('Счётчик ресерча не увеличился', Logger.statuses.FAIL, {
-                data: { message: error instanceof Error ? error.message : String(error), inquiryId: inquiry.id },
-            });
         }
     }
 
@@ -690,20 +492,11 @@ export class InquiryServiceImpl implements InquiryService {
         return admin;
     }
 
-    private async findOrCreateClient(telegramUserId: number): Promise<AppUserEntity> {
-        const telegramId = String(telegramUserId);
-        const existing = await this.users.findOne({ telegramUserId: telegramId });
-
-        if (existing) {
-            return this.requireActiveClient(existing);
-        }
-
+    private async createAnonymousClient(): Promise<AppUserEntity> {
         const created = this.users.create({
             role: UserRole.CLIENT,
-            telegramUserId: telegramId,
             displayName: null,
             isActive: true,
-            planCode: 'free',
         });
         const em = this.users.getEntityManager();
 
@@ -713,192 +506,12 @@ export class InquiryServiceImpl implements InquiryService {
         return created;
     }
 
-    private requireActiveClient(user: AppUserEntity): AppUserEntity {
-        if (user.role !== UserRole.CLIENT) {
-            throw new ForbiddenAppException(AppErrors.inquiry.clientRole.message, {
-                code: AppErrors.inquiry.clientRole.code,
-            });
-        }
-
-        if (!user.isActive) {
-            throw new ForbiddenAppException(AppErrors.auth.userInactive.message, {
-                code: AppErrors.auth.userInactive.code,
-            });
-        }
-
-        return user;
-    }
-
-    /**
-     * Повтор клиента после последнего ответа не должен открывать новую заявку.
-     * Более новая заявка (пауза, назначенное «общее» или уже заполненный черновик)
-     * не прячет более раннюю собранную, по которой ресерч ещё не запускали.
-     * Незаконченный опрос, который клиент сейчас проходит, не перехватываем.
-     */
-    private async latestOpenInquiry(telegramUserId: number): Promise<InquiryEntity | null> {
-        const user = await this.users.findOne({ telegramUserId: String(telegramUserId) });
-
-        if (!user || user.role !== UserRole.CLIENT) {
-            return null;
-        }
-
-        const rows = await this.inquiries.find(
-            { clientUser: user.id },
-            { populate: ['category', 'questionPack', 'clientUser'] },
-        );
-        const open = rows
-            .map((inquiry, index) => ({ inquiry, index }))
-            .filter(
-                ({ inquiry }) =>
-                    inquiry.status === InquiryStatus.AWAITING_CATEGORY ||
-                    inquiry.status === InquiryStatus.COLLECTING_ANSWERS,
-            )
-            .sort((left, right) => {
-                const delta = timeOf(right.inquiry) - timeOf(left.inquiry);
-
-                if (delta !== 0) {
-                    return delta;
-                }
-
-                return right.index - left.index;
-            })
-            .map(({ inquiry }) => inquiry);
-
-        if (open.length === 0) {
-            return null;
-        }
-
-        const ready: InquiryEntity[] = [];
-
-        for (const inquiry of open) {
-            if (await this.isReadyToServe(inquiry)) {
-                ready.push(inquiry);
-            }
-        }
-
-        const newest = open[0];
-
-        if (await this.isActiveQuestionnaire(newest)) {
-            return newest;
-        }
-
-        const chosen = ready[ready.length - 1];
-
-        if (!chosen) {
-            return newest;
-        }
-
-        await this.dismissNewerPausedDrafts(chosen, open);
-
-        return chosen;
-    }
-
-    private async dialogFrom(inquiry: InquiryEntity): Promise<ClientDialog> {
-        if (inquiry.status === InquiryStatus.COLLECTING_ANSWERS && !inquiry.isPaused && inquiry.category) {
-            const view = await this.viewOf(inquiry);
-            const pending = await this.pendingQuestions(inquiry.id, view.questions);
-
-            if (pending.length > 0) {
-                return this.asking(view, pending);
-            }
-
-            await this.serveIfReady(inquiry);
-
-            const fresh = await this.findInquiry(inquiry.id);
-
-            return this.settledDialog(fresh);
-        }
-
-        return this.settledDialog(inquiry);
-    }
-
-    private async settledDialog(inquiry: InquiryEntity): Promise<ClientDialog> {
-        const view = await this.viewOf(inquiry);
-
-        if (inquiry.isPaused || inquiry.status === InquiryStatus.AWAITING_CATEGORY || !inquiry.category) {
-            return { kind: 'paused', view };
-        }
-
-        if (inquiry.status === InquiryStatus.COLLECTING_ANSWERS) {
-            const pending = await this.pendingQuestions(inquiry.id, view.questions);
-
-            if (pending.length > 0) {
-                return this.asking(view, pending);
-            }
-        }
-
-        return { kind: 'complete', view };
-    }
-
-    private asking(view: InquiryView, pending: CategoryQuestionEntity[]): ClientDialog {
-        const question = pending[0];
-
-        return {
-            kind: 'asking',
-            view,
-            prompt: formatAskedPrompt(question.prompt, question.choices),
-            index: view.questions.length - pending.length,
-            total: view.questions.length,
-        };
-    }
-
-    /** Клиент сейчас отвечает на вопросы. Более старую собранную заявку в этот момент не подменяем. */
-    private async isActiveQuestionnaire(inquiry: InquiryEntity): Promise<boolean> {
-        if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
-            return false;
-        }
-
-        const view = await this.viewOf(inquiry);
-        const pending = await this.pendingQuestions(inquiry.id, view.questions);
-
-        return pending.length > 0;
-    }
-
-    private async isReadyToServe(inquiry: InquiryEntity): Promise<boolean> {
-        if (inquiry.isPaused || inquiry.status !== InquiryStatus.COLLECTING_ANSWERS || !inquiry.category) {
-            return false;
-        }
-
-        const view = await this.viewOf(inquiry);
-        const pending = await this.pendingQuestions(inquiry.id, view.questions);
-
-        return pending.length === 0;
-    }
-
-    private isAccidentalPause(inquiry: InquiryEntity): boolean {
-        return inquiry.isPaused && inquiry.status === InquiryStatus.AWAITING_CATEGORY;
-    }
-
-    /** Черновик без ответов, который новее уже собранной заявки, больше не перехватывает диалог. */
-    private async dismissNewerPausedDrafts(ready: InquiryEntity, open: InquiryEntity[]): Promise<void> {
-        const readyAt = timeOf(ready);
-
-        for (const inquiry of open) {
-            if (inquiry.id === ready.id || timeOf(inquiry) <= readyAt || !this.isAccidentalPause(inquiry)) {
-                continue;
-            }
-
-            const existing = await this.answers.find({ inquiry: inquiry.id });
-
-            if (existing.length > 0) {
-                continue;
-            }
-
-            inquiry.status = InquiryStatus.CLOSED;
-            inquiry.isPaused = false;
-            inquiry.pauseReason = null;
-            inquiry.closedAt = new Date();
-            await this.commitInquiry(inquiry);
-        }
-    }
-
     private async pendingQuestions(
         inquiryId: string,
         questions: CategoryQuestionEntity[],
-        alsoAnswered?: ReadonlySet<string>,
     ): Promise<CategoryQuestionEntity[]> {
         const answers = await this.answers.find({ inquiry: inquiryId }, { populate: ['categoryQuestion'] });
-        const answered = new Set<string>(alsoAnswered ?? []);
+        const answered = new Set<string>();
         let readable = 0;
 
         for (const answer of answers) {
@@ -921,52 +534,6 @@ export class InquiryServiceImpl implements InquiryService {
         return questions.filter((question) => !answered.has(question.id));
     }
 
-    private async requireOwned(id: string, telegramUserId: number): Promise<InquiryEntity> {
-        const inquiry = await this.findInquiry(id);
-        const owner = await this.ownerOf(inquiry);
-
-        if (normalizeTelegramId(owner.telegramUserId) !== normalizeTelegramId(telegramUserId)) {
-            throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
-                code: AppErrors.inquiry.notClient.code,
-            });
-        }
-
-        if (owner.role !== UserRole.CLIENT) {
-            throw new ForbiddenAppException(AppErrors.inquiry.clientRole.message, {
-                code: AppErrors.inquiry.clientRole.code,
-            });
-        }
-
-        return inquiry;
-    }
-
-    /** Связь может прийти только с id. Тогда telegram id и роль пустые, хотя строка app_user на месте. */
-    private async ownerOf(inquiry: InquiryEntity): Promise<AppUserEntity> {
-        const linked = inquiry.clientUser;
-
-        if (linked?.id && linked.telegramUserId != null && linked.role != null) {
-            return linked;
-        }
-
-        if (!linked?.id) {
-            throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
-                code: AppErrors.inquiry.notClient.code,
-            });
-        }
-
-        const reloaded = await this.users.findOne({ id: linked.id });
-
-        if (!reloaded) {
-            throw new ForbiddenAppException(AppErrors.inquiry.notClient.message, {
-                code: AppErrors.inquiry.notClient.code,
-            });
-        }
-
-        inquiry.clientUser = reloaded;
-
-        return reloaded;
-    }
-
     private rethrowNameConflict(error: unknown): never {
         if (error instanceof UniqueConstraintViolationException) {
             throw new ConflictAppException(AppErrors.category.nameConflict.message, {
@@ -977,10 +544,6 @@ export class InquiryServiceImpl implements InquiryService {
         throw error;
     }
 
-    private isAdminTelegramId(telegramId: string): boolean {
-        return adminTelegramIds().includes(telegramId);
-    }
-
     private async tellHandoff(send: () => Promise<void> | undefined): Promise<void> {
         try {
             await send();
@@ -989,23 +552,6 @@ export class InquiryServiceImpl implements InquiryService {
                 data: { message: error instanceof Error ? error.message : String(error) },
             });
         }
-    }
-
-    private async createAdminFromTelegram(telegramUserId: number): Promise<AppUserEntity> {
-        const telegramId = String(telegramUserId);
-        const admin = this.users.create({
-            role: UserRole.ADMIN,
-            telegramUserId: telegramId,
-            displayName: `Admin ${telegramUserId}`,
-            isActive: true,
-            planCode: 'unlimited',
-        });
-        const em = this.users.getEntityManager();
-
-        em.persist(admin);
-        await em.flush();
-
-        return admin;
     }
 }
 
@@ -1047,11 +593,6 @@ function collectPhotoFileIds(ids: readonly string[] | undefined): string[] {
     return unique;
 }
 
-function timeOf(inquiry: InquiryEntity): number {
-    return inquiry.createdAt instanceof Date ? inquiry.createdAt.getTime() : 0;
-}
-
-/** id связи. Неинициализированная ссылка MikroORM не должна ронять весь ответ. */
 function safeRelationId(owner: object, key: string): string | null {
     try {
         return relationId((owner as Record<string, unknown>)[key]);
@@ -1072,40 +613,6 @@ function relationId(value: unknown): string | null {
     const id = (value as { id?: unknown }).id;
 
     return typeof id === 'string' && id.length > 0 ? id : null;
-}
-
-function normalizeTelegramId(value: string | number | bigint | null | undefined): string | null {
-    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
-        return null;
-    }
-
-    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') {
-        return null;
-    }
-
-    const text = String(value).trim();
-
-    if (!/^[1-9]\d{0,15}$/.test(text)) {
-        return null;
-    }
-
-    return text;
-}
-
-function toTelegramUserId(value: string | number | bigint | null | undefined): number | null {
-    const text = normalizeTelegramId(value);
-
-    if (!text) {
-        return null;
-    }
-
-    const parsed = Number(text);
-
-    if (!Number.isSafeInteger(parsed)) {
-        return null;
-    }
-
-    return parsed;
 }
 
 function requireCategoryFields(name: string, description: string): { name: string; description: string } {

@@ -43,9 +43,6 @@ services:
       STORAGE_PATH: /app/storage
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
-      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?ADMIN_TELEGRAM_IDS is required}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      FREE_PLAN_DAILY_LIMIT: ${FREE_PLAN_DAILY_LIMIT:-3}
     volumes:
       - finder_storage:/app/storage
     depends_on:

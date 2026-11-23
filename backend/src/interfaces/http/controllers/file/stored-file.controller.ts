@@ -1,4 +1,5 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 
 import { Public } from '../../auth/public.decorator';
 import { StoredFileHttpService } from '../../services/impls/file/stored-file.http-service';
@@ -7,6 +8,12 @@ import { StoredFileHttpService } from '../../services/impls/file/stored-file.htt
 @Controller('files')
 export class StoredFileController {
     constructor(private readonly files: StoredFileHttpService) {}
+
+    @Public()
+    @Post()
+    upload(@Req() request: FastifyRequest) {
+        return this.files.upload(request);
+    }
 
     @Public()
     @Get(':id/content')

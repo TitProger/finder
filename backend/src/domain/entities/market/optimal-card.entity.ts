@@ -1,6 +1,8 @@
 import { Entity, Enum, ManyToOne, Property, Rel, Unique } from '@mikro-orm/core';
 
 import { ContactChannel } from '../../enums/contact-channel.enum';
+import { DossierReviewDecision } from '../../enums/dossier-review-decision.enum';
+import { SafeDossierReportBody } from '../../market/safe-dossier-report';
 import { BaseEntity } from '../common/base.entity';
 import { CanonicalProductEntity } from '../catalog/canonical-product.entity';
 import { CompanyEntity } from '../catalog/company.entity';
@@ -10,13 +12,19 @@ import { CategoryQuestionEntity } from '../category/category-question.entity';
 import { CategoryEntity } from '../category/category.entity';
 import { AppUserEntity } from '../user/app-user.entity';
 
+/**
+ * Утверждённое каноническое досье / live-кэш.
+ * Таблица optimal_card сохранена: это эволюция карточки, не ответ бота.
+ */
 @Entity({ tableName: 'optimal_card' })
 @Unique({
     name: 'optimal_card_one_live_per_product_qty',
     expression:
         'create unique index "optimal_card_one_live_per_product_qty" on "optimal_card" ("canonical_product_id", "qty_min", "qty_max") where "is_live" = true',
 })
-export class OptimalCardEntity extends BaseEntity<'isLive' | 'contactAdminEntered'> {
+export class OptimalCardEntity extends BaseEntity<
+    'isLive' | 'contactAdminEntered' | 'categoryReview' | 'offerReview' | 'supplierReview'
+> {
     @ManyToOne(() => CategoryEntity, {
         fieldName: 'category_id',
         deleteRule: 'restrict',
@@ -109,4 +117,40 @@ export class OptimalCardEntity extends BaseEntity<'isLive' | 'contactAdminEntere
 
     @Property({ type: 'timestamptz', fieldName: 'expires_at', nullable: true })
     expiresAt?: Date | null;
+
+    @Enum({
+        items: () => DossierReviewDecision,
+        nativeEnumName: 'dossier_review_decision',
+        fieldName: 'category_review',
+        default: DossierReviewDecision.PENDING,
+    })
+    categoryReview: DossierReviewDecision = DossierReviewDecision.PENDING;
+
+    @Enum({
+        items: () => DossierReviewDecision,
+        nativeEnumName: 'dossier_review_decision',
+        fieldName: 'offer_review',
+        default: DossierReviewDecision.PENDING,
+    })
+    offerReview: DossierReviewDecision = DossierReviewDecision.PENDING;
+
+    @Enum({
+        items: () => DossierReviewDecision,
+        nativeEnumName: 'dossier_review_decision',
+        fieldName: 'supplier_review',
+        default: DossierReviewDecision.PENDING,
+    })
+    supplierReview: DossierReviewDecision = DossierReviewDecision.PENDING;
+
+    @Property({ type: 'text', fieldName: 'review_note', nullable: true })
+    reviewNote?: string | null;
+
+    @Property({ type: 'varchar', length: 1024, fieldName: 'match_text', nullable: true })
+    matchText?: string | null;
+
+    @Property({ type: 'jsonb', fieldName: 'public_report', nullable: true })
+    publicReport?: SafeDossierReportBody | null;
+
+    @Property({ type: 'timestamptz', fieldName: 'revalidate_at', nullable: true })
+    revalidateAt?: Date | null;
 }

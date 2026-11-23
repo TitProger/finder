@@ -18,8 +18,6 @@ import { InquiryAnswerEntity } from '../../../../domain/entities/inquiry/inquiry
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { OptimalCardEntity } from '../../../../domain/entities/market/optimal-card.entity';
 import { ResearchRunEntity } from '../../../../domain/entities/market/research-run.entity';
-import { DailyUsageEntity } from '../../../../domain/entities/tariff/daily-usage.entity';
-import { PlanEntity } from '../../../../domain/entities/tariff/plan.entity';
 import { AppUserEntity } from '../../../../domain/entities/user/app-user.entity';
 import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
 import { InquiryStatus } from '../../../../domain/enums/inquiry-status.enum';
@@ -38,20 +36,16 @@ import { InquiryAnswerRepository } from '../../../../domain/repositories/inquiry
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { OptimalCardRepository } from '../../../../domain/repositories/market/optimal-card.repository';
 import { ResearchRunRepository } from '../../../../domain/repositories/market/research-run.repository';
-import { DailyUsageRepository } from '../../../../domain/repositories/tariff/daily-usage.repository';
-import { PlanRepository } from '../../../../domain/repositories/tariff/plan.repository';
 import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
 import { ApiExceptionFilter } from '../../../../interfaces/http/filters/api-exception.filter';
 import { AdminTokenGuard } from '../../../../interfaces/http/auth/admin-token.guard';
 import { ResearchRerunController } from '../../../../interfaces/http/controllers/inquiry/research-rerun.controller';
 import { ApiResponseInterceptor } from '../../../../interfaces/http/interceptors/api-response.interceptor';
 import { InquiryServiceImpl } from '../inquiry/inquiry.service.impl';
-import { LimitCheckerServiceImpl } from '../tariff/limit-checker.service.impl';
 import { JsonResearchRunner } from './json-research-runner';
 import { GrokWebhookTrigger } from '../../../../infrastructure/research/grok-webhook.trigger';
 import { RESEARCH_LAUNCH_SERVICE, ResearchLaunchService } from './research-launch.service';
 
-const CLIENT = 9000004242;
 const TEXT = 'лабораторные халаты';
 const TRIGGER_URL = 'https://research.example/hook';
 const TRIGGER_SECRET = 'trigger-secret';
@@ -129,7 +123,6 @@ function buildHarness() {
     const companies: CompanyEntity[] = [];
     const contacts: CompanyContactEntity[] = [];
     const offers: OfferEntity[] = [];
-    const usages: DailyUsageEntity[] = [];
     const lists = new Map<object, Stored[]>();
     const em = {
         persist(entity: Stored) {
@@ -191,44 +184,7 @@ function buildHarness() {
             return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
         },
     };
-    const plan = stamp(new PlanEntity(), { code: 'free', title: 'Бесплатный', dailyResearchLimit: 3 });
-    const plans: Pick<PlanRepository, 'findByCode'> = {
-        async findByCode(code: string) {
-            return code === plan.code ? plan : null;
-        },
-    };
     const userRepo = repo(AppUserEntity, users);
-    const dailyUsage: Pick<DailyUsageRepository, 'findOrCreate' | 'incrementResearchCount'> = {
-        async findOrCreate(userId: string, usageDate: string) {
-            const existing = usages.find((row) => row.user.id === userId && row.usageDate === usageDate);
-
-            if (existing) {
-                return existing;
-            }
-
-            const user = users.find((item) => item.id === userId);
-
-            if (!user) {
-                throw new Error(`Нет пользователя ${userId}`);
-            }
-
-            const row = stamp(new DailyUsageEntity(), { user, usageDate, researchCount: 0 });
-
-            usages.push(row);
-
-            return row;
-        },
-        async incrementResearchCount(userId: string, usageDate: string) {
-            const row = await this.findOrCreate(userId, usageDate);
-
-            row.researchCount += 1;
-        },
-    };
-    const limitChecker = new LimitCheckerServiceImpl(
-        userRepo as unknown as AppUserRepository,
-        plans as PlanRepository,
-        dailyUsage as DailyUsageRepository,
-    );
     const inquiryRepo = repo(InquiryEntity, inquiries);
     const answerRepo = repo(InquiryAnswerEntity, answers);
     const runRepo = repo(ResearchRunEntity, runs);
@@ -248,7 +204,6 @@ function buildHarness() {
         repo(CategoryQuestionEntity, questions) as unknown as CategoryQuestionRepository,
         answerRepo as unknown as InquiryAnswerRepository,
         repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        limitChecker,
         undefined,
         launch,
     );
@@ -299,7 +254,6 @@ function buildHarness() {
         launch,
         inquiries,
         runs,
-        usages,
         runner,
         category,
         questions,
@@ -320,21 +274,12 @@ function buildHarness() {
     };
 }
 
-function moscowToday(): string {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
-}
+async function askUntilResearch(harness: ReturnType<typeof buildHarness>) {
+    harness.questions.splice(0, harness.questions.length);
+    const created = await harness.service.create({ text: TEXT });
 
-async function askUntilResearch(harness: ReturnType<typeof buildHarness>, text = '1000') {
-    const created = await harness.service.create({ telegramUserId: CLIENT, text: TEXT });
-
-    expect(created.inquiry.status).toBe(InquiryStatus.COLLECTING_ANSWERS);
-    expect(harness.runs).toHaveLength(0);
-
-    await harness.service.answerQuestion({
-        inquiryId: created.inquiry.id,
-        telegramUserId: CLIENT,
-        text,
-    });
+    expect(created.inquiry.status).toBe(InquiryStatus.RESEARCHING);
+    expect(harness.runs).toHaveLength(1);
 
     return created.inquiry;
 }
@@ -417,20 +362,9 @@ describe('запуск ресерча', () => {
             sortOrder: 1,
         });
 
-        const created = await harness.service.create({ telegramUserId: CLIENT, text: TEXT });
-        const replies = ['халат', 'хлопок', '1000', 'M', 'белый', 'нет', '500', 'Москва'];
-        let last = created.inquiry;
-
-        for (const reply of replies) {
-            const step = await harness.service.answerQuestion({
-                inquiryId: created.inquiry.id,
-                telegramUserId: CLIENT,
-                text: reply,
-            });
-
-            expect(step.kind === 'complete' || step.kind === 'asking').toBe(true);
-            last = step.kind === 'idle' || step.kind === 'paused' ? last : step.view.inquiry;
-        }
+        harness.questions.splice(0, harness.questions.length);
+        const created = await harness.service.create({ text: TEXT });
+        const last = created.inquiry;
 
         const run = harness.runs[0];
 
@@ -440,11 +374,8 @@ describe('запуск ресерча', () => {
         expect(run.status).toBe(ResearchRunStatus.RUNNING);
         expect(calls).toHaveLength(1);
         expect(calls[0].body.pack_code ?? null).toBeNull();
-        expect(calls[0].body.answers).toHaveLength(8);
-        expect(JSON.stringify(calls[0].body.answers)).toContain('Город доставки');
-        expect(JSON.stringify(calls[0].body.answers)).not.toContain('Многоразовый или одноразовый');
-        expect(JSON.stringify(calls[0].body)).not.toContain(String(CLIENT));
-        expect(harness.usages[0].researchCount).toBe(1);
+        expect(calls[0].body.answers).toHaveLength(0);
+        expect(JSON.stringify(calls[0].body)).not.toContain('telegramUserId');
     });
 
     it('после ответа шлёт webhook с секретом и досье переводит заявку к админу', async () => {
@@ -455,7 +386,6 @@ describe('запуск ресерча', () => {
         expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
         expect(run.status).toBe(ResearchRunStatus.RUNNING);
         expect(run.triggerAttempts).toBe(1);
-        expect(harness.usages[0].researchCount).toBe(1);
         expect(calls).toHaveLength(1);
         expect(calls[0].url).toBe(TRIGGER_URL);
         expect(calls[0].headers[RESEARCH_TRIGGER_HEADER]).toBe(TRIGGER_SECRET);
@@ -466,7 +396,7 @@ describe('запуск ресерча', () => {
             run_id: run.runId,
             category_code: 'clothing',
             raw_text: TEXT,
-            answers: [{ code: 'quantity', prompt: 'Сколько штук?', value: '1000' }],
+            answers: [],
             ingest_url: 'http://finder.test/research/ingest',
         });
         expect(calls[0].body.sites).toEqual([
@@ -478,7 +408,7 @@ describe('запуск ресерча', () => {
                 query_template: '{товар} 源头工厂',
             },
         ]);
-        expect(JSON.stringify(calls[0].body)).not.toContain(String(CLIENT));
+        expect(JSON.stringify(calls[0].body)).not.toContain('telegramUserId');
         expect(JSON.stringify(calls[0].body)).not.toContain('price');
 
         const ingested = await harness.runner.ingest({
@@ -510,7 +440,6 @@ describe('запуск ресерча', () => {
         expect(run.triggerLastError).toBe('HTTP 503');
         expect(run.failureReason).toBe('HTTP 503');
         expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
-        expect(harness.usages[0].researchCount).toBe(1);
     });
 
     it('без URL не падает и оставляет заявку в RESEARCHING', async () => {
@@ -523,19 +452,14 @@ describe('запуск ресерча', () => {
         expect(inquiry.status).toBe(InquiryStatus.RESEARCHING);
         expect(run.status).toBe(ResearchRunStatus.PENDING);
         expect(run.triggerLastError).toContain('RESEARCH_TRIGGER_URL не задан');
-        expect(harness.usages[0].researchCount).toBe(1);
     });
 
     it('помечает прогон без досье старше порога и не трогает свежий и уже упавший', async () => {
         const harness = buildHarness();
         const first = await askUntilResearch(harness);
-        const secondView = await harness.service.create({ telegramUserId: CLIENT + 1, text: TEXT });
+        harness.questions.splice(0, harness.questions.length);
+        const secondView = await harness.service.create({ text: TEXT });
 
-        await harness.service.answerQuestion({
-            inquiryId: secondView.inquiry.id,
-            telegramUserId: CLIENT + 1,
-            text: '200',
-        });
 
         const clock = new Date('2026-06-01T12:00:00.000Z');
         const [stale, fresh] = harness.runs;
@@ -610,33 +534,7 @@ describe('запуск ресерча', () => {
         expect(calls[1].body.run_id).toBe(body.data.runId);
         expect(calls[1].headers[RESEARCH_TRIGGER_HEADER]).toBe(TRIGGER_SECRET);
         expect(calls[1].headers.authorization).toBe(`Bearer ${TRIGGER_SECRET}`);
-        expect(harness.usages[0].researchCount).toBe(1);
         expect(JSON.stringify(body)).not.toContain('price');
     });
 
-    it('исчерпанный лимит не вызывает webhook и не увеличивает счётчик', async () => {
-        const harness = buildHarness();
-        const created = await harness.service.create({ telegramUserId: CLIENT, text: TEXT });
-        const user = harness.usages.length;
-
-        harness.usages.push(
-            stamp(new DailyUsageEntity(), {
-                user: created.inquiry.clientUser,
-                usageDate: moscowToday(),
-                researchCount: 3,
-            }),
-        );
-        expect(user).toBe(0);
-
-        await harness.service.answerQuestion({
-            inquiryId: created.inquiry.id,
-            telegramUserId: CLIENT,
-            text: '1000',
-        });
-
-        expect(created.inquiry.status).toBe(InquiryStatus.LIMIT_EXCEEDED);
-        expect(harness.runs).toHaveLength(0);
-        expect(calls).toHaveLength(0);
-        expect(harness.usages[0].researchCount).toBe(3);
-    });
 });

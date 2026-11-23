@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { SearchedProductEntity } from '@/domain/entities/catalog/searched-product.entity';
 import { SearchedProductDossier } from '@/domain/entities/catalog/searched-product.dossier';
-import type { ProductCard, ProductListItem, ProductPhoto } from '../../generated/responses/products';
+import type { ProductPhoto } from '../../generated/common';
+import type { ProductCard, ProductListItem } from '../../generated/responses/products';
 import { EntityMapper } from '../common/entity-mapper.interface';
 
 function fileUrl(id: string): string {

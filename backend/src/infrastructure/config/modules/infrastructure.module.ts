@@ -16,12 +16,13 @@ import { OfferEntity } from '../../../domain/entities/catalog/offer.entity';
 import { InquiryEntity } from '../../../domain/entities/inquiry/inquiry.entity';
 import { InquiryAnswerEntity } from '../../../domain/entities/inquiry/inquiry-answer.entity';
 import { ResearchRunEntity } from '../../../domain/entities/market/research-run.entity';
+import { ResearchTaskEntity } from '../../../domain/entities/market/research-task.entity';
 import { OptimalCardEntity } from '../../../domain/entities/market/optimal-card.entity';
 import { ManualEconomicsEntity } from '../../../domain/entities/market/manual-economics.entity';
-import { PlanEntity } from '../../../domain/entities/tariff/plan.entity';
-import { DailyUsageEntity } from '../../../domain/entities/tariff/daily-usage.entity';
 import { StoredFileEntity } from '../../../domain/entities/file/stored-file.entity';
 import { SearchedProductEntity } from '../../../domain/entities/catalog/searched-product.entity';
+import { LogisticsRateEntity } from '../../../domain/entities/rates/logistics-rate.entity';
+import { TaxonomyNodeEntity } from '../../../domain/entities/taxonomy/taxonomy-node.entity';
 import { AppUserRepositoryImpl } from '../../database/postgres/repositories/user/app-user.repository.impl';
 import { CategoryRepositoryImpl } from '../../database/postgres/repositories/category/category.repository.impl';
 import { CategoryPhraseRepositoryImpl } from '../../database/postgres/repositories/category/category-phrase.repository.impl';
@@ -36,16 +37,18 @@ import { OfferRepositoryImpl } from '../../database/postgres/repositories/catalo
 import { InquiryRepositoryImpl } from '../../database/postgres/repositories/inquiry/inquiry.repository.impl';
 import { InquiryAnswerRepositoryImpl } from '../../database/postgres/repositories/inquiry/inquiry-answer.repository.impl';
 import { ResearchRunRepositoryImpl } from '../../database/postgres/repositories/market/research-run.repository.impl';
+import { ResearchTaskRepositoryImpl } from '../../database/postgres/repositories/market/research-task.repository.impl';
 import { OptimalCardRepositoryImpl } from '../../database/postgres/repositories/market/optimal-card.repository.impl';
 import { ManualEconomicsRepositoryImpl } from '../../database/postgres/repositories/market/manual-economics.repository.impl';
-import { PlanRepositoryImpl } from '../../database/postgres/repositories/tariff/plan.repository.impl';
-import { DailyUsageRepositoryImpl } from '../../database/postgres/repositories/tariff/daily-usage.repository.impl';
 import { StoredFileRepositoryImpl } from '../../database/postgres/repositories/file/stored-file.repository.impl';
 import { SearchedProductRepositoryImpl } from '../../database/postgres/repositories/catalog/searched-product.repository.impl';
+import { LogisticsRateRepositoryImpl } from '../../database/postgres/repositories/rates/logistics-rate.repository.impl';
+import { TaxonomyNodeRepositoryImpl } from '../../database/postgres/repositories/taxonomy/taxonomy-node.repository.impl';
 import { AdminSeeder } from '../../database/seeders/admin.seeder';
 import { CategorySeederService } from '../../database/seeders/category-seeder.service';
 import { DatabaseSeeder } from '../../database/seeders/database.seeder';
 import { DemoProductsSeeder } from '../../database/seeders/demo/demo-products.seeder';
+import { WikkeoTaxonomySeeder } from '../../database/seeders/wikkeo-taxonomy.seeder';
 import { FILE_STORAGE } from '../../../application/ports/file-storage.port';
 import { LocalFileStorage } from '../../storage/local-file-storage';
 
@@ -64,12 +67,13 @@ const entities = [
     InquiryEntity,
     InquiryAnswerEntity,
     ResearchRunEntity,
+    ResearchTaskEntity,
     OptimalCardEntity,
     ManualEconomicsEntity,
-    PlanEntity,
-    DailyUsageEntity,
     StoredFileEntity,
     SearchedProductEntity,
+    TaxonomyNodeEntity,
+    LogisticsRateEntity,
 ];
 
 @Module({
@@ -89,16 +93,18 @@ const entities = [
         { provide: REPOSITORY_TOKENS.INQUIRY_REPOSITORY, useClass: InquiryRepositoryImpl },
         { provide: REPOSITORY_TOKENS.INQUIRY_ANSWER_REPOSITORY, useClass: InquiryAnswerRepositoryImpl },
         { provide: REPOSITORY_TOKENS.RESEARCH_RUN_REPOSITORY, useClass: ResearchRunRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.RESEARCH_TASK_REPOSITORY, useClass: ResearchTaskRepositoryImpl },
         { provide: REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY, useClass: OptimalCardRepositoryImpl },
         { provide: REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY, useClass: ManualEconomicsRepositoryImpl },
-        { provide: REPOSITORY_TOKENS.PLAN_REPOSITORY, useClass: PlanRepositoryImpl },
-        { provide: REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY, useClass: DailyUsageRepositoryImpl },
         { provide: REPOSITORY_TOKENS.STORED_FILE_REPOSITORY, useClass: StoredFileRepositoryImpl },
         { provide: REPOSITORY_TOKENS.SEARCHED_PRODUCT_REPOSITORY, useClass: SearchedProductRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.TAXONOMY_NODE_REPOSITORY, useClass: TaxonomyNodeRepositoryImpl },
+        { provide: REPOSITORY_TOKENS.LOGISTICS_RATE_REPOSITORY, useClass: LogisticsRateRepositoryImpl },
         { provide: FILE_STORAGE, useClass: LocalFileStorage },
         AdminSeeder,
         CategorySeederService,
         DemoProductsSeeder,
+        WikkeoTaxonomySeeder,
         DatabaseSeeder,
     ],
     exports: [
@@ -117,12 +123,13 @@ const entities = [
         REPOSITORY_TOKENS.INQUIRY_REPOSITORY,
         REPOSITORY_TOKENS.INQUIRY_ANSWER_REPOSITORY,
         REPOSITORY_TOKENS.RESEARCH_RUN_REPOSITORY,
+        REPOSITORY_TOKENS.RESEARCH_TASK_REPOSITORY,
         REPOSITORY_TOKENS.OPTIMAL_CARD_REPOSITORY,
         REPOSITORY_TOKENS.MANUAL_ECONOMICS_REPOSITORY,
-        REPOSITORY_TOKENS.PLAN_REPOSITORY,
-        REPOSITORY_TOKENS.DAILY_USAGE_REPOSITORY,
         REPOSITORY_TOKENS.STORED_FILE_REPOSITORY,
         REPOSITORY_TOKENS.SEARCHED_PRODUCT_REPOSITORY,
+        REPOSITORY_TOKENS.TAXONOMY_NODE_REPOSITORY,
+        REPOSITORY_TOKENS.LOGISTICS_RATE_REPOSITORY,
         FILE_STORAGE,
         DatabaseSeeder,
     ],

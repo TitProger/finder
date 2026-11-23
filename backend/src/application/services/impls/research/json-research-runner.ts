@@ -26,6 +26,7 @@ const JSON_IMPORT_SOURCE = 'research_ingest';
 
 const OPEN_STATUSES = new Set<InquiryStatus>([
     InquiryStatus.COLLECTING_ANSWERS,
+    InquiryStatus.QUEUED_RESEARCH,
     InquiryStatus.RESEARCHING,
     InquiryStatus.DOSSIER_WITH_ADMIN,
 ]);
@@ -71,13 +72,15 @@ export class JsonResearchRunner implements ResearchRunner {
             });
         }
 
+        const samePayload = await this.runs.findOne({ payloadSha256: hash }, { populate: ['inquiry'] });
+
+        if (samePayload) {
+            return this.duplicateOf(samePayload, samePayload.inquiry ?? inquiry);
+        }
+
         const existingRun = await this.runs.findOne({ runId: parsed.runId });
 
         if (existingRun?.payloadSha256) {
-            if (existingRun.payloadSha256 === hash) {
-                return this.duplicateOf(existingRun, inquiry);
-            }
-
             throw new ConflictAppException(AppErrors.research.runReused.message, {
                 code: AppErrors.research.runReused.code,
             });

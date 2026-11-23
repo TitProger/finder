@@ -67,7 +67,6 @@ jobs:
           PG_USERNAME: finder_test
           PG_PASSWORD: finder_test
           ADMIN_API_TOKEN: test-admin-token
-          ADMIN_TELEGRAM_IDS: "871909427"
 
       - name: Migrate and seed empty Postgres 17
         working-directory: backend
@@ -78,7 +77,6 @@ jobs:
           PG_USERNAME: finder_test
           PG_PASSWORD: finder_test
           ADMIN_API_TOKEN: test-admin-token
-          ADMIN_TELEGRAM_IDS: "871909427"
           RESEARCH_INGEST_TOKEN: test-ingest-token
         run: |
           node -e "const {Client}=require('pg');(async()=>{const c=new Client({host:process.env.PG_HOST,port:Number(process.env.PG_PORT),user:process.env.PG_USERNAME,password:process.env.PG_PASSWORD,database:'finder_test'});await c.connect();await c.query('CREATE DATABASE finder_migrate');await c.end();})().catch((e)=>{console.error(e);process.exit(1);})"

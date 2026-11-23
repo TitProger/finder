@@ -1,3 +1,4 @@
+import multipart from '@fastify/multipart';
 import { HttpAdapterHost } from '@nestjs/core';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ApiExceptionFilter } from '../../../interfaces/http/filters/api-exception.filter';
@@ -14,6 +15,13 @@ import { MigrationService } from '../mikro-orm/migration.service';
  * валидацию запросов по OpenAPI (AJV), Swagger UI на статике.
  */
 export async function configureApp(app: NestFastifyApplication): Promise<void> {
+    await app.register(multipart, {
+        limits: {
+            files: 1,
+            fileSize: 8 * 1024 * 1024,
+        },
+    });
+
     useHttpMiddlewares(app);
     useOpenApiValidation(app);
 

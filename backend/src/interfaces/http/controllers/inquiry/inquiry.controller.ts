@@ -15,7 +15,6 @@ export class InquiryController {
     @Post()
     async create(@Body() body: CreateInquiryRequest): Promise<Inquiry> {
         const view = await this.inquiries.create({
-            telegramUserId: body.telegramUserId,
             text: body.text,
         });
 

@@ -6,46 +6,25 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { Module } from '@nestjs/common';
 
 import { OfferEntity } from '../../../../domain/entities/catalog/offer.entity';
-import { CategoryPhraseEntity } from '../../../../domain/entities/category/category-phrase.entity';
-import { CategoryQuestionEntity } from '../../../../domain/entities/category/category-question.entity';
-import { CategoryEntity } from '../../../../domain/entities/category/category.entity';
-import { QuestionPackEntity } from '../../../../domain/entities/category/question-pack.entity';
-import { InquiryAnswerEntity } from '../../../../domain/entities/inquiry/inquiry-answer.entity';
 import { InquiryEntity } from '../../../../domain/entities/inquiry/inquiry.entity';
 import { ManualEconomicsEntity } from '../../../../domain/entities/market/manual-economics.entity';
-import { OptimalCardEntity } from '../../../../domain/entities/market/optimal-card.entity';
 import { ResearchRunEntity } from '../../../../domain/entities/market/research-run.entity';
 import { AppUserEntity } from '../../../../domain/entities/user/app-user.entity';
-import { CategoryStatus } from '../../../../domain/enums/category-status.enum';
 import { InquiryStatus } from '../../../../domain/enums/inquiry-status.enum';
 import { MarketPriceLayer } from '../../../../domain/enums/market-price-layer.enum';
 import { ResearchRunStatus } from '../../../../domain/enums/research-run-status.enum';
 import { UserRole } from '../../../../domain/enums/user-role.enum';
-import { CategoryPhraseRepository } from '../../../../domain/repositories/category/category-phrase.repository';
-import { CategoryQuestionRepository } from '../../../../domain/repositories/category/category-question.repository';
-import { CategoryRepository } from '../../../../domain/repositories/category/category.repository';
-import { QuestionPackRepository } from '../../../../domain/repositories/category/question-pack.repository';
-import { InquiryAnswerRepository } from '../../../../domain/repositories/inquiry/inquiry-answer.repository';
 import { InquiryRepository } from '../../../../domain/repositories/inquiry/inquiry.repository';
 import { ManualEconomicsRepository } from '../../../../domain/repositories/market/manual-economics.repository';
-import { OptimalCardRepository } from '../../../../domain/repositories/market/optimal-card.repository';
 import { ResearchRunRepository } from '../../../../domain/repositories/market/research-run.repository';
 import { OfferRepository } from '../../../../domain/repositories/catalog/offer.repository';
-import { AppUserRepository } from '../../../../domain/repositories/user/app-user.repository';
-import { LimitCheckerService } from '../../contracts/tariff/limit-checker.service';
-import { InquiryServiceImpl } from '../inquiry/inquiry.service.impl';
 import { ApiExceptionFilter } from '../../../../interfaces/http/filters/api-exception.filter';
 import { AdminTokenGuard } from '../../../../interfaces/http/auth/admin-token.guard';
 import { InquiryEconomicsController } from '../../../../interfaces/http/controllers/inquiry/inquiry-economics.controller';
 import { ApiResponseInterceptor } from '../../../../interfaces/http/interceptors/api-response.interceptor';
-import { TelegramDialog } from '../../../../interfaces/telegram/telegram-dialog';
-import { TelegramOutgoing } from '../../../../interfaces/telegram/telegram.types';
 import { INQUIRY_ECONOMICS, InquiryEconomicsService, InquiryEconomicsView } from './inquiry-economics.service';
 
-const ADMIN = 111000111;
-const CLIENT = 777001;
 const ADMIN_TOKEN = 'economics-admin-token';
-const CLIENT_PRICE = /\d+(?:[.,]\d+)?\s*(?:CNY|USD|RUB|руб\.?|¥|\$)/i;
 
 type Stored = { id: string };
 
@@ -116,16 +95,10 @@ function restoreEnv(name: string, previous: string | undefined): void {
 
 function build() {
     const users: AppUserEntity[] = [];
-    const phrases: CategoryPhraseEntity[] = [];
-    const packs: QuestionPackEntity[] = [];
-    const questions: CategoryQuestionEntity[] = [];
     const inquiries: InquiryEntity[] = [];
-    const answers: InquiryAnswerEntity[] = [];
-    const cards: OptimalCardEntity[] = [];
     const runs: ResearchRunEntity[] = [];
     const offers: OfferEntity[] = [];
     const economics: ManualEconomicsEntity[] = [];
-    const sent: TelegramOutgoing[] = [];
     const lists = new Map<object, Stored[]>();
     const em = {
         persist(entity: Stored) {
@@ -168,60 +141,26 @@ function build() {
         };
     }
 
-    const phraseRepo = {
-        ...repo(CategoryPhraseEntity, phrases),
-        findByCategoryStatus(status: CategoryStatus) {
-            return Promise.resolve(phrases.filter((phrase) => phrase.category.status === status));
-        },
-    };
-    const userRepo = repo(AppUserEntity, users);
     const inquiryRepo = repo(InquiryEntity, inquiries);
     const runRepo = repo(ResearchRunEntity, runs);
     const offerRepo = repo(OfferEntity, offers);
     const economicsRepo = repo(ManualEconomicsEntity, economics);
-    const limitChecker: LimitCheckerService = {
-        async canStartResearch() {
-            return { allowed: true };
-        },
-        async incrementResearchUsage() {
-            return undefined;
-        },
-    };
-    const inquiriesService = new InquiryServiceImpl(
-        inquiryRepo as unknown as InquiryRepository,
-        userRepo as unknown as AppUserRepository,
-        repo(CategoryEntity, []) as unknown as CategoryRepository,
-        phraseRepo as unknown as CategoryPhraseRepository,
-        repo(QuestionPackEntity, packs) as unknown as QuestionPackRepository,
-        repo(CategoryQuestionEntity, questions) as unknown as CategoryQuestionRepository,
-        repo(InquiryAnswerEntity, answers) as unknown as InquiryAnswerRepository,
-        repo(OptimalCardEntity, cards) as unknown as OptimalCardRepository,
-        limitChecker,
-    );
     const service = new InquiryEconomicsService(
         inquiryRepo as unknown as InquiryRepository,
         runRepo as unknown as ResearchRunRepository,
         offerRepo as unknown as OfferRepository,
         economicsRepo as unknown as ManualEconomicsRepository,
     );
-    const dialog = new TelegramDialog(inquiriesService, {} as never, {} as never, {
-        deliver(message) {
-            sent.push(message);
-
-            return Promise.resolve();
-        },
-    }, undefined, undefined, service);
 
     const client = stamp(new AppUserEntity(), {
         role: UserRole.CLIENT,
-        telegramUserId: String(CLIENT),
+        displayName: 'web',
         isActive: true,
-        planCode: 'free',
     });
 
     users.push(client);
 
-    return { users, inquiries, runs, offers, economics, sent, service, dialog, client };
+    return { users, inquiries, runs, offers, economics, service, client };
 }
 
 function seedDossier(
@@ -270,12 +209,10 @@ function quote(view: InquiryEconomicsView, layer: MarketPriceLayer, unit: string
 }
 
 describe('слои цен и ручная экономика', () => {
-    const previousAdmin = process.env.ADMIN_TELEGRAM_IDS;
     const previousToken = process.env.ADMIN_API_TOKEN;
     const previousCny = process.env.FX_FALLBACK_CNY_RUB;
 
     afterAll(() => {
-        restoreEnv('ADMIN_TELEGRAM_IDS', previousAdmin);
         restoreEnv('ADMIN_API_TOKEN', previousToken);
         restoreEnv('FX_FALLBACK_CNY_RUB', previousCny);
     });
@@ -385,100 +322,6 @@ describe('слои цен и ручная экономика', () => {
 
         expect(harness.economics).toHaveLength(1);
         expect(again.landed.find((item) => item.unit === 'piece')?.landedRub).toBe(208.75);
-    });
-
-    it('принимает строку менеджера, отвергает плохую и не показывает цену клиенту', async () => {
-        process.env.ADMIN_TELEGRAM_IDS = String(ADMIN);
-        const harness = build();
-        const inquiry = seedDossier(harness, { cny_rub: 12, usd_rub: 80 }, [
-            { layer: MarketPriceLayer.FACTORY, unit: 'piece', price: '10', currency: 'CNY' },
-            { layer: MarketPriceLayer.FACTORY, unit: 'set', price: '5', currency: 'CNY' },
-            { layer: MarketPriceLayer.RUSSIA_RETAIL, unit: 'piece', price: '300', currency: 'RUB' },
-        ]);
-
-        await harness.dialog.handle({
-            kind: 'callback',
-            chatId: CLIENT,
-            telegramUserId: CLIENT,
-            callbackQueryId: 'client-ec',
-            data: `ec:${inquiry.id}`,
-        });
-        expect(harness.economics).toHaveLength(0);
-        expect(harness.sent.filter((item) => item.chatId === CLIENT).map((item) => item.text).join('\n')).toContain(
-            'Это действие для админа.',
-        );
-
-        await harness.dialog.handle({
-            kind: 'callback',
-            chatId: ADMIN,
-            telegramUserId: ADMIN,
-            callbackQueryId: 'admin-ec',
-            data: `ec:${inquiry.id}`,
-        });
-        await harness.dialog.handle({
-            kind: 'message',
-            chatId: ADMIN,
-            telegramUserId: ADMIN,
-            text: 'доставка=нет пошлина=10 наценка=25',
-            photoFileIds: [],
-        });
-        await harness.dialog.handle({
-            kind: 'message',
-            chatId: ADMIN,
-            telegramUserId: ADMIN,
-            text: 'доставка=-5 пошлина=10 наценка=25',
-            photoFileIds: [],
-        });
-        await harness.dialog.handle({
-            kind: 'message',
-            chatId: ADMIN,
-            telegramUserId: ADMIN,
-            text: 'доставка=30 пошлина=10',
-            photoFileIds: [],
-        });
-        expect(harness.economics).toHaveLength(0);
-
-        await harness.dialog.handle({
-            kind: 'message',
-            chatId: ADMIN,
-            telegramUserId: ADMIN,
-            text: 'доставка=30 пошлина=10 наценка=25 прочее=5',
-            photoFileIds: [],
-        });
-
-        const adminText = harness.sent
-            .filter((item) => item.chatId === ADMIN)
-            .map((item) => item.text)
-            .join('\n');
-
-        expect(adminText).toContain('Себестоимость: 208.75 RUB');
-        expect(adminText).toContain('Розница РФ: 300 RUB');
-        expect(adminText).toContain('Выгодно.');
-        expect(adminText).toContain('Себестоимость: 126.25 RUB');
-        expect(adminText).toContain('вердикта нет');
-        expect(harness.economics).toHaveLength(1);
-        expect(harness.economics[0].clientPrice ?? null).toBeNull();
-
-        await harness.dialog.handle({
-            kind: 'message',
-            chatId: CLIENT,
-            telegramUserId: CLIENT,
-            text: 'доставка=30 пошлина=10 наценка=25 прочее=5',
-            photoFileIds: [],
-        });
-
-        const clientText = harness.sent
-            .filter((item) => item.chatId === CLIENT)
-            .map((item) => item.text)
-            .join('\n');
-
-        expect(clientText).toContain('Менеджер уточняет направление.');
-        expect(clientText).not.toContain('208.75');
-        expect(clientText).not.toContain('126.25');
-        expect(clientText).not.toContain('300 RUB');
-        expect(clientText).not.toMatch(CLIENT_PRICE);
-        expect(harness.economics).toHaveLength(1);
-        expect(harness.economics[0].inquiry.id).toBe(inquiry.id);
     });
 
     it('отдаёт себестоимость админским токеном и отвергает запрос без него', async () => {

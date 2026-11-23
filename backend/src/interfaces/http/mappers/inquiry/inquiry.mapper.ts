@@ -11,16 +11,10 @@ function toIso(value: Date | null | undefined): string | null {
 export class InquiryMapper {
     static toInquiry(view: InquiryView): Inquiry {
         const { inquiry, questions } = view;
-        const telegramUserId = inquiry.clientUser.telegramUserId;
-
-        if (telegramUserId == null) {
-            throw new Error('У клиента заявки нет telegram user id');
-        }
 
         return {
             id: inquiry.id,
             clientUserId: inquiry.clientUser.id,
-            telegramUserId: Number(telegramUserId),
             status: inquiry.status,
             rawText: inquiry.rawText,
             photoUrls: inquiry.photoUrls,

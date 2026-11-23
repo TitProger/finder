@@ -195,6 +195,66 @@ export interface paths {
         patch: operations["updateCategorySite"];
         trace?: never;
     };
+    "/taxonomy/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Подсказки пути категории
+         * @description Публичный поиск по имени и пути в дереве Wikkeo. В ответе цепочки вида «Дом → Сад → Газонокосилки», без выдачи всех узлов сразу. Токен не нужен.
+         */
+        get: operations["searchTaxonomyPaths"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/taxonomy/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Поиск узлов таксономии
+         * @description Только ADMIN. Поиск и страница по дереву Wikkeo. Клиентский поиск пути — отдельная публичная ручка.
+         */
+        get: operations["listTaxonomyNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/taxonomy/nodes/{nodeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Править узел таксономии
+         * @description Только ADMIN. Меняет имя, slug, признак скрытия или url. Id и родителя не трогает.
+         */
+        patch: operations["updateTaxonomyNode"];
+        trace?: never;
+    };
     "/inquiries": {
         parameters: {
             query?: never;
@@ -206,7 +266,7 @@ export interface paths {
         put?: never;
         /**
          * Создать заявку текстом
-         * @description Только админ (статический ADMIN_API_TOKEN). Клиент определяется telegram user id — это вход, не регистрация. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся. Telegram-бот и парсеры не вызываются.
+         * @description Только админ (статический ADMIN_API_TOKEN). Тело — текст заявки. Telegram user id не принимается. Бот в создании заявки не участвует. Точная фраза активной категории пишет category_id и отдаёт вопросы этой категории и одного пакета, если текст точно совпал с его code или title. Иначе заявка на паузе, category_id пустой, research_run не создаётся.
          */
         post: operations["createInquiry"];
         delete?: never;
@@ -227,6 +287,46 @@ export interface paths {
          * @description Только админ (статический ADMIN_API_TOKEN). Идентификатор заявки — uuid. На паузе questions пустой. После категории — вопросы базы и выбранного пакета. Если обязательные ответы совпали с живой карточкой, статус SERVED_FROM_DATABASE и в ответе сама карточка. Иначе карточка пустая. research_run не создаётся.
          */
         get: operations["getInquiryById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/inquiries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать клиентскую заявку
+         * @description Публичная ручка сайта. Текст и mediaIds (внутренние id файлов хранилища). telegramUserId и админский токен не нужны и не принимаются. Классификация как у старой заявки: точная фраза даёт категорию, иначе пауза. При известной категории сначала ищется живое досье (точное или похожее). Попадание в кэш — статус SERVED_FROM_DATABASE, очередь ресерча не ставится. Иначе заявка ставится в очередь ресерча на Postgres. Ответ 200 значит «заявка принята», не «досье готово». Готовой цены в ответе нет.
+         */
+        post: operations["createClientInquiry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/inquiries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Статус клиентской заявки
+         * @description Публичное чтение статуса заявки сайта по id. clientStatus и clientStatusLabel — честные подписи без процентов прогресса. Telegram-поля не отдаются.
+         */
+        get: operations["getClientInquiry"];
         put?: never;
         post?: never;
         delete?: never;
@@ -363,6 +463,222 @@ export interface paths {
         patch: operations["updateOptimalCard"];
         trace?: never;
     };
+    "/admin/dossiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создать черновик утверждённого досье
+         * @description Только ADMIN. Эволюция optimal card: заявка, товар, поставщик и оффер остаются разными сущностями. isLive не включается — для этого publish. Контакты и сырая закупка остаются внутренними.
+         */
+        post: operations["createDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/dossiers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Полное досье для админа
+         * @description Только ADMIN. Отдаёт контакты, сырую закупку и внутренние заметки. Клиентская ручка /dossiers/{id}/report этого не делает.
+         */
+        get: operations["getDossierById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Править черновик или снятое досье
+         * @description Только ADMIN. Публикацию живым делает POST .../publish, не этот PATCH.
+         */
+        patch: operations["updateDossier"];
+        trace?: never;
+    };
+    "/admin/dossiers/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подтвердить или отклонить часть досье
+         * @description Только ADMIN. Цель — category, offer или supplier. Внутренний note клиенту не отдаётся. Публикация требует approved по всем трём.
+         */
+        post: operations["reviewDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/dossiers/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Опубликовать живое досье
+         * @description Только ADMIN. Ставит isLive и срок перепроверки. Снимает флаг с другой живой строки того же товара и диапазона. Очередь ресерча не трогает.
+         */
+        post: operations["publishDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dossiers/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Безопасный отчёт досье
+         * @description Публично. Типичная и нижняя правдоподобная цена, MOQ, условия, источники, доставка или unavailable, оговорка. Без контактов завода, сырой закупки и внутренних заметок. Неживой или просроченный — 404.
+         */
+        get: operations["getDossierReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/inquiries/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Безопасный отчёт по заявке
+         * @description Публично. Если заявка обслужилась из живого досье — отдаёт безопасный отчёт с matchKind exact или similar. Контакты завода, сырая закупка и внутренние заметки не входят. Пока досье не опубликовано или заявка ещё в ресерче — 404.
+         */
+        get: operations["getClientInquiryReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Список ставок владельца
+         * @description Только ADMIN. Книга может быть пустой — это норма для фазы 1. Пустая книга даёт quote со status unavailable и reason rates_not_configured.
+         */
+        get: operations["listLogisticsRates"];
+        put?: never;
+        /**
+         * Добавить ставку в книгу
+         * @description Только ADMIN. Расчёт логистики идёт кодом по этой книге, не моделью.
+         */
+        post: operations["createLogisticsRate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/rates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Одна ставка
+         * @description Только ADMIN.
+         */
+        get: operations["getLogisticsRateById"];
+        put?: never;
+        post?: never;
+        /**
+         * Удалить ставку
+         * @description Только ADMIN. Строка убирается из книги. Боевых данных нет.
+         */
+        delete: operations["deleteLogisticsRate"];
+        options?: never;
+        head?: never;
+        /**
+         * Править ставку
+         * @description Только ADMIN. Пустые поля не меняют строку.
+         */
+        patch: operations["updateLogisticsRate"];
+        trace?: never;
+    };
+    "/rates/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Расчёт доставки по книге ставок
+         * @description Публично. Считает код по активным ставкам владельца. Модель не участвует. Пока книги нет или нет активных ставок — data.status=unavailable, reason=rates_not_configured. Вес с origin=inferred — 400, в расчёт не идёт. Один и тот же вход при тех же ставках даёт один и тот же результат.
+         */
+        post: operations["quoteLogistics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rates/margin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Оценка маржи с расходами
+         * @description Публично. Арифметика кода, не модели. Результат — оценка с оговоркой, не факт прибыли. Доставку сюда передают числом из quote.
+         */
+        post: operations["estimateMargin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/research/ingest": {
         parameters: {
             query?: never;
@@ -374,9 +690,29 @@ export interface paths {
         put?: never;
         /**
          * Принять JSON-досье ресерча
-         * @description Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Тот же run_id и то же тело → 200 и duplicate=true, строки не пишутся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются.
+         * @description Авторизация: Bearer RESEARCH_INGEST_TOKEN, сравнение через crypto.timingSafeEqual. Токен админки этот вход не открывает. Повтор с тем же payload sha256 → 200 и duplicate=true, второй прогон не создаётся. Тот же run_id и другое тело → 409 RUN_ID_REUSED. Оффер без source_url или без quote и контакт без source_url попадают в discarded, остальное пишется. status=partial и status=failed принимаются. Компания с уже известным USCC обновляется, а не даёт 409. Успех переводит заявку в DOSSIER_WITH_ADMIN. Цены клиенту не отдаются. Живой webhook Grok этим пакетом не обещается: приёмка — фикстурами.
          */
         post: operations["ingestResearchDossier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/research/runs/{runId}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Сырые свидетельства прогона
+         * @description Только админский Bearer. URL, цитата, время и статус площадки из принятого досье. Цены и контакты завода не отдаёт. Публикация канонического досье — тег dossiers.
+         */
+        get: operations["getResearchEvidence"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -431,12 +767,32 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Карточка товара
-         * @description Описание, характеристики и четыре блока отчёта. Числа приходят в полях ответа. Доставка с available=false — статус «недоступно».
+         * Безопасный отчёт карточки товара
+         * @description Клиентская карточка истории поиска: описание, характеристики и четыре блока. Это безопасный отчёт — контакты завода, сырая закупка и внутренние заметки не отдаются. Числа приходят в полях ответа, не из JSX. Доставка с available=false — статус «недоступно». Живое утверждённое досье — GET /dossiers/{id}/report.
          */
         get: operations["getProductById"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Загрузить фото для заявки
+         * @description Публичная загрузка в файловое хранилище. Multipart-поле file. Только jpg, jpeg, png, webp. В ответе id файла для mediaIds заявки. Это не Telegram file_id.
+         */
+        post: operations["uploadStoredFile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -658,8 +1014,46 @@ export interface components {
             excludeNote?: string | null;
             isActive?: boolean;
         };
+        /** @description Подсказка пути в дереве Wikkeo. Клиент не получает всё дерево сразу. */
+        TaxonomyPathSuggestion: {
+            /** @description Id узла из источника Wikkeo. */
+            nodeId: number;
+            /** @description Id родителя. null у корня. */
+            parentId: number | null;
+            slug: string;
+            /** @description Имя узла без пути. */
+            name: string;
+            /** @description Иерархический путь для подсказки, например «Дом и сад → Дача, сезонные товары и сад → Газонокосилки и триммеры». */
+            pathLabel: string;
+            level: number;
+        };
+        /** @description Узел таксономии Wikkeo. */
+        TaxonomyNode: {
+            /** @description Id узла из источника Wikkeo. */
+            nodeId: number;
+            parentId: number | null;
+            slug: string;
+            name: string;
+            pathLabel: string;
+            level: number;
+            childCount: number;
+            isPrivate: boolean;
+            /** @description URL категории на витрине-источнике, если был в снимке. */
+            url: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt?: string | null;
+        };
+        /** @description Админская правка узла. Id и родителя не меняют. */
+        UpdateTaxonomyNodeRequest: {
+            name?: string;
+            slug?: string;
+            isPrivate?: boolean;
+            url?: string | null;
+        };
         /** @enum {string} */
-        InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "LIMIT_EXCEEDED" | "CLOSED";
+        InquiryStatus: "DRAFT" | "AWAITING_CATEGORY" | "COLLECTING_ANSWERS" | "QUEUED_RESEARCH" | "SERVED_FROM_DATABASE" | "RESEARCHING" | "DOSSIER_WITH_ADMIN" | "CLOSED";
         /**
          * @description Чем кандидат попал в оценку. exact_phrase — точное совпадение фразы. keyword — совпадение по ключевым словам. llm — классификация через LLM.
          * @enum {string}
@@ -711,12 +1105,10 @@ export interface components {
             id: string;
             /** Format: uuid */
             clientUserId: string;
-            /** @description Telegram user id клиента. Вход, не отдельная регистрация. */
-            telegramUserId: number;
             status: components["schemas"]["InquiryStatus"];
             /** @description Текст клиента. При назначении категории эта фраза дописывается в category_phrase. */
             rawText: string;
-            /** @description Telegram file_id фото, которое клиент приложил к тексту. Пустой массив, если фото нет. POST /inquiries фото не принимает. Бот пишет file_id сюда и пересылает фото админу. Это не публичная ссылка. */
+            /** @description Идентификаторы файлов хранилища или другие непрозрачные строки. Пустой массив, если фото нет. POST /inquiries файл не принимает. Это не публичная ссылка. */
             photoUrls: string[];
             /**
              * Format: uuid
@@ -752,10 +1144,67 @@ export interface components {
             updatedAt: string | null;
         };
         CreateInquiryRequest: {
-            /** @description Telegram user id. Если клиента ещё нет, создаётся роль CLIENT. */
-            telegramUserId: number;
             /** @description Свободный текст заявки. */
             text: string;
+        };
+        /**
+         * @description Честный статус для экрана поиска. Без процентов прогресса.
+         * @enum {string}
+         */
+        ClientInquiryStatus: "draft" | "analyzing" | "needs_clarification" | "submitted" | "searching" | "partial" | "ready" | "no_results" | "error" | "can_retry";
+        /** @description Клиентская заявка веба. Без telegramUserId и без Telegram file_id. mediaIds — внутренние id файлов хранилища. Категория дерева — taxonomyNodeId (узел Wikkeo), не свободная строка. clientStatus — честная подпись для панели результатов, не процент. */
+        ClientInquiry: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["InquiryStatus"];
+            clientStatus: components["schemas"]["ClientInquiryStatus"];
+            /** @description Русская подпись статуса для UI. */
+            clientStatusLabel: string;
+            rawText: string;
+            /** @description Id файлов из POST /files. Пустой массив, если фото нет. */
+            mediaIds: string[];
+            /**
+             * Format: uuid
+             * @description Категория старого плоского справочника (классификатор). null, пока классификатор сомневается или фраза неоднозначна.
+             */
+            categoryId: string | null;
+            /** @description Выбранный узел дерева Wikkeo. Истина категории заявки для сайта. null, если клиент узел ещё не выбрал. */
+            taxonomyNodeId: number | null;
+            isPaused: boolean;
+            pauseReason: string | null;
+            /** @description Ответы анкеты. Недостающее поле — null, не выдумка. null целиком, если профиль ещё не передавали. */
+            profileJson: null | {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        /** @description Текст и/или уже загруженные mediaIds. telegramUserId не принимается. Токен админа не нужен. */
+        CreateClientInquiryRequest: {
+            /** @description Название или свободный текст заявки. */
+            text: string;
+            /** @description Id из POST /files. Повтор и неизвестный id — 400. */
+            mediaIds?: string[];
+            /** @description Id узла дерева Wikkeo с выбора категории на сайте. Неизвестный id — 400. Не подменяет categoryId классификатора. */
+            taxonomyNodeId?: number | null;
+            /** @description Профиль ответов. Ключ без значения — null. Неизвестные поля не выдумываются. */
+            profileJson?: null | {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Файл в хранилище. Скачивание — GET /files/{id}/content. */
+        StoredFile: {
+            /** Format: uuid */
+            id: string;
+            mime: string;
+            sizeBytes: number;
+        };
+        /** @description Multipart: одно поле file. Принимаются jpg, jpeg, png, webp. Ответ — id файла; его передают в mediaIds клиентской заявки. */
+        UploadStoredFileRequest: {
+            /** Format: binary */
+            file: string;
         };
         AssignCategoryRequest: {
             /**
@@ -933,6 +1382,366 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string | null;
         };
+        /**
+         * @description Решение админа по части досье.
+         * @enum {string}
+         */
+        DossierReviewDecision: "pending" | "approved" | "rejected";
+        /**
+         * @description Что именно подтверждают или отклоняют.
+         * @enum {string}
+         */
+        DossierReviewTarget: "category" | "offer" | "supplier";
+        /**
+         * @description Как повторный запрос совпал с живым досье.
+         * @enum {string}
+         */
+        DossierMatchKind: "exact" | "similar";
+        /** @description Публичный источник без контактов завода. */
+        SafeDossierSource: {
+            url: string;
+            /** Format: date-time */
+            capturedAt: string;
+            /** @description Короткая публичная цитата. null, если нет. */
+            quote?: string | null;
+        };
+        /** @description Тело безопасного отчёта без id. Без контактов завода, сырой закупки и внутренних заметок. Числа не зашиваются в JSX. */
+        SafeDossierReportBody: {
+            name: string;
+            categoryLabel: string;
+            manufacturer?: string | null;
+            summary?: string | null;
+            /** @description Типичная достижимая цена. null, если ещё нет. */
+            typicalPrice: string | null;
+            /** @description Самая низкая правдоподобная сопоставимая. Не цена-приманка. */
+            lowestCrediblePrice: string | null;
+            currency: string | null;
+            moqLabel: string | null;
+            /** @description Условия поставки, видимые клиенту. */
+            conditions: string | null;
+            sources: components["schemas"]["SafeDossierSource"][];
+            delivery: components["schemas"]["ProductDelivery"];
+            /** @description Оговорка, что оценка не является фактом прибыли. */
+            disclaimer: string;
+            photos: components["schemas"]["ProductPhoto"][];
+            specs: components["schemas"]["ProductSpec"][];
+            procurement?: components["schemas"]["ProductProcurement"] | null;
+            market?: components["schemas"]["ProductMarket"] | null;
+            breakdown?: components["schemas"]["ProductBreakdown"] | null;
+        };
+        SafeDossierReport: components["schemas"]["SafeDossierReportBody"] & {
+            /**
+             * Format: uuid
+             * @description Id утверждённого досье.
+             */
+            id: string;
+            /** @description null, если отчёт открыли напрямую, а не из кэша заявки. */
+            matchKind: components["schemas"]["DossierMatchKind"] | null;
+            /**
+             * Format: date-time
+             * @description Срок перепроверки живого досье.
+             */
+            revalidateAt: string | null;
+        };
+        /** @description Полное утверждённое досье для админа. Заявка, товар, поставщик и оффер — разные сущности: здесь ссылки на них. Контакты и reasonNote только здесь. */
+        AdminDossier: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            categoryId: string;
+            /** Format: uuid */
+            canonicalProductId: string;
+            nameRu: string;
+            nameZh: string | null;
+            qtyMin: number;
+            qtyMax: number;
+            /** Format: uuid */
+            quantityQuestionId: string;
+            /** @description Живой кэш. На товар и диапазон количества живая одна строка. */
+            isLive: boolean;
+            /** Format: uuid */
+            offerId: string | null;
+            /** Format: uuid */
+            companyId: string | null;
+            /** Format: uuid */
+            storefrontId: string | null;
+            /** @description Внутренняя сырая закупка. Клиенту не отдаётся. */
+            price: number | null;
+            currency: string | null;
+            contactValue: string | null;
+            contactChannel: null | components["schemas"]["ContactChannel"];
+            contactUrl: string | null;
+            contactAdminEntered: boolean;
+            /** Format: date-time */
+            contactEnteredAt: string | null;
+            productAttributes: {
+                [key: string]: components["schemas"]["AttributeValue"];
+            };
+            /** @description Внутренняя заметка. Клиенту не отдаётся. */
+            reasonNote: string | null;
+            categoryReview: components["schemas"]["DossierReviewDecision"];
+            offerReview: components["schemas"]["DossierReviewDecision"];
+            supplierReview: components["schemas"]["DossierReviewDecision"];
+            /** @description Комментарий к последнему review. Внутренний. */
+            reviewNote: string | null;
+            /** @description Нормализованный текст для похожего совпадения кэша. */
+            matchText: string | null;
+            /** @description Безопасный отчёт, который увидит клиент после публикации. */
+            publicReport: components["schemas"]["SafeDossierReportBody"] | null;
+            /** Format: uuid */
+            markedLiveByUserId: string | null;
+            /** Format: date-time */
+            markedLiveAt: string | null;
+            /**
+             * Format: date-time
+             * @description Срок перепроверки. При публикации по умолчанию 30 дней.
+             */
+            revalidateAt: string | null;
+            /**
+             * Format: date-time
+             * @description До этой даты кэш отдаётся. Совпадает с revalidateAt при публикации.
+             */
+            expiresAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        /** @description Черновик утверждённого досье. Заявка сюда не смешивается. isLive по умолчанию false — публикация отдельной ручкой. */
+        CreateDossierRequest: {
+            /** Format: uuid */
+            categoryId: string;
+            /** Format: uuid */
+            offerId?: string | null;
+            /** Format: uuid */
+            canonicalProductId?: string | null;
+            nameRu?: string;
+            nameZh?: string | null;
+            qtyMin: number;
+            qtyMax: number;
+            /** Format: uuid */
+            quantityQuestionId: string;
+            productAttributes: {
+                [key: string]: components["schemas"]["AttributeValue"];
+            };
+            price?: number | null;
+            currency?: string | null;
+            contactValue?: string | null;
+            contactChannel?: null | components["schemas"]["ContactChannel"];
+            contactUrl?: string | null;
+            contactAdminEntered?: boolean;
+            reasonNote?: string | null;
+            /** @description Текст для похожего кэша. Пусто — берётся nameRu. */
+            matchText?: string | null;
+            publicReport?: components["schemas"]["SafeDossierReportBody"] | null;
+        };
+        /** @description Пустые поля не меняют досье. */
+        UpdateDossierRequest: {
+            /** Format: uuid */
+            canonicalProductId?: string | null;
+            nameRu?: string;
+            nameZh?: string | null;
+            qtyMin?: number;
+            qtyMax?: number;
+            /** Format: uuid */
+            quantityQuestionId?: string;
+            productAttributes?: {
+                [key: string]: components["schemas"]["AttributeValue"];
+            };
+            price?: number | null;
+            currency?: string | null;
+            contactValue?: string | null;
+            contactChannel?: null | components["schemas"]["ContactChannel"];
+            contactUrl?: string | null;
+            contactAdminEntered?: boolean;
+            reasonNote?: string | null;
+            matchText?: string | null;
+            publicReport?: components["schemas"]["SafeDossierReportBody"] | null;
+        };
+        /** @description Подтверждение или отклонение категории, оффера или поставщика. */
+        ReviewDossierRequest: {
+            target: components["schemas"]["DossierReviewTarget"];
+            /** @description pending сбрасывает решение. approved или rejected — итог. */
+            decision: components["schemas"]["DossierReviewDecision"];
+            /** @description Внутренний комментарий. Клиенту не отдаётся. */
+            note?: string | null;
+        };
+        /** @description Публикует живое досье. Категория, оффер и поставщик должны быть approved. Нужен publicReport без контактов. Срок перепроверки по умолчанию 30 дней. */
+        PublishDossierRequest: {
+            /**
+             * Format: date-time
+             * @description Пусто или null — сейчас + 30 дней.
+             */
+            revalidateAt?: string | null;
+            /** @description Если задан, заменяет сохранённый безопасный отчёт перед публикацией. */
+            publicReport?: components["schemas"]["SafeDossierReportBody"] | null;
+        };
+        /**
+         * @description Откуда взято число. inferred нельзя подавать в логистический калькулятор.
+         * @enum {string}
+         */
+        FactOrigin: "user" | "verified" | "inferred";
+        /** @description Вес одной единицы товара в килограммах с provenance. */
+        MeasuredWeight: {
+            /** @description Килограммы за штуку. Больше нуля. */
+            valueKg: number;
+            origin: components["schemas"]["FactOrigin"];
+            /** @description Уверенность 0…1. null, если не задана. */
+            confidence?: number | null;
+        };
+        /** @description Строка книги ставок владельца. Пустая книга — норма: калькулятор отвечает unavailable / rates_not_configured. Курс fxToRub фиксирован в ставке, чтобы один вход давал один расчёт. */
+        LogisticsRate: {
+            /** Format: uuid */
+            id: string;
+            /** @description Код режима, например cargo или white. */
+            mode: string;
+            /** @description Подпись для человека, например «Карго быстрая». */
+            label: string;
+            /** @description Пункт отправления в нижнем регистре, например guangzhou. */
+            originPlace: string;
+            /** @description Пункт назначения в нижнем регистре, например moscow. */
+            destination: string;
+            /** @description Валюта ставки ISO-4217. Обычно USD или RUB. */
+            currency: string;
+            /** @description Ставка за килограмм в currency. */
+            pricePerKg: number;
+            /** @description Фиксированный множитель currency→RUB для детерминированного расчёта. Для RUB равен 1. */
+            fxToRub: number;
+            /** @description Минимальная стоимость отправки в currency. */
+            minCharge: number;
+            transitDaysMin: number;
+            transitDaysMax: number;
+            /** @description Что входит в ставку. */
+            included: string[];
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string | null;
+        };
+        /** @description Новая ставка в книгу владельца. По умолчанию активна. */
+        CreateLogisticsRateRequest: {
+            mode: string;
+            label: string;
+            originPlace: string;
+            destination: string;
+            currency: string;
+            pricePerKg: number;
+            fxToRub: number;
+            /** @default 0 */
+            minCharge: number;
+            /** @default 0 */
+            transitDaysMin: number;
+            /** @default 0 */
+            transitDaysMax: number;
+            /** @default [] */
+            included: string[];
+            /** @default true */
+            isActive: boolean;
+        };
+        /** @description Пустые поля не меняют ставку. */
+        UpdateLogisticsRateRequest: {
+            mode?: string;
+            label?: string;
+            originPlace?: string;
+            destination?: string;
+            currency?: string;
+            pricePerKg?: number;
+            fxToRub?: number;
+            minCharge?: number;
+            transitDaysMin?: number;
+            transitDaysMax?: number;
+            included?: string[];
+            isActive?: boolean;
+        };
+        /**
+         * @description Почему расчёт недоступен. Модель сюда не зовётся.
+         * @enum {string}
+         */
+        LogisticsQuoteUnavailableReason: "rates_not_configured" | "no_matching_rate";
+        /** @description Вход детерминированного калькулятора. Вес с origin=inferred отклоняется до расчёта (400), в калькулятор не подаётся. */
+        LogisticsQuoteRequest: {
+            weight: components["schemas"]["MeasuredWeight"];
+            /** @description Число штук в партии. */
+            quantity: number;
+            /** @description Пункт отправления. null — любой из книги. */
+            originPlace?: string | null;
+            destination: string;
+            /** @description Предпочтительный режим. null — первая подходящая активная ставка. */
+            mode?: string | null;
+        };
+        LogisticsQuoteUnavailable: {
+            /** @enum {string} */
+            status: "unavailable";
+            reason: components["schemas"]["LogisticsQuoteUnavailableReason"];
+        };
+        LogisticsQuoteOk: {
+            /** @enum {string} */
+            status: "ok";
+            /** Format: uuid */
+            rateId: string;
+            mode: string;
+            label: string;
+            currency: string;
+            pricePerKg: number;
+            fxToRub: number;
+            weightKg: number;
+            quantity: number;
+            /** @description Доставка за штуку в рублях. */
+            perUnitRub: number;
+            /** @description Доставка всей партии в рублях. */
+            perBatchRub: number;
+            transitDaysMin: number;
+            transitDaysMax: number;
+            included: string[];
+        };
+        /** @description Успех расчёта или честный unavailable. Не выдуманный тариф. */
+        LogisticsQuoteResult: components["schemas"]["LogisticsQuoteUnavailable"] | components["schemas"]["LogisticsQuoteOk"];
+        MarginExpense: {
+            label: string;
+            amountRub: number;
+        };
+        /** @description Оценка маржи с расходами. Это не факт прибыли. Доставку считает отдельный quote; сюда передают уже число. */
+        MarginEstimateRequest: {
+            /** @description Себестоимость товара за штуку в рублях без доставки. */
+            productCostRub: number;
+            /** @description Доставка за штуку из logistics quote. */
+            deliveryPerUnitRub: number;
+            /**
+             * @description Пошлина в процентах от цены товара.
+             * @default 0
+             */
+            dutyPercent: number;
+            /**
+             * @description Прочие расходы на штуку в рублях.
+             * @default 0
+             */
+            otherCostRub: number;
+            /** @description Цена продажи. null — маржа в деньгах не считается. */
+            salePriceRub?: number | null;
+        };
+        MarginEstimateUnavailable: {
+            /** @enum {string} */
+            status: "unavailable";
+            /** @enum {string} */
+            reason: "invalid_input";
+            disclaimer: string;
+        };
+        MarginEstimateOk: {
+            /** @enum {string} */
+            status: "ok";
+            /** @description Товар + доставка + пошлина + прочее за штуку. */
+            costWithDeliveryRub: number;
+            expenses: components["schemas"]["MarginExpense"][];
+            /** @description salePriceRub − costWithDeliveryRub. null без цены продажи. */
+            marginRub: number | null;
+            /** @description Доля маржи от цены продажи. null без цены продажи. */
+            marginPercent: number | null;
+            /** @description Всегда оговорка, что это оценка, не факт прибыли. */
+            disclaimer: string;
+        };
+        /** @description Оценка маржи с расходами или unavailable при плохом входе. */
+        MarginEstimateResult: components["schemas"]["MarginEstimateUnavailable"] | components["schemas"]["MarginEstimateOk"];
         ResearchDossier: {
             /** Format: uuid */
             inquiry_id: string;
@@ -965,6 +1774,33 @@ export interface components {
             duplicate: boolean;
             counts: components["schemas"]["ResearchIngestCounts"];
             discarded: components["schemas"]["DiscardedItem"][];
+        };
+        /**
+         * @description Статус площадки в сыром досье.
+         * @enum {string}
+         */
+        ResearchSiteStatus: "ok" | "captcha" | "login_required" | "blocked" | "empty" | "skipped" | "unknown";
+        /** @description Сырое свидетельство для админа: URL, цитата, время, статус площадки. Цены и контакты завода сюда не входят. */
+        ResearchEvidenceItem: {
+            /** @description Адрес страницы-источника. */
+            url: string;
+            /** @description Цитата или фрагмент карточки. null, если в оффере не было. */
+            quote: string | null;
+            /** Format: date-time */
+            capturedAt: string;
+            /** @description Имя площадки из досье, если известно. */
+            site?: string | null;
+            siteStatus: components["schemas"]["ResearchSiteStatus"];
+        };
+        ResearchEvidence: {
+            /**
+             * Format: uuid
+             * @description Внешний run_id прогона.
+             */
+            runId: string;
+            /** Format: uuid */
+            inquiryId: string;
+            items: components["schemas"]["ResearchEvidenceItem"][];
         };
         /** @description Строка истории поиска. */
         ProductListItem: {
@@ -1654,6 +2490,103 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    searchTaxonomyPaths: {
+        parameters: {
+            query: {
+                /** @description Строка поиска по имени или пути. */
+                q: string;
+                /** @description Сколько подсказок вернуть. */
+                limit?: number;
+                /** @description Сузить поиск поддеревом родителя (id узла Wikkeo). */
+                parentId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Подсказки пути */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["TaxonomyPathSuggestion"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTaxonomyNodes: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы */
+                page?: components["parameters"]["PageQuery"];
+                /** @description Размер страницы */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Поиск по имени или pathLabel. */
+                q?: string;
+                /** @description Только прямые дети этого узла. Без параметра — без фильтра по родителю. */
+                parentId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница узлов */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["TaxonomyNode"][];
+                        page?: components["schemas"]["PageInfo"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateTaxonomyNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Id узла Wikkeo. */
+                nodeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTaxonomyNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Обновлённый узел */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["TaxonomyNode"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     createInquiry: {
         parameters: {
             query?: never;
@@ -1708,6 +2641,60 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createClientInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientInquiryRequest"];
+            };
+        };
+        responses: {
+            /** @description Заявка принята */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ClientInquiry"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getClientInquiry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Текущий статус заявки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ClientInquiry"];
+                    };
+                };
+            };
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
@@ -1963,6 +2950,428 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    createDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDossierRequest"];
+            };
+        };
+        responses: {
+            /** @description Черновик досье */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["AdminDossier"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getDossierById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Полное досье */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["AdminDossier"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDossierRequest"];
+            };
+        };
+        responses: {
+            /** @description Досье после правки */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["AdminDossier"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reviewDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDossierRequest"];
+            };
+        };
+        responses: {
+            /** @description Досье после review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["AdminDossier"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    publishDossier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishDossierRequest"];
+            };
+        };
+        responses: {
+            /** @description Живое досье */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["AdminDossier"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getDossierReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Безопасный отчёт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["SafeDossierReport"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getClientInquiryReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Безопасный отчёт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["SafeDossierReport"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listLogisticsRates: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы */
+                page?: components["parameters"]["PageQuery"];
+                /** @description Размер страницы */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description true — только активные ставки. */
+                activeOnly?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница ставок */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["LogisticsRate"][];
+                        page?: components["schemas"]["PageInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createLogisticsRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLogisticsRateRequest"];
+            };
+        };
+        responses: {
+            /** @description Созданная ставка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["LogisticsRate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getLogisticsRateById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ставка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["LogisticsRate"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteLogisticsRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ставка удалена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateLogisticsRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLogisticsRateRequest"];
+            };
+        };
+        responses: {
+            /** @description Обновлённая ставка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["LogisticsRate"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    quoteLogistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogisticsQuoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Расчёт или unavailable */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["LogisticsQuoteResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    estimateMargin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarginEstimateRequest"];
+            };
+        };
+        responses: {
+            /** @description Оценка или unavailable */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["MarginEstimateResult"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     ingestResearchDossier: {
         parameters: {
             query?: never;
@@ -1992,6 +3401,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getResearchEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Внешний run_id прогона ресерча. */
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список сырых свидетельств */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["ResearchEvidence"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -2075,6 +3513,34 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    uploadStoredFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["UploadStoredFileRequest"];
+            };
+        };
+        responses: {
+            /** @description Файл сохранён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"] & {
+                        data?: components["schemas"]["StoredFile"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             500: components["responses"]["InternalError"];
         };
     };

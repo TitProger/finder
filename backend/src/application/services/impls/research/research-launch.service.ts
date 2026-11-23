@@ -32,8 +32,7 @@ export type ResearchRerunResult = {
 };
 
 /**
- * Создаёт прогон и зовёт webhook. Лимит клиента здесь не трогается:
- * его списывает единственная точка в InquiryService, повторные попытки и rerun — нет.
+ * Создаёт прогон и зовёт webhook.
  */
 @Injectable()
 export class ResearchLaunchService {

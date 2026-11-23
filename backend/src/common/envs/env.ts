@@ -36,16 +36,6 @@ export const Envs = {
     admin: {
         /** Статический токен для HTTP API админки (Bearer) */
         apiToken: requireInProduction('ADMIN_API_TOKEN', process.env.ADMIN_API_TOKEN),
-        /** Список Telegram ID админов через запятую */
-        telegramIds: parseTelegramIds(process.env.ADMIN_TELEGRAM_IDS),
-    },
-
-    telegram: {
-        botToken: (process.env.TELEGRAM_BOT_TOKEN || '').trim(),
-    },
-
-    tariffs: {
-        freePlanDailyLimit: NumbersUtils.toNumberOrDefault(process.env.FREE_PLAN_DAILY_LIMIT, 3),
     },
 
     research: {
@@ -74,25 +64,4 @@ function requireInProduction(name: string, value: string | undefined, devDefault
     }
 
     return value || devDefault || '';
-}
-
-function parseTelegramIds(raw: string | undefined): string[] {
-    const value = (raw ?? '').trim();
-
-    if (!value) {
-        return [];
-    }
-
-    const ids = value
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean);
-
-    for (const id of ids) {
-        if (!/^[1-9]\d{0,18}$/.test(id)) {
-            throw new Error(`ADMIN_TELEGRAM_IDS содержит невалидный Telegram ID: ${id}`);
-        }
-    }
-
-    return ids;
 }

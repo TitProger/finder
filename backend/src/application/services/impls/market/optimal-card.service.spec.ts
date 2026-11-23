@@ -129,7 +129,6 @@ function buildHarness() {
     const admin = save(
         stamp(new AppUserEntity(), {
             role: UserRole.ADMIN,
-            telegramUserId: null,
             displayName: 'Админ',
             isActive: true,
         }),
